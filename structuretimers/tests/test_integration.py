@@ -96,6 +96,58 @@ class TestCreateNewTimer(NoSocketsTestCase):
 
 @patch(MODELS_PATH + "._task_calc_timer_distances_for_all_staging_systems", Mock())
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
+class TestQuickCreateNewTimer(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.add_fast_timer_url = reverse("structuretimers:add_fast")
+        cls.timer_list_url = reverse("structuretimers:timer_list")
+
+    def test_user_with_permission_can_open_quick_add_page(self):
+        self.client.force_login(UserWithCreateFactory())
+
+        response = self.client.get(self.add_fast_timer_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertTemplateUsed(response, "structuretimers/timer_fast_create_form.html")
+        self.assertContains(response, "EVE timer text")
+        self.assertNotContains(response, "Days Remaining")
+
+    def test_user_with_permission_can_quick_add_timer(self):
+        solar_system = EveSolarSystemLowSecFactory(name="SVM-3K")
+        structure_type = CitadelTypeFactory()
+        self.client.force_login(UserWithCreateFactory())
+        form_data = {
+            "pasted_timer": (
+                "SVM-3K - kongbao\n" "17 km\n" "Reinforced until 2026.09.05 03:47:08"
+            ),
+            "structure_type_2": str(structure_type.id),
+            "timer_type": Timer.Type.HULL,
+            "owner_name": "SoyuzMultFilm",
+            "objective": Timer.Objective.HOSTILE,
+        }
+
+        response = self.client.post(self.add_fast_timer_url, data=form_data)
+
+        self.assertRedirects(response, self.timer_list_url)
+        timer = Timer.objects.get(structure_name="kongbao")
+        self.assertEqual(timer.eve_solar_system, solar_system)
+        self.assertEqual(timer.structure_type, structure_type)
+        self.assertEqual(timer.timer_type, Timer.Type.HULL)
+        self.assertEqual(timer.owner_name, "SoyuzMultFilm")
+        self.assertEqual(timer.objective, Timer.Objective.HOSTILE)
+        self.assertEqual(timer.date.isoformat(), "2026-09-05T03:47:08+00:00")
+
+    def test_user_without_permission_can_not_open_quick_add_page(self):
+        self.client.force_login(UserNoAccessFactory())
+
+        response = self.client.get(self.add_fast_timer_url)
+
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
+
+
+@patch(MODELS_PATH + "._task_calc_timer_distances_for_all_staging_systems", Mock())
+@override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 class TestEditTimer(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):

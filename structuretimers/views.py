@@ -41,7 +41,7 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
 )
-from structuretimers.forms import TimerForm
+from structuretimers.forms import FastTimerForm, TimerForm
 from structuretimers.models import DistancesFromStaging, StagingSystem, Timer
 from structuretimers.selectors import supported_eve_types
 
@@ -390,6 +390,14 @@ class CreateTimerView(TimerManagementView, AddUpdateMixin, CreateView):
         )
         self.send_success_message(_("Added"))
         return result
+
+
+class FastCreateTimerView(CreateTimerView):
+    """Create a timer from text copied from EVE Online."""
+
+    form_class = FastTimerForm
+    template_name = "structuretimers/timer_fast_create_form.html"
+    title = _("Quick Add Timer")
 
 
 # FIXME: User without permission can still post to edit timers directly

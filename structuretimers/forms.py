@@ -1,6 +1,8 @@
 """Forms."""
 
 import datetime as dt
+import re
+from dataclasses import dataclass
 from typing import Any, Dict
 
 import puremagic
@@ -24,6 +26,66 @@ from .models import Timer
 logger = get_extension_logger(__name__)
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
+
+EVE_TIMER_DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
+EVE_TIMER_REINFORCED_PATTERN = re.compile(
+    r"^Reinforced until\s+(?P<date>\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*$",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class ParsedEveTimer:
+    """Data extracted from an EVE Online structure timer copy/paste."""
+
+    solar_system_name: str
+    structure_name: str
+    date: dt.datetime
+
+
+def parse_eve_timer_text(value: str) -> ParsedEveTimer:
+    """Parse the text copied from an EVE Online reinforced structure tooltip."""
+
+    lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if len(lines) < 2 or " - " not in lines[0]:
+        raise ValueError(
+            _(
+                "Paste the EVE timer with 'System - Structure name' on the first "
+                "line and 'Reinforced until YYYY.MM.DD HH:MM:SS' below it."
+            )
+        )
+
+    solar_system_name, structure_name = (
+        part.strip() for part in lines[0].split(" - ", maxsplit=1)
+    )
+    if not solar_system_name or not structure_name:
+        raise ValueError(_("The solar system and structure name cannot be empty."))
+
+    reinforced_match = next(
+        (
+            match
+            for line in lines[1:]
+            if (match := EVE_TIMER_REINFORCED_PATTERN.match(line))
+        ),
+        None,
+    )
+    if not reinforced_match:
+        raise ValueError(
+            _("Could not find 'Reinforced until YYYY.MM.DD HH:MM:SS' in the text.")
+        )
+
+    try:
+        timer_date = dt.datetime.strptime(
+            reinforced_match.group("date"), EVE_TIMER_DATE_FORMAT
+        ).replace(tzinfo=dt.timezone.utc)
+    except ValueError as ex:
+        raise ValueError(_("The reinforced-until date or time is invalid.")) from ex
+
+    return ParsedEveTimer(
+        solar_system_name=solar_system_name,
+        structure_name=structure_name,
+        date=timer_date,
+    )
 
 
 class TimerForm(forms.ModelForm):
@@ -326,3 +388,101 @@ class TimerForm(forms.ModelForm):
         if commit:
             timer.save()
         return timer
+
+
+class FastTimerForm(TimerForm):
+    """Compact form that derives timer details from an EVE Online copy/paste."""
+
+    pasted_timer = forms.CharField(
+        label=_("EVE timer text"),
+        help_text=_(
+            "Copy the structure name, distance, and reinforced-until time from EVE "
+            "Online, then paste them here. The time is interpreted as EVE time (UTC)."
+        ),
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "autofocus": True,
+                "placeholder": (
+                    "SVM-3K - kongbao\n"
+                    "17 km\n"
+                    "Reinforced until 2026.09.05 03:47:08"
+                ),
+            }
+        ),
+    )
+    objective = forms.ChoiceField(
+        initial=Timer.Objective.HOSTILE,
+        choices=Timer.Objective.choices,
+        widget=forms.Select(attrs={"class": "select2-render"}),
+    )
+
+    fast_fields = (
+        "pasted_timer",
+        "structure_type_2",
+        "timer_type",
+        "owner_name",
+        "objective",
+    )
+    derived_fields = ("eve_solar_system_2", "structure_name", "date")
+
+    def __init__(self, *args, **kwargs):
+        args = list(args)
+        data = kwargs.get("data")
+        data_is_positional = data is None and bool(args)
+        if data_is_positional:
+            data = args[0]
+
+        if data is not None:
+            data = data.copy()
+            for field_name in self.derived_fields:
+                data.pop(field_name, None)
+
+            try:
+                parsed_timer = parse_eve_timer_text(data.get("pasted_timer", ""))
+            except ValueError:
+                pass
+            else:
+                solar_system = EveSolarSystem.objects.filter(
+                    name__iexact=parsed_timer.solar_system_name
+                ).first()
+                if solar_system:
+                    data["eve_solar_system_2"] = str(solar_system.id)
+                data["structure_name"] = parsed_timer.structure_name
+                data["date"] = parsed_timer.date.isoformat()
+
+            if data_is_positional:
+                args[0] = data
+            else:
+                kwargs["data"] = data
+
+        super().__init__(*args, **kwargs)
+
+        for field_name in tuple(self.fields):
+            if field_name not in self.fast_fields + self.derived_fields:
+                self.fields.pop(field_name)
+        for field_name in self.derived_fields:
+            self.fields[field_name].widget = forms.HiddenInput()
+
+        # Invalid paste data is reported against the text area instead of producing
+        # a second, confusing "solar system is required" error from the hidden field.
+        self.fields["eve_solar_system_2"].required = False
+        self.fields["owner_name"].required = True
+        self.fields["owner_name"].label = _("Owner")
+        self.order_fields(self.fast_fields + self.derived_fields)
+
+    def clean_pasted_timer(self):
+        value = self.cleaned_data["pasted_timer"]
+        try:
+            parsed_timer = parse_eve_timer_text(value)
+        except ValueError as ex:
+            raise ValidationError(str(ex)) from ex
+
+        if not EveSolarSystem.objects.filter(
+            name__iexact=parsed_timer.solar_system_name
+        ).exists():
+            raise ValidationError(
+                _("Solar system '%(name)s' was not found."),
+                params={"name": parsed_timer.solar_system_name},
+            )
+        return value

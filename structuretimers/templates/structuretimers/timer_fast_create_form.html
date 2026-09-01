@@ -1,0 +1,12 @@
+{% extends "structuretimers/timer_edit.html" %}
+{% load i18n %}
+
+{% block form_intro %}
+    <p class="text-muted">
+        {% translate "Paste a reinforced structure timer from EVE Online. The solar system, structure name, and UTC time will be filled automatically." %}
+    </p>
+{% endblock %}
+
+{% block submit_button_text %}
+    {% translate "Quick add timer" %}
+{% endblock %}

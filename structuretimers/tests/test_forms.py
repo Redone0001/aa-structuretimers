@@ -6,7 +6,7 @@ from requests.exceptions import HTTPError
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
-from structuretimers.forms import TimerForm
+from structuretimers.forms import FastTimerForm, TimerForm, parse_eve_timer_text
 from structuretimers.models import Timer
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -44,6 +44,102 @@ def create_form_data(**kwargs):
     if kwargs:
         form_data.update(kwargs)
     return form_data
+
+
+def create_fast_form_data(**kwargs):
+    form_data = {
+        "pasted_timer": (
+            "SVM-3K - kongbao\n" "17 km\n" "Reinforced until 2026.09.05 03:47:08"
+        ),
+        "structure_type_2": EveTypeId.ASTRAHUS.value,
+        "timer_type": Timer.Type.ARMOR,
+        "owner_name": "SoyuzMultFilm",
+        "objective": Timer.Objective.HOSTILE,
+    }
+    form_data.update(kwargs)
+    return form_data
+
+
+class TestParseEveTimerText(NoSocketsTestCase):
+    def test_should_parse_eve_timer_text_as_utc(self):
+        parsed = parse_eve_timer_text(
+            "SVM-3K - kongbao\r\n" "17 km\r\n" "Reinforced until 2026.09.05 03:47:08"
+        )
+
+        self.assertEqual(parsed.solar_system_name, "SVM-3K")
+        self.assertEqual(parsed.structure_name, "kongbao")
+        self.assertEqual(parsed.date.isoformat(), "2026-09-05T03:47:08+00:00")
+
+    def test_should_ignore_distance_text(self):
+        parsed = parse_eve_timer_text(
+            "1-SMEB - SoyuzMultFilm\n"
+            "Some localized distance text\n"
+            "Reinforced until 2026.08.30 18:22:23"
+        )
+
+        self.assertEqual(parsed.solar_system_name, "1-SMEB")
+        self.assertEqual(parsed.structure_name, "SoyuzMultFilm")
+
+    def test_should_reject_invalid_date(self):
+        with self.assertRaisesRegex(ValueError, "date or time is invalid"):
+            parse_eve_timer_text(
+                "SVM-3K - kongbao\n" "17 km\n" "Reinforced until 2026.13.40 25:70:80"
+            )
+
+
+class TestFastTimerFormIsValid(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.solar_system = EveSolarSystemLowSecFactory(name="SVM-3K")
+        cls.structure_type = CitadelTypeFactory(
+            id=EveTypeId.ASTRAHUS.value, name="Astrahus"
+        )
+
+    def test_should_derive_fields_from_eve_timer_text(self):
+        form = FastTimerForm(data=create_fast_form_data())
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["eve_solar_system_2"], str(self.solar_system.id)
+        )
+        self.assertEqual(form.cleaned_data["structure_name"], "kongbao")
+        self.assertEqual(
+            form.cleaned_data["date"].isoformat(), "2026-09-05T03:47:08+00:00"
+        )
+
+    def test_should_default_objective_to_hostile(self):
+        form = FastTimerForm()
+
+        self.assertEqual(form.fields["objective"].initial, Timer.Objective.HOSTILE)
+
+    def test_should_only_show_fast_entry_fields(self):
+        form = FastTimerForm()
+
+        self.assertEqual(
+            [field.name for field in form.visible_fields()],
+            list(FastTimerForm.fast_fields),
+        )
+
+    def test_should_require_owner(self):
+        form = FastTimerForm(data=create_fast_form_data(owner_name=""))
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("owner_name", form.errors)
+
+    def test_should_reject_unknown_solar_system(self):
+        form = FastTimerForm(
+            data=create_fast_form_data(
+                pasted_timer=(
+                    "NOT-A-SYSTEM - kongbao\n"
+                    "17 km\n"
+                    "Reinforced until 2026.09.05 03:47:08"
+                )
+            )
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("pasted_timer", form.errors)
 
 
 class TestTimerFormIsValid(NoSocketsTestCase):
