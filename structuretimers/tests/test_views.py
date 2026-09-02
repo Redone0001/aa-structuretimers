@@ -381,6 +381,39 @@ class TestTimerListData(NoSocketsTestCase):
         self.assertEqual(obj["distance_jumps"], 3)
         self.assertTrue(obj["distance"])
 
+    def test_should_show_most_restrictive_distance_range_badge(self):
+        cases = [
+            (5.999, "Super", "success"),
+            (6.0, "Cap", "primary"),
+            (7.0, "Command carrier", "danger"),
+            (7.5, None, None),
+        ]
+        self.client.force_login(UserWithAccessFactory())
+
+        for light_years, expected_label, expected_style in cases:
+            with self.subTest(light_years=light_years):
+                timer = TimerFactory()
+                distances = DistancesFromStagingFactory(
+                    timer=timer, light_years=light_years, jumps=3
+                )
+
+                response = self.client.get(
+                    reverse(self.view_name, args=["current"])
+                    + f"?staging={distances.staging_system.pk}"
+                )
+
+                self.assertEqual(response.status_code, HTTPStatus.OK)
+                data = json_response_to_dict(response)
+                distance_display = data[timer.id]["distance"]["display"]
+                if expected_label:
+                    self.assertIn(expected_label, distance_display)
+                    self.assertIn(f"text-bg-{expected_style}", distance_display)
+                    for _, other_label, _ in cases:
+                        if other_label and other_label != expected_label:
+                            self.assertNotIn(other_label, distance_display)
+                else:
+                    self.assertNotIn("<span class=", distance_display)
+
 
 class TestDetailView(NoSocketsTestCase):
     view_name = "structuretimers:detail"

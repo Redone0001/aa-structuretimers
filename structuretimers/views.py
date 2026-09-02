@@ -48,11 +48,26 @@ from structuretimers.selectors import supported_eve_types
 logger = get_extension_logger(__name__)
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 MAX_HOURS_PASSED = 2
+DISTANCE_RANGE_BADGES = (
+    (6.0, _("Super"), "success"),
+    (7.0, _("Cap"), "primary"),
+    (7.5, _("Command carrier"), "danger"),
+)
 
 
 def bootstrap5_label_html(text: str, label: str = "secondary") -> str:
     """Return HTML for a Bootstrap 5 label."""
     return format_html('<span class="badge text-bg-{}">{}</span>', label, text)
+
+
+def distance_range_badge_html(light_years: float | None) -> str:
+    """Return the most restrictive jump-range badge for a distance."""
+    if light_years is None:
+        return ""
+    for maximum_distance, label, style in DISTANCE_RANGE_BADGES:
+        if light_years < maximum_distance:
+            return bootstrap5_label_html(label, style)
+    return ""
 
 
 class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -275,7 +290,13 @@ class TimerListDataView(
             jumps_text = (
                 f"{distances.jumps} jumps" if distances.jumps is not None else "N/A"
             )
-            distance_text = format_html("{}<br>{}", light_years_text, jumps_text)
+            range_badge = distance_range_badge_html(distances.light_years)
+            if range_badge:
+                distance_text = format_html(
+                    "{}<br>{}<br>{}", light_years_text, jumps_text, range_badge
+                )
+            else:
+                distance_text = format_html("{}<br>{}", light_years_text, jumps_text)
         return distances, distance_text
 
     def _get_data_actions(self, timer: Timer):
