@@ -83,6 +83,16 @@ class TestViewBase(NoSocketsTestCase):
 
 
 class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
+    def test_should_load_multi_select_filter_assets(self):
+        self.client.force_login(UserWithAccessFactory())
+
+        response = self.client.get("/structuretimers/")
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertContains(response, "select2.min.js")
+        self.assertContains(response, 'data-titleAll="All"')
+        self.assertNotContains(response, "filterDropDown.min.js")
+
     def test_should_open_with_main_staging_system(self):
         # given
         StagingSystemFactory()

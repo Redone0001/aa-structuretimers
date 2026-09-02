@@ -51,3 +51,21 @@
 .nowrap {
     white-space: nowrap
 }
+
+.timer-filter-group {
+    flex: 1 1 12rem;
+    max-width: 18rem;
+    min-width: 12rem;
+}
+
+.timer-filter-group .select2-container {
+    width: 100% !important;
+}
+
+.timer-filter-group .select2-selection--multiple {
+    min-height: 38px;
+}
+
+.timer-filter-group .select2-selection__rendered {
+    white-space: normal;
+}

@@ -66,7 +66,7 @@ function createVisibleColumDef(idxStart) {
     };
 }
 
-function createFilterDropDown(
+function createFilterDefinition(
     idxStart,
     hasPermOPSEC,
     titleSolarSystem,
@@ -77,7 +77,7 @@ function createFilterDropDown(
     titleVisibility,
     titleOwner
 ) {
-    var obj = {
+    const definition = {
         columns: [
             {
                 idx: idxStart,
@@ -109,17 +109,104 @@ function createFilterDropDown(
                 maxWidth: "12em",
             },
         ],
-        bootstrap: true,
-        bootstrap_version: 5,
-        autoSize: false,
     };
     if (hasPermOPSEC) {
-        obj.columns.push({
+        definition.columns.push({
             idx: idxStart + 7,
             title: "OPSEC",
         });
     }
-    return obj;
+    return definition;
+}
+
+function buildMultiValueSearchRegex(values) {
+    if (!values.length) {
+        return "";
+    }
+
+    const escapedValues = values.map(function (value) {
+        return $.fn.dataTable.util.escapeRegex(value);
+    });
+    return "^(?:" + escapedValues.join("|") + ")$";
+}
+
+function initializeMultiSelectFilters(
+    table,
+    filterDefinition,
+    titleFilterBy,
+    titleAll
+) {
+    const tableId = table.table().node().id;
+    const filterWrapperId = tableId + "_filterWrapper";
+    const filterWrapper = $("<div>", {
+        id: filterWrapperId,
+        class: "timer-filter-wrapper align-items-start d-flex flex-wrap gap-3 mb-3",
+    });
+    const filterRow = $("<div>", {
+        class: "row justify-content-between timer-filter-row",
+    });
+    filterRow.append(
+        $("<p>", { class: "mb-1 fw-bold" }).text(titleFilterBy + ":")
+    );
+    filterRow.append(filterWrapper);
+    $(table.table().container()).prepend(filterRow);
+
+    filterDefinition.columns.forEach(function (filterColumn) {
+        const column = table.column(filterColumn.idx);
+        const selectId = tableId + "_filterSelect" + filterColumn.idx;
+        const filterGroup = $("<div>", { class: "timer-filter-group" });
+        if (filterColumn.maxWidth) {
+            filterGroup.css("max-width", filterColumn.maxWidth);
+        }
+
+        const label = $("<label>", {
+            for: selectId,
+            class: "form-label mb-1",
+        }).text(filterColumn.title);
+        const select = $("<select>", {
+            id: selectId,
+            class: "form-select timer-filter-select",
+            multiple: "multiple",
+            "aria-label": filterColumn.title,
+        });
+
+        column
+            .data()
+            .unique()
+            .sort()
+            .each(function (value) {
+                if (value !== null && value !== undefined && value !== "") {
+                    const textValue = String(value);
+                    select.append(
+                        $("<option>", {
+                            value: textValue,
+                            text: textValue,
+                        })
+                    );
+                }
+            });
+
+        select.on("change", function () {
+            const selectedValues = $(this).val() || [];
+            column
+                .search(
+                    buildMultiValueSearchRegex(selectedValues),
+                    true,
+                    false
+                )
+                .draw();
+        });
+
+        filterGroup.append(label, select);
+        filterWrapper.append(filterGroup);
+        select.select2({
+            allowClear: true,
+            closeOnSelect: false,
+            placeholder: titleAll,
+            theme: "bootstrap",
+            width: "100%",
+        });
+    });
 }
 
 $(document).ready(function () {
@@ -136,6 +223,8 @@ $(document).ready(function () {
     const titleObjective = elem.getAttribute("data-titleObjective");
     const titleOwner = elem.getAttribute("data-titleOwner");
     const titleVisibility = elem.getAttribute("data-titleVisibility");
+    const titleFilterBy = elem.getAttribute("data-titleFilterBy");
+    const titleAll = elem.getAttribute("data-titleAll");
     const hasPermOPSEC = elem.getAttribute("data-hasPermOPSEC") == "True";
     const dataTablesPageLength = Number(
         elem.getAttribute("data-dataTablesPageLength")
@@ -220,6 +309,28 @@ $(document).ready(function () {
         { sortable: false, targets: [idxStart - 1] },
         createVisibleColumDef(idxStart),
     ];
+    const standardFilterDefinition = createFilterDefinition(
+        idxStart,
+        hasPermOPSEC,
+        titleSolarSystem,
+        titleRegion,
+        titleStructureType,
+        titleTimerType,
+        titleObjective,
+        titleVisibility,
+        titleOwner
+    );
+    const preliminaryFilterDefinition = createFilterDefinition(
+        7,
+        hasPermOPSEC,
+        titleSolarSystem,
+        titleRegion,
+        titleStructureType,
+        titleTimerType,
+        titleObjective,
+        titleVisibility,
+        titleOwner
+    );
 
     $("#tbl_timers_past").DataTable({
         ajax: {
@@ -232,18 +343,15 @@ $(document).ready(function () {
         lengthMenu: lengthMenu,
         paging: dataTablesPaging,
         pageLength: dataTablesPageLength,
-        filterDropDown: createFilterDropDown(
-            idxStart,
-            hasPermOPSEC,
-            titleSolarSystem,
-            titleRegion,
-            titleStructureType,
-            titleTimerType,
-            titleObjective,
-            titleVisibility,
-            titleOwner
-        ),
         columnDefs: columnDefs,
+        initComplete: function () {
+            initializeMultiSelectFilters(
+                this.api(),
+                standardFilterDefinition,
+                titleFilterBy,
+                titleAll
+            );
+        },
     });
     $("#tbl_preliminary").DataTable({
         ajax: {
@@ -285,17 +393,14 @@ $(document).ready(function () {
         paging: dataTablesPaging,
         pageLength: dataTablesPageLength,
         columnDefs: [createVisibleColumDef(7)],
-        filterDropDown: createFilterDropDown(
-            7,
-            hasPermOPSEC,
-            titleSolarSystem,
-            titleRegion,
-            titleStructureType,
-            titleTimerType,
-            titleObjective,
-            titleVisibility,
-            titleOwner
-        ),
+        initComplete: function () {
+            initializeMultiSelectFilters(
+                this.api(),
+                preliminaryFilterDefinition,
+                titleFilterBy,
+                titleAll
+            );
+        },
     });
     const table_current = $("#tbl_timers_current").DataTable({
         ajax: {
@@ -308,18 +413,15 @@ $(document).ready(function () {
         lengthMenu: lengthMenu,
         paging: dataTablesPaging,
         pageLength: dataTablesPageLength,
-        filterDropDown: createFilterDropDown(
-            idxStart,
-            hasPermOPSEC,
-            titleSolarSystem,
-            titleRegion,
-            titleStructureType,
-            titleTimerType,
-            titleObjective,
-            titleVisibility,
-            titleOwner
-        ),
         columnDefs: columnDefs,
+        initComplete: function () {
+            initializeMultiSelectFilters(
+                this.api(),
+                standardFilterDefinition,
+                titleFilterBy,
+                titleAll
+            );
+        },
         createdRow: function (row, data, dataIndex) {
             if (data["is_passed"]) {
                 $(row).addClass("active");
