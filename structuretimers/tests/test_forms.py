@@ -80,6 +80,17 @@ class TestParseEveTimerText(NoSocketsTestCase):
         self.assertEqual(parsed.solar_system_name, "1-SMEB")
         self.assertEqual(parsed.structure_name, "SoyuzMultFilm")
 
+    def test_should_parse_anchoring_timer_text(self):
+        parsed = parse_eve_timer_text(
+            "BX-VEX - Gorlock's rule continues\n"
+            "212 km\n"
+            "Anchoring until 2026.09.03 18:57:54"
+        )
+
+        self.assertEqual(parsed.solar_system_name, "BX-VEX")
+        self.assertEqual(parsed.structure_name, "Gorlock's rule continues")
+        self.assertEqual(parsed.date.isoformat(), "2026-09-03T18:57:54+00:00")
+
     def test_should_reject_invalid_date(self):
         with self.assertRaisesRegex(ValueError, "date or time is invalid"):
             parse_eve_timer_text(

@@ -28,8 +28,9 @@ logger = get_extension_logger(__name__)
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 
 EVE_TIMER_DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
-EVE_TIMER_REINFORCED_PATTERN = re.compile(
-    r"^Reinforced until\s+(?P<date>\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*$",
+EVE_TIMER_UNTIL_PATTERN = re.compile(
+    r"^(?:Reinforced|Anchoring) until\s+"
+    r"(?P<date>\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*$",
     re.IGNORECASE,
 )
 
@@ -44,14 +45,15 @@ class ParsedEveTimer:
 
 
 def parse_eve_timer_text(value: str) -> ParsedEveTimer:
-    """Parse the text copied from an EVE Online reinforced structure tooltip."""
+    """Parse text copied from a supported EVE Online structure timer tooltip."""
 
     lines = [line.strip() for line in value.splitlines() if line.strip()]
     if len(lines) < 2 or " - " not in lines[0]:
         raise ValueError(
             _(
                 "Paste the EVE timer with 'System - Structure name' on the first "
-                "line and 'Reinforced until YYYY.MM.DD HH:MM:SS' below it."
+                "line and either 'Reinforced until YYYY.MM.DD HH:MM:SS' or "
+                "'Anchoring until YYYY.MM.DD HH:MM:SS' below it."
             )
         )
 
@@ -61,25 +63,24 @@ def parse_eve_timer_text(value: str) -> ParsedEveTimer:
     if not solar_system_name or not structure_name:
         raise ValueError(_("The solar system and structure name cannot be empty."))
 
-    reinforced_match = next(
-        (
-            match
-            for line in lines[1:]
-            if (match := EVE_TIMER_REINFORCED_PATTERN.match(line))
-        ),
+    until_match = next(
+        (match for line in lines[1:] if (match := EVE_TIMER_UNTIL_PATTERN.match(line))),
         None,
     )
-    if not reinforced_match:
+    if not until_match:
         raise ValueError(
-            _("Could not find 'Reinforced until YYYY.MM.DD HH:MM:SS' in the text.")
+            _(
+                "Could not find a supported 'Reinforced until' or 'Anchoring "
+                "until' timer in the text."
+            )
         )
 
     try:
         timer_date = dt.datetime.strptime(
-            reinforced_match.group("date"), EVE_TIMER_DATE_FORMAT
+            until_match.group("date"), EVE_TIMER_DATE_FORMAT
         ).replace(tzinfo=dt.timezone.utc)
     except ValueError as ex:
-        raise ValueError(_("The reinforced-until date or time is invalid.")) from ex
+        raise ValueError(_("The timer date or time is invalid.")) from ex
 
     return ParsedEveTimer(
         solar_system_name=solar_system_name,
@@ -396,7 +397,7 @@ class FastTimerForm(TimerForm):
     pasted_timer = forms.CharField(
         label=_("EVE timer text"),
         help_text=_(
-            "Copy the structure name, distance, and reinforced-until time from EVE "
+            "Copy the structure name, distance, and timer time from EVE "
             "Online, then paste them here. The time is interpreted as EVE time (UTC)."
         ),
         widget=forms.Textarea(
