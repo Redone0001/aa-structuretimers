@@ -70,12 +70,6 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
         )
         scheduled_notification.delete()
 
-    if scheduled_notification.celery_task_id != self.request.id:
-        logger.info(
-            "Discarded outdated scheduled notification: %r", scheduled_notification
-        )
-        return
-
     notification_rule = scheduled_notification.notification_rule
     if not notification_rule.is_enabled:
         logger.info(
@@ -142,6 +136,18 @@ def notify_about_new_timer(timer_pk: int, notification_rule_pk: int) -> None:
     send_messages_for_webhook.apply_async(
         args=[notification_rule.webhook.pk], priority=TASK_PRIORITY_HIGH
     )
+
+
+@shared_task(base=QueueOnce, acks_late=True)
+def dispatch_scheduled_notifications() -> None:
+    """Dispatch all scheduled notifications that are currently due."""
+    pks = ScheduledNotification.objects.filter(
+        notification_date__lte=now()
+    ).values_list("pk", flat=True)
+    for pk in pks:
+        send_scheduled_notification.apply_async(
+            kwargs={"scheduled_notification_pk": pk}, priority=TASK_PRIORITY_HIGH
+        )
 
 
 @shared_task(acks_late=True)
@@ -241,14 +247,6 @@ def _schedule_notification_for_timer(
         notification_rule=notification_rule,
         defaults={"timer_date": timer.date, "notification_date": notification_date},
     )
-    result = send_scheduled_notification.apply_async(
-        kwargs={"scheduled_notification_pk": scheduled_notification.pk},
-        eta=timer.date - timedelta(minutes=notification_rule.scheduled_time),
-        priority=TASK_PRIORITY_HIGH,
-    )
-    scheduled_notification.celery_task_id = result.task_id
-    scheduled_notification.save()
-
     return scheduled_notification
 
 

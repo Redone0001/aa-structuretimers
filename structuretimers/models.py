@@ -973,7 +973,6 @@ class ScheduledNotification(models.Model):
 
     timer_date = models.DateTimeField(db_index=True)
     notification_date = models.DateTimeField(db_index=True)
-    celery_task_id = models.CharField(max_length=765, default="")
 
     class Meta:
         constraints = [
@@ -987,7 +986,6 @@ class ScheduledNotification(models.Model):
         return (
             f"ScheduledNotification(timer='{self.timer}', "
             f"notification_rule='{self.notification_rule}', "
-            f"celery_task_id='{self.celery_task_id}', "
             f"timer_date='{self.timer_date}', "
             f"notification_date='{self.notification_date}')"
         )

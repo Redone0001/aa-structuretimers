@@ -95,7 +95,13 @@ CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
     'task': 'structuretimers.tasks.housekeeping',
     'schedule': crontab(minute=0, hour=3),
 }
+CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
+    'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
+    'schedule': crontab(minute='*'),
+}
 ```
+
+> **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
 
 - Optional: Add additional settings if you want to change any defaults. See [Settings](#settings) for the full list.
 
