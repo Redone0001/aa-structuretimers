@@ -971,14 +971,13 @@ def handle_rule_save(
     **kwargs,
 ):
     """Update scheduled notifications a needed on save."""
-    if (
-        STRUCTURETIMERS_NOTIFICATIONS_ENABLED
-        and instance.is_enabled
-        and instance.trigger == NotificationRule.Trigger.SCHEDULED_TIME_REACHED
-    ):
-        instance._import_schedule_notifications_for_rule().apply_async(
-            kwargs={"notification_rule_pk": instance.pk}, priority=4
-        )
+    if instance.trigger == NotificationRule.Trigger.SCHEDULED_TIME_REACHED:
+        if STRUCTURETIMERS_NOTIFICATIONS_ENABLED and instance.is_enabled:
+            instance._import_schedule_notifications_for_rule().apply_async(
+                kwargs={"notification_rule_pk": instance.pk}, priority=4
+            )
+        else:
+            instance.scheduled_notifications.all().delete()
 
     if instance.trigger == NotificationRule.Trigger.NEW_TIMER_CREATED:
         instance.scheduled_notifications.all().delete()
