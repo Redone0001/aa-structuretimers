@@ -2,6 +2,7 @@
 
 # pylint: disable=too-many-lines
 
+import datetime as dt
 import json
 from time import sleep
 from typing import List, Optional, Tuple
@@ -553,10 +554,34 @@ class Timer(models.Model):
             label_type = "secondary"
         return label_type
 
+    def schedule_notification(self, notification_rule: "NotificationRule"):
+        """Schedule a notification for this timer."""
+        if self.timer_type == Timer.Type.PRELIMINARY:
+            raise ValueError(f"Can not schedule preliminary timers: {self}")
+        if not self.date:
+            raise ValueError(f"Timer has no date: {self}")
+        if notification_rule.scheduled_time is None:
+            raise ValueError(
+                f"Notification rule has no scheduled date: {notification_rule}"
+            )
+        notification_date = self.date - dt.timedelta(
+            minutes=notification_rule.scheduled_time
+        )
+        scheduled_notification, _ = ScheduledNotification.objects.update_or_create(
+            timer=self,
+            notification_rule=notification_rule,
+            defaults={"timer_date": self.date, "notification_date": notification_date},
+        )
+        logger.info(
+            "Scheduled notification for timer #%d, rule #%d",
+            scheduled_notification.timer.pk,
+            scheduled_notification.notification_rule.pk,
+        )
+
     def send_notification(
         self, webhook: DiscordWebhook, content: Optional[str] = None
     ) -> None:
-        """Sends notification related to this timer to given webhook."""
+        """Send notification related to this timer to a webhook."""
         structure_type_name = self.structure_type.name
         solar_system_name = self.eve_solar_system.name if self.eve_solar_system else ""
         title = f"{structure_type_name} in {solar_system_name}"

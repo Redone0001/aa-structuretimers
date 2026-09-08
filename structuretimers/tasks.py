@@ -1,6 +1,5 @@
 """Tasks."""
 
-from datetime import timedelta
 from typing import Optional
 
 from celery import shared_task
@@ -63,12 +62,12 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
             )
             return
 
+        scheduled_notification.delete()
         logger.debug(
-            "Delete scheduled_notification in task_id = %s: %r",
+            "Deleted scheduled_notification in task_id = %s: %r",
             self.request.id,
             scheduled_notification,
         )
-        scheduled_notification.delete()
 
     notification_rule = scheduled_notification.notification_rule
     if not notification_rule.is_enabled:
@@ -153,7 +152,7 @@ def dispatch_scheduled_notifications() -> None:
 @shared_task(acks_late=True)
 def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> None:
     """Schedule notifications for this timer based on notification rules."""
-    timer = Timer.objects.select_related_for_matching().get(pk=timer_pk)
+    timer: Timer = Timer.objects.select_related_for_matching().get(pk=timer_pk)
     if not timer.date:
         raise ValueError(f"Not supported for preliminary timers: {timer}")
 
@@ -179,20 +178,24 @@ def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> Non
                     priority=TASK_PRIORITY_HIGH,
                 )
 
-    # trigger: timer elapses soon
+    # trigger: scheduled time reached
     with transaction.atomic():
         # remove existing scheduled notifications if date has changed
+        obj: ScheduledNotification
         for obj in timer.scheduled_notifications.exclude(timer_date=timer.date):
-            _revoke_notification_for_timer(scheduled_notification=obj)
+            obj.delete()
+            logger.info(
+                "Removed stale notification for timer #%d, rule #%d",
+                obj.timer.pk,
+                obj.notification_rule.pk,
+            )
 
         # schedule new notifications
         for notification_rule in NotificationRule.objects.filter(
             is_enabled=True,
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
         ).conforms_with_timer(timer):
-            _schedule_notification_for_timer(
-                timer=timer, notification_rule=notification_rule
-            )
+            timer.schedule_notification(notification_rule=notification_rule)
 
 
 @shared_task(acks_late=True)
@@ -211,55 +214,22 @@ def schedule_notifications_for_rule(notification_rule_pk: int) -> None:
 
     logger.debug("Checking scheduled notifications for: %s", notification_rule)
     with transaction.atomic():
+        obj: ScheduledNotification
         for obj in notification_rule.scheduled_notifications.filter(
             timer_date__gt=now()
         ):
-            _revoke_notification_for_timer(scheduled_notification=obj)
+            obj.delete()
+            logger.info(
+                "Removed stale notification for timer #%d, rule #%d",
+                obj.timer.pk,
+                obj.notification_rule.pk,
+            )
 
+        timer: Timer
         for timer in Timer.objects.filter(
             date__gt=now()
         ).conforms_with_notification_rule(notification_rule):
-            _schedule_notification_for_timer(
-                timer=timer, notification_rule=notification_rule
-            )
-
-
-def _schedule_notification_for_timer(
-    timer: Timer, notification_rule: NotificationRule
-) -> ScheduledNotification:
-    """Schedule notification for a timer."""
-    if timer.timer_type == Timer.Type.PRELIMINARY:
-        raise ValueError(f"Can not schedule preliminary timers: {timer}")
-    if not timer.date:
-        raise ValueError(f"Timer has no date: {timer}")
-    if not notification_rule.scheduled_time:
-        raise ValueError(
-            f"Notification rule has no scheduled date: {notification_rule}"
-        )
-    logger.info(
-        "Scheduling fresh notification for timer #%d, rule #%d",
-        timer.pk,
-        notification_rule.pk,
-    )
-    notification_date = timer.date - timedelta(minutes=notification_rule.scheduled_time)
-    scheduled_notification, _ = ScheduledNotification.objects.update_or_create(
-        timer=timer,
-        notification_rule=notification_rule,
-        defaults={"timer_date": timer.date, "notification_date": notification_date},
-    )
-    return scheduled_notification
-
-
-def _revoke_notification_for_timer(
-    scheduled_notification: ScheduledNotification,
-) -> None:
-    """Revoke notification for a timer."""
-    logger.info(
-        "Removing stale notification for timer #%d, rule #%d",
-        scheduled_notification.timer.pk,
-        scheduled_notification.notification_rule.pk,
-    )
-    scheduled_notification.delete()
+            timer.schedule_notification(notification_rule=notification_rule)
 
 
 @shared_task
