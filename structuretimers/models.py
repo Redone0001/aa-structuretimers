@@ -656,7 +656,7 @@ def handle_timer_save(
     needs_recalc = (
         created
         or date_changed
-        or instance.eve_solar_system.id != instance._original_eve_solar_system_id
+        or instance.eve_solar_system_id != instance._original_eve_solar_system_id
     )
     if needs_recalc:
         instance.distances.all().delete()
@@ -1046,7 +1046,7 @@ def handle_staging_system_save(
     """Update distances for staging system on save as needed."""
     needs_recalc = (
         created
-        or instance.eve_solar_system.id != instance._original_eve_solar_system_id
+        or instance.eve_solar_system_id != instance._original_eve_solar_system_id
     )
     if instance.is_main:
         StagingSystem.objects.exclude(pk=instance.pk).update(is_main=False)

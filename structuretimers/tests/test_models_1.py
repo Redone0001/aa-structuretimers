@@ -212,6 +212,19 @@ class TestTimer_CalcDistancesOnSave(NoSocketsTestCase):
         # then
         self.assertFalse(mock_calc_distances.called)
 
+    @patch(MODULE_PATH + "._task_calc_timer_distances_for_all_staging_systems")
+    def test_should_not_crash_when_saving_timer_without_solar_system(
+        self, mock_calc_distances
+    ):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=4), eve_solar_system=None)
+        # when
+        timer.structure_type = CitadelTypeFactory()
+        timer.save()
+
+        # then
+        self.assertFalse(mock_calc_distances.called)
+
 
 class TestTimer_UserCanEdit(NoSocketsTestCase):
     def test_creator_can_edit_own_timer(self):
@@ -687,6 +700,18 @@ class TestStagingSystem(NoSocketsTestCase):
         # given
         TimerFactory()
         staging_system = StagingSystemFactory()
+
+        # when
+        staging_system.save()
+
+        # then
+        self.assertFalse(spy_task_calc_staging_system.called)
+
+    def test_should_not_crash_when_solar_system_is_none(
+        self, spy_task_calc_staging_system
+    ):
+        # given
+        staging_system = StagingSystemFactory(eve_solar_system=None)
 
         # when
         staging_system.save()
