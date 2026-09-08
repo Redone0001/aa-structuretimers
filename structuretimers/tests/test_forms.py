@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
 from requests.exceptions import ConnectionError as NewConnectionError
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, Timeout
 
 from app_utils.testing import NoSocketsTestCase
 
@@ -246,6 +246,20 @@ class TestTimerFormIsValid(NoSocketsTestCase):
     def test_should_show_error_when_image_can_not_be_loaded_2(self, mock_get):
         # given
         mock_get.side_effect = HTTPError
+        form_data = create_form_data(
+            days_left=0,
+            hours_left=3,
+            minutes_left=30,
+            details_image_url="http://www.example.com/image.png",
+        )
+        form = TimerForm(data=form_data)
+        # when / then
+        self.assertFalse(form.is_valid())
+
+    @patch(FORMS_PATH + ".requests.get", spec=True)
+    def test_should_show_error_when_image_can_not_be_loaded_3(self, mock_get):
+        # given
+        mock_get.side_effect = Timeout
         form_data = create_form_data(
             days_left=0,
             hours_left=3,
