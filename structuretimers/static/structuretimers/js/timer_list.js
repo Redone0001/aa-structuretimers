@@ -202,6 +202,7 @@ function initializeMultiSelectFilters(
         select.select2({
             allowClear: true,
             closeOnSelect: false,
+            dropdownCssClass: "timer-filter-dropdown",
             placeholder: titleAll,
             theme: "bootstrap",
             width: "100%",
