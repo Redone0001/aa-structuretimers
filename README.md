@@ -95,7 +95,13 @@ CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
     'task': 'structuretimers.tasks.housekeeping',
     'schedule': crontab(minute=0, hour=3),
 }
+CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
+    'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
+    'schedule': crontab(minute='*'),
+}
 ```
+
+> **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
 
 - Optional: Add additional settings if you want to change any defaults. See [Settings](#settings) for the full list.
 
@@ -154,7 +160,7 @@ Here is a list of available settings for this app. They can be configured by add
 
 Name | Description | Default
 -- | -- | --
-`STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS` | Will not sent notifications for timers, which event time is older than the given minutes | `60`
+`STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS` | Grace period in minutes. A scheduled notification will still be sent if its timer elapsed less than this many minutes ago, and discarded as outdated otherwise | `15`
 `STRUCTURETIMERS_NOTIFICATIONS_ENABLED` | Wether notifications for timers are scheduled at all | `True`
 `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` | Minimum age in days for a timer to be considered obsolete. Obsolete timers will automatically be deleted. If you want to keep all timers, set to `None` | `30`
 `STRUCTURETIMERS_DEFAULT_PAGE_LENGTH` | Default page size for timerboard. Must be an integer value from the available options in the app. | `10`

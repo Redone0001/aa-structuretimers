@@ -15,6 +15,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from structuretimers import __title__
 from structuretimers.models import (
+    NotificationRule,
     ScheduledNotification,
     StagingSystem,
     Timer,
@@ -211,6 +212,19 @@ class TestTimer_CalcDistancesOnSave(NoSocketsTestCase):
         # then
         self.assertFalse(mock_calc_distances.called)
 
+    @patch(MODULE_PATH + "._task_calc_timer_distances_for_all_staging_systems")
+    def test_should_not_crash_when_saving_timer_without_solar_system(
+        self, mock_calc_distances
+    ):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=4), eve_solar_system=None)
+        # when
+        timer.structure_type = CitadelTypeFactory()
+        timer.save()
+
+        # then
+        self.assertFalse(mock_calc_distances.called)
+
 
 class TestTimer_UserCanEdit(NoSocketsTestCase):
     def test_creator_can_edit_own_timer(self):
@@ -376,7 +390,85 @@ class TestTimer_SendNotification(NoSocketsTestCase):
         self.assertEqual(mock_send_message.call_count, 1)
 
 
-class TestTimerSpaceType_FromEveSolarSystem(NoSocketsTestCase):
+class TestTimer_ScheduleNotification(NoSocketsTestCase):
+    def test_should_create_scheduled_notification(self):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=2))
+        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_30)
+
+        # when
+        timer.schedule_notification(notification_rule=rule)
+
+        # then
+        obj = ScheduledNotification.objects.get(timer=timer, notification_rule=rule)
+        self.assertEqual(obj.timer_date, timer.date)
+        self.assertEqual(obj.notification_date, timer.date - dt.timedelta(minutes=30))
+
+    def test_should_update_existing_scheduled_notification(self):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=2))
+        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_30)
+        existing = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date - dt.timedelta(hours=1),
+            notification_date=timer.date - dt.timedelta(hours=1, minutes=30),
+        )
+
+        # when
+        timer.schedule_notification(notification_rule=rule)
+
+        # then
+        existing.refresh_from_db()
+        self.assertEqual(existing.timer_date, timer.date)
+        self.assertEqual(
+            existing.notification_date, timer.date - dt.timedelta(minutes=30)
+        )
+        self.assertEqual(ScheduledNotification.objects.count(), 1)
+
+    def test_should_raise_error_for_preliminary_timer(self):
+        # given
+        timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
+        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_30)
+
+        # when/then
+        with self.assertRaises(ValueError):
+            timer.schedule_notification(notification_rule=rule)
+
+    def test_should_raise_error_when_timer_has_no_date(self):
+        # given
+        timer = TimerFactory(timer_type=Timer.Type.ARMOR, date=None)
+        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_30)
+
+        # when/then
+        with self.assertRaises(ValueError):
+            timer.schedule_notification(notification_rule=rule)
+
+    def test_should_raise_error_when_rule_has_no_scheduled_time(self):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=2))
+        rule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.NEW_TIMER_CREATED, scheduled_time=None
+        )
+
+        # when/then
+        with self.assertRaises(ValueError):
+            timer.schedule_notification(notification_rule=rule)
+
+    def test_should_schedule_notification_with_zero_minutes(self):
+        # given
+        timer = TimerFactory(date=now() + dt.timedelta(hours=2))
+        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_0)
+
+        # when
+        timer.schedule_notification(notification_rule=rule)
+
+        # then
+        obj = ScheduledNotification.objects.get(timer=timer, notification_rule=rule)
+        self.assertEqual(obj.notification_date, timer.date)
+
+
+class TestTimer_SpaceType_FromEveSolarSystem(NoSocketsTestCase):
     def test_all(self):
         class Case(NamedTuple):
             name: str
@@ -608,6 +700,18 @@ class TestStagingSystem(NoSocketsTestCase):
         # given
         TimerFactory()
         staging_system = StagingSystemFactory()
+
+        # when
+        staging_system.save()
+
+        # then
+        self.assertFalse(spy_task_calc_staging_system.called)
+
+    def test_should_not_crash_when_solar_system_is_none(
+        self, spy_task_calc_staging_system
+    ):
+        # given
+        staging_system = StagingSystemFactory(eve_solar_system=None)
 
         # when
         staging_system.save()

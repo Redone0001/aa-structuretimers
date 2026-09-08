@@ -197,7 +197,6 @@ class ScheduledNotificationFactory(
     class Meta:
         model = ScheduledNotification
 
-    celery_task_id = factory.fuzzy.FuzzyText(length=8)
     notification_date = factory.LazyAttribute(
         lambda o: o.timer_date - dt.timedelta(minutes=15)
     )
@@ -337,6 +336,4 @@ def create_scheduled_notification(**kwargs):
         kwargs["timer_date"] = now() + dt.timedelta(hours=1)
     if "notification_date" not in kwargs:
         kwargs["notification_date"] = now() + dt.timedelta(minutes=45)
-    if "celery_task_id" not in kwargs:
-        kwargs["celery_task_id"] = random_string(8)
     return ScheduledNotification.objects.create(**kwargs)

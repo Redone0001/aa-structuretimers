@@ -301,7 +301,7 @@ class NotificationRuleAdmin(admin.ModelAdmin):
 @admin.register(ScheduledNotification)
 class ScheduledNotificationAdmin(admin.ModelAdmin):
     list_select_related = ("timer", "notification_rule")
-    list_display = ("notification_date", "timer", "notification_rule", "celery_task_id")
+    list_display = ("notification_date", "timer", "notification_rule")
     list_filter = ("notification_rule",)
 
     def get_queryset(self, request):

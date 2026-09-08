@@ -9,6 +9,7 @@ from django.utils.timezone import now
 from structuretimers.models import NotificationRule, ScheduledNotification, Timer
 from structuretimers.tasks import (
     calc_timer_distances_for_all_staging_systems,
+    dispatch_scheduled_notifications,
     housekeeping,
     notify_about_new_timer,
     schedule_notifications_for_rule,
@@ -80,7 +81,6 @@ class TestScheduleNotificationForTimer(TestCase):
         self, mock_send_notification, mock_send_notification_for_timer
     ):
         # given
-        mock_send_notification.apply_async.return_value.task_id = "my_task_id"
         timer = TimerFactory()
         rule = NotificationRuleFactory(
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED
@@ -90,14 +90,12 @@ class TestScheduleNotificationForTimer(TestCase):
         schedule_notifications_for_timer(timer_pk=timer.pk, is_new=True)
 
         # then
-        self.assertTrue(mock_send_notification.apply_async.called)
         self.assertTrue(timer.scheduled_notifications.filter(notification_rule=rule))
 
     def test_should_not_create_notification_for_preliminary_timer(
         self, mock_send_notification, mock_send_notification_for_timer
     ):
         # given
-        mock_send_notification.apply_async.return_value.task_id = "my_task_id"
         timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
         NotificationRuleFactory(trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED)
 
@@ -109,7 +107,6 @@ class TestScheduleNotificationForTimer(TestCase):
         self, mock_send_notification, mock_send_notification_for_timer
     ):
         # given
-        mock_send_notification.apply_async.return_value.task_id = "my_task_id"
         timer: Timer = TimerFactory()
         rule = NotificationRuleFactory(
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED
@@ -119,14 +116,12 @@ class TestScheduleNotificationForTimer(TestCase):
             notification_rule=rule,
             timer_date=timer.date + dt.timedelta(minutes=5),
             notification_date=timer.date - dt.timedelta(minutes=5),
-            celery_task_id="99",
         )
 
         # when
         schedule_notifications_for_timer(timer_pk=timer.pk, is_new=True)
 
         # then
-        self.assertTrue(mock_send_notification.apply_async.called)
         self.assertTrue(
             timer.scheduled_notifications.filter(notification_rule=rule).exists()
         )
@@ -183,7 +178,6 @@ class TestScheduleNotificationForRule(TestCase):
         self, mock_send_notification
     ):
         # given
-        mock_send_notification.apply_async.return_value.task_id = "my_task_id"
         timer = TimerFactory()
         rule = NotificationRuleFactory()
 
@@ -191,7 +185,6 @@ class TestScheduleNotificationForRule(TestCase):
         schedule_notifications_for_rule(rule.pk)
 
         # then
-        self.assertTrue(mock_send_notification.apply_async.called)
         self.assertTrue(
             timer.scheduled_notifications.filter(notification_rule=rule).exists()
         )
@@ -200,20 +193,17 @@ class TestScheduleNotificationForRule(TestCase):
         # given
         timer: Timer = TimerFactory()
         rule = NotificationRuleFactory()
-        mock_send_notification.apply_async.return_value.task_id = "my_task_id"
         notification_old = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
             timer_date=timer.date + dt.timedelta(minutes=5),
             notification_date=timer.date - dt.timedelta(minutes=5),
-            celery_task_id="99",
         )
 
         # when
         schedule_notifications_for_rule(rule.pk)
 
         # then
-        self.assertTrue(mock_send_notification.apply_async.called)
         self.assertTrue(
             timer.scheduled_notifications.filter(notification_rule=rule).exists()
         )
@@ -234,6 +224,58 @@ class TestScheduleNotificationForRule(TestCase):
         self.assertFalse(mock_send_notification.apply_async.called)
 
 
+@patch(MODULE_PATH + ".send_scheduled_notification", spec=True)
+class TestDispatchScheduledNotifications(TestCase):
+    def test_should_dispatch_due_notification(self, mock_send_scheduled_notification):
+        # given
+        timer = TimerFactory()
+        rule = NotificationRuleFactory()
+        scheduled_notification = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=now() - dt.timedelta(minutes=1),
+        )
+
+        # when
+        dispatch_scheduled_notifications()
+
+        # then
+        self.assertTrue(mock_send_scheduled_notification.apply_async.called)
+        _, kwargs = mock_send_scheduled_notification.apply_async.call_args
+        self.assertEqual(
+            kwargs["kwargs"]["scheduled_notification_pk"], scheduled_notification.pk
+        )
+
+    def test_should_ignore_notification_not_yet_due(
+        self, mock_send_scheduled_notification
+    ):
+        # given
+        timer = TimerFactory()
+        rule = NotificationRuleFactory()
+        ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=now() + dt.timedelta(minutes=30),
+        )
+
+        # when
+        dispatch_scheduled_notifications()
+
+        # then
+        self.assertFalse(mock_send_scheduled_notification.apply_async.called)
+
+    def test_should_do_nothing_when_no_notifications_scheduled(
+        self, mock_send_scheduled_notification
+    ):
+        # when
+        dispatch_scheduled_notifications()
+
+        # then
+        self.assertFalse(mock_send_scheduled_notification.apply_async.called)
+
+
 @patch("structuretimers.models.STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
 @patch(MODULE_PATH + ".send_messages_for_webhook", spec=True)
 class TestSendScheduledNotification(TransactionTestCase):
@@ -250,7 +292,6 @@ class TestSendScheduledNotification(TransactionTestCase):
         scheduled_notification = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
-            celery_task_id="my-id-123",
             timer_date=now() + dt.timedelta(hours=1),
             notification_date=now() + dt.timedelta(minutes=30),
         )
@@ -268,26 +309,26 @@ class TestSendScheduledNotification(TransactionTestCase):
         # then
         self.assertTrue(mock_send_messages_for_webhook.apply_async.called)
 
-    def test_should_revoked_notification_when_incorrect_task_instance(
+    def test_should_send_notification_for_timer_within_grace_period(
         self, mock_send_messages_for_webhook
     ):
         # given
         rule = NotificationRuleFactory(
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
-            scheduled_time=NotificationRule.MINUTES_15,
+            scheduled_time=NotificationRule.MINUTES_0,
         )
         timer = TimerFactory(
             structure_name="Test_1",
-            date=now() + dt.timedelta(minutes=30),
+            date=now() - dt.timedelta(minutes=2),
         )
         scheduled_notification = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
-            celery_task_id="my-id-123",
-            timer_date=now() + dt.timedelta(hours=1),
-            notification_date=now() + dt.timedelta(minutes=30),
+            timer_date=timer.date,
+            notification_date=timer.date,
         )
-        mock_task = Mock(**{"request.id": "my-id-456"})
+        mock_task = Mock(spec=Task)
+        mock_task.request.id = "my-id-123"
 
         # when
         send_scheduled_notification_inner = (
@@ -298,7 +339,42 @@ class TestSendScheduledNotification(TransactionTestCase):
         )
 
         # then
-        self.assertFalse(mock_send_messages_for_webhook.apply_async.called)
+        self.assertTrue(mock_send_messages_for_webhook.apply_async.called)
+
+    @patch(MODULE_PATH + ".Timer.send_notification")
+    def test_should_use_past_tense_when_timer_already_elapsed(
+        self, mock_send_notification, mock_send_messages_for_webhook
+    ):
+        # given
+        rule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_0,
+        )
+        timer = TimerFactory(
+            structure_name="Test_1",
+            date=now() - dt.timedelta(minutes=2),
+        )
+        scheduled_notification = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date,
+        )
+        mock_task = Mock(spec=Task)
+        mock_task.request.id = "my-id-123"
+
+        # when
+        send_scheduled_notification_inner = (
+            send_scheduled_notification.__wrapped__.__func__
+        )
+        send_scheduled_notification_inner(
+            mock_task, scheduled_notification_pk=scheduled_notification.pk
+        )
+
+        # then
+        self.assertTrue(mock_send_notification.called)
+        _, kwargs = mock_send_notification.call_args
+        self.assertIn("has already elapsed", kwargs["content"])
 
     def test_discard_notification_when_rule_disabled(
         self, mock_send_messages_for_webhook
@@ -316,7 +392,6 @@ class TestSendScheduledNotification(TransactionTestCase):
         scheduled_notification = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
-            celery_task_id="my-id-123",
             timer_date=now() + dt.timedelta(hours=1),
             notification_date=now() + dt.timedelta(minutes=30),
         )
@@ -366,7 +441,6 @@ class TestSendScheduledNotification(TransactionTestCase):
         scheduled_notification = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
-            celery_task_id="my-id-123",
             timer_date=now() + dt.timedelta(hours=1),
             notification_date=now() + dt.timedelta(minutes=30),
         )
@@ -399,7 +473,6 @@ class TestSendScheduledNotification(TransactionTestCase):
         scheduled_notification = ScheduledNotificationFactory(
             timer=timer,
             notification_rule=rule,
-            celery_task_id="my-id-123",
             timer_date=now() + dt.timedelta(hours=1),
             notification_date=now() + dt.timedelta(minutes=30),
         )
