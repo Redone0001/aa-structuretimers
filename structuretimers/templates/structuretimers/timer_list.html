@@ -117,6 +117,7 @@
         data-titleVisibility="{% translate 'Visibility' %}"
         data-titleFilterBy="{% translate 'Filter by' %}"
         data-titleAll="{% translate 'All' %}"
+        data-isNightMode="{{ NIGHT_MODE|yesno:'true,false' }}"
         data-hasPermOPSEC="{{ perms.structuretimers.opsec_access }}"
         data-dataTablesPageLength="{{ data_tables_page_length }}"
         data-dataTablesPaging="{{ data_tables_paging }}"

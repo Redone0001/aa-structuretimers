@@ -134,7 +134,8 @@ function initializeMultiSelectFilters(
     table,
     filterDefinition,
     titleFilterBy,
-    titleAll
+    titleAll,
+    isNightMode
 ) {
     const tableId = table.table().node().id;
     const filterWrapperId = tableId + "_filterWrapper";
@@ -155,6 +156,9 @@ function initializeMultiSelectFilters(
         const column = table.column(filterColumn.idx);
         const selectId = tableId + "_filterSelect" + filterColumn.idx;
         const filterGroup = $("<div>", { class: "timer-filter-group" });
+        if (isNightMode) {
+            filterGroup.addClass("timer-filter-group--dark");
+        }
         if (filterColumn.maxWidth) {
             filterGroup.css("max-width", filterColumn.maxWidth);
         }
@@ -199,10 +203,13 @@ function initializeMultiSelectFilters(
 
         filterGroup.append(label, select);
         filterWrapper.append(filterGroup);
+        const dropdownCssClass = isNightMode
+            ? "timer-filter-dropdown timer-filter-dropdown--dark"
+            : "timer-filter-dropdown";
         select.select2({
             allowClear: true,
             closeOnSelect: false,
-            dropdownCssClass: "timer-filter-dropdown",
+            dropdownCssClass: dropdownCssClass,
             placeholder: titleAll,
             theme: "bootstrap",
             width: "100%",
@@ -226,6 +233,7 @@ $(document).ready(function () {
     const titleVisibility = elem.getAttribute("data-titleVisibility");
     const titleFilterBy = elem.getAttribute("data-titleFilterBy");
     const titleAll = elem.getAttribute("data-titleAll");
+    const isNightMode = elem.getAttribute("data-isNightMode") == "true";
     const hasPermOPSEC = elem.getAttribute("data-hasPermOPSEC") == "True";
     const dataTablesPageLength = Number(
         elem.getAttribute("data-dataTablesPageLength")
@@ -350,7 +358,8 @@ $(document).ready(function () {
                 this.api(),
                 standardFilterDefinition,
                 titleFilterBy,
-                titleAll
+                titleAll,
+                isNightMode
             );
         },
     });
@@ -399,7 +408,8 @@ $(document).ready(function () {
                 this.api(),
                 preliminaryFilterDefinition,
                 titleFilterBy,
-                titleAll
+                titleAll,
+                isNightMode
             );
         },
     });
@@ -420,7 +430,8 @@ $(document).ready(function () {
                 this.api(),
                 standardFilterDefinition,
                 titleFilterBy,
-                titleAll
+                titleAll,
+                isNightMode
             );
         },
         createdRow: function (row, data, dataIndex) {

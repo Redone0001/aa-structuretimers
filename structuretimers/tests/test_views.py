@@ -91,6 +91,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertContains(response, "select2.min.js")
         self.assertContains(response, 'data-titleAll="All"')
+        self.assertContains(response, 'data-isNightMode="false"')
         self.assertNotContains(response, "filterDropDown.min.js")
 
     def test_should_open_with_main_staging_system(self):
