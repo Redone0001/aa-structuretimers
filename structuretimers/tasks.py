@@ -149,7 +149,7 @@ def dispatch_scheduled_notifications() -> None:
         )
 
 
-@shared_task(acks_late=True)
+@shared_task(base=QueueOnce, acks_late=True)
 def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> None:
     """Schedule notifications for this timer based on notification rules."""
     timer: Timer = Timer.objects.select_related_for_matching().get(pk=timer_pk)
@@ -198,7 +198,7 @@ def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> Non
             timer.schedule_notification(notification_rule=notification_rule)
 
 
-@shared_task(acks_late=True)
+@shared_task(base=QueueOnce, acks_late=True)
 def schedule_notifications_for_rule(notification_rule_pk: int) -> None:
     """Schedule notifications for all timers confirming with this rule.
 
