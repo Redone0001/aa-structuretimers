@@ -20,16 +20,17 @@ An app for keeping track of Eve Online structure timers with Alliance Auth and D
 - [Installation](#installation)
 - [Settings](#settings)
 - [Notification Rules](#notification-rules)
+- [Staging system](#staging-system)
 - [Permissions](#permissions)
 - [Management commands](#management-commands)
 
 ## Overview
 
-**Structure Timers II** is an enhanced version of the Alliance Auth's Structure Timers app. It offers many additional and useful features and an improved UI. It also provide integrations with several other community apps, e.g. aa-structures.
+**Structure Timers II** is an enhanced version of the Alliance Auth's Structure Timers app. It offers many additional and useful features and an improved UI. It also provides integrations with several other community apps, e.g. aa-structures.
 
 ## Features
 
-Here is a overview of **Structure Timers II**'s main features.
+Here is an overview of **Structure Timers II**'s main features.
 
 - Create and edit timers for structure and moon mining events
 - Add notes and screenshots to timers (e.g. with the structure's fitting)
@@ -42,7 +43,7 @@ Here is a overview of **Structure Timers II**'s main features.
 **Structure Timers II** is integrated with the following community apps:
 
 - [aa-structures](https://github.com/AllianceAuth-Apps/aa-structures): Automatically adds new timers from structure and moon mining notifications
-- [allianceauth-opcalendar](https://gitlab.com/paulipa/allianceauth-opcalendar): Shows timers in a calender view and with other events
+- [allianceauth-opcalendar](https://gitlab.com/paulipa/allianceauth-opcalendar): Shows timers in a calendar view and with other events
 - [allianceauth-restapi](https://gitlab.com/munsking/allianceauth-restapi): Adds a REST API for fetching and adding timers
 
 ## Screenshots
@@ -93,7 +94,7 @@ Configure your Auth settings (`local.py`) as follows:
 ```python
 CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
     'task': 'structuretimers.tasks.housekeeping',
-    'schedule': 10800, # 3 hours
+    'schedule': 10800,  # 3 hours
 }
 CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
     'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
@@ -145,7 +146,7 @@ python manage.py structuretimers_migrate_timers
 
 ### Step 7 - Setup notification rules
 
-If you want to receive notifications about timers on Discord you can setup notification rules on the admin site. e.g. you can setup a rule to sent notifications 60 minutes before a timer elapses. Please see [Notification Rules](#notification-rules) for details.
+If you want to receive notifications about timers on Discord you can setup notification rules on the admin site. e.g. you can setup a rule to send notifications 60 minutes before a timer elapses. Please see [Notification Rules](#notification-rules) for details.
 
 ### Step 8 - Setup permissions
 
@@ -161,11 +162,11 @@ Here is a list of available settings for this app. They can be configured by add
 Name | Description | Default
 -- | -- | --
 `STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS` | Grace period in minutes. A scheduled notification will still be sent if its timer elapsed less than this many minutes ago, and discarded as outdated otherwise | `15`
-`STRUCTURETIMERS_NOTIFICATIONS_ENABLED` | Wether notifications for timers are scheduled at all | `True`
+`STRUCTURETIMERS_NOTIFICATIONS_ENABLED` | Whether notifications for timers are scheduled at all | `True`
 `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` | Minimum age in days for a timer to be considered obsolete. Obsolete timers will automatically be deleted. If you want to keep all timers, set to `None` | `30`
 `STRUCTURETIMERS_DEFAULT_PAGE_LENGTH` | Default page size for timerboard. Must be an integer value from the available options in the app. | `10`
-`STRUCTURETIMERS_PAGING_ENABLED` | Wether paging is enabled on the timerboard. | `True`
-`STRUCTURETIMER_NOTIFICATION_SET_AVATAR` | Wether structures sets the name and avatar icon of a webhook. When False the webhook will use it's own values as set on the platform. | `True`
+`STRUCTURETIMERS_PAGING_ENABLED` | Whether paging is enabled on the timerboard. | `True`
+`STRUCTURETIMER_NOTIFICATION_SET_AVATAR` | Whether structuretimers sets the name and avatar icon of a webhook. When False the webhook will use its own values as set on the platform. | `True`
 
 ## Notification Rules
 
@@ -178,7 +179,7 @@ In **Structure Timers II** you can receive automatic notifications on Discord fo
 
 Here is an example for a basic setup of rules:
 
-#### Example 1: Notify about new every newly created timer without ping (e.g. into a scouts channel)
+#### Example 1: Notify about every newly created timer without ping (e.g. into a scouts channel)
 
 - Trigger: New timer created
 - Scheduled Time: -
@@ -187,7 +188,7 @@ Here is an example for a basic setup of rules:
 
 #### Example 2: Notify 45 minutes before any timer elapses with ping (e.g. into the FC channel)
 
-- Trigger: Scheduled timer reached
+- Trigger: Scheduled time reached
 - Scheduled Time: T - 45 minutes
 - Webhook: YOUR-WEBHOOK
 - Ping Type: @here
@@ -211,7 +212,7 @@ Each rule has exactly one webhook. You can of course define multiple rules for t
 
 Almost every property of a timer can be used to define rules. For example you can define to get notifications only for timers which hostile objective or only for final timers.
 
-Note that setting a timer clause is optional and clauses that are not set, it will always match any.
+Setting a timer clause is optional - clauses that aren't set will always match any timer.
 
 ## Staging system
 
