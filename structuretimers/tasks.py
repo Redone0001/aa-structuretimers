@@ -1,5 +1,6 @@
 """Tasks."""
 
+import datetime as dt
 from typing import Optional
 
 from celery import shared_task
@@ -14,6 +15,7 @@ from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
 from structuretimers import __title__
+from structuretimers.app_settings import STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
 from structuretimers.models import (
     DiscordWebhook,
     DistancesFromStaging,
@@ -85,10 +87,13 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
         return
 
     timer = scheduled_notification.timer
+    grace_cutoff = now() - dt.timedelta(
+        minutes=STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
+    )
     if (
         not timer.date
-        or timer.date < now()
-        or scheduled_notification.timer_date < now()
+        or timer.date < grace_cutoff
+        or scheduled_notification.timer_date < grace_cutoff
     ):  # fix issue #28
         logger.warning(
             "Discarding scheduled notification %r for outdated timer.",
@@ -103,10 +108,13 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
     )
     minutes = round((timer.date - now()).total_seconds() / 60)
     mod_text = "**important** " if timer.is_important else ""
-    content = (
-        f"The following {mod_text}structure timer will elapse "
-        f"in less than **{minutes:,}** minutes:"
-    )
+    if minutes > 0:
+        content = (
+            f"The following {mod_text}structure timer will elapse "
+            f"in less than **{minutes:,}** minutes:"
+        )
+    else:
+        content = f"The following {mod_text}structure timer has already elapsed:"
     timer.send_notification(
         webhook=webhook,
         content=notification_rule.prepend_ping_text(content),

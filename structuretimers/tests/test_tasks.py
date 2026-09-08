@@ -309,6 +309,73 @@ class TestSendScheduledNotification(TransactionTestCase):
         # then
         self.assertTrue(mock_send_messages_for_webhook.apply_async.called)
 
+    def test_should_send_notification_for_timer_within_grace_period(
+        self, mock_send_messages_for_webhook
+    ):
+        # given
+        rule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_0,
+        )
+        timer = TimerFactory(
+            structure_name="Test_1",
+            date=now() - dt.timedelta(minutes=2),
+        )
+        scheduled_notification = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date,
+        )
+        mock_task = Mock(spec=Task)
+        mock_task.request.id = "my-id-123"
+
+        # when
+        send_scheduled_notification_inner = (
+            send_scheduled_notification.__wrapped__.__func__
+        )
+        send_scheduled_notification_inner(
+            mock_task, scheduled_notification_pk=scheduled_notification.pk
+        )
+
+        # then
+        self.assertTrue(mock_send_messages_for_webhook.apply_async.called)
+
+    @patch(MODULE_PATH + ".Timer.send_notification")
+    def test_should_use_past_tense_when_timer_already_elapsed(
+        self, mock_send_notification, mock_send_messages_for_webhook
+    ):
+        # given
+        rule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_0,
+        )
+        timer = TimerFactory(
+            structure_name="Test_1",
+            date=now() - dt.timedelta(minutes=2),
+        )
+        scheduled_notification = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date,
+        )
+        mock_task = Mock(spec=Task)
+        mock_task.request.id = "my-id-123"
+
+        # when
+        send_scheduled_notification_inner = (
+            send_scheduled_notification.__wrapped__.__func__
+        )
+        send_scheduled_notification_inner(
+            mock_task, scheduled_notification_pk=scheduled_notification.pk
+        )
+
+        # then
+        self.assertTrue(mock_send_notification.called)
+        _, kwargs = mock_send_notification.call_args
+        self.assertIn("has already elapsed", kwargs["content"])
+
     def test_discard_notification_when_rule_disabled(
         self, mock_send_messages_for_webhook
     ):

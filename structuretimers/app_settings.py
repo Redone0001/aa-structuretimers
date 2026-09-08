@@ -3,10 +3,11 @@
 from app_utils.app_settings import clean_setting
 
 STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS = clean_setting(
-    "STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS", 60
+    "STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS", 15
 )
-"""Will not schedule notifications for timers,
-which have elapsed more than x minutes ago.
+"""Grace period in minutes. A scheduled notification will still be sent
+if its timer elapsed less than x minutes ago, and discarded as outdated
+otherwise.
 """
 
 STRUCTURETIMERS_NOTIFICATIONS_ENABLED = clean_setting(
