@@ -93,11 +93,11 @@ Configure your Auth settings (`local.py`) as follows:
 ```python
 CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
     'task': 'structuretimers.tasks.housekeeping',
-    'schedule': crontab(minute=0, hour=3),
+    'schedule': 10800, # 3 hours
 }
 CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
     'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
-    'schedule': crontab(minute='*'),
+    'schedule': 60,
 }
 ```
 

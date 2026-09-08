@@ -59,7 +59,7 @@ class TimerQuerySet(models.QuerySet):
     def visible_to_user(self, user: User) -> models.QuerySet:
         """returns updated queryset of all timers visible to the given user"""
         user_characters_qs = user.character_ownerships.select_related(
-            "character_ownerships__character"
+            "character"
         ).values("character__corporation_id", "character__alliance_id")
         user_corporation_ids = {
             x["character__corporation_id"] for x in user_characters_qs
