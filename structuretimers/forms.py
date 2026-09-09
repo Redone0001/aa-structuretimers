@@ -289,10 +289,7 @@ class TimerForm(forms.ModelForm):
         try:
             r = requests.get(details_image_url, stream=True, timeout=(3.0, 10.0))
             r.raise_for_status()
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
-        ) as ex:
+        except requests.exceptions.RequestException as ex:
             logger.warning(
                 "Failed to load image from URL: %s", details_image_url, exc_info=True
             )

@@ -2,6 +2,7 @@
 
 # pylint: disable=too-many-lines
 
+import datetime as dt
 import json
 from time import sleep
 from typing import List, Optional, Tuple
@@ -553,10 +554,34 @@ class Timer(models.Model):
             label_type = "secondary"
         return label_type
 
+    def schedule_notification(self, notification_rule: "NotificationRule"):
+        """Schedule a notification for this timer."""
+        if self.timer_type == Timer.Type.PRELIMINARY:
+            raise ValueError(f"Can not schedule preliminary timers: {self}")
+        if not self.date:
+            raise ValueError(f"Timer has no date: {self}")
+        if notification_rule.scheduled_time is None:
+            raise ValueError(
+                f"Notification rule has no scheduled date: {notification_rule}"
+            )
+        notification_date = self.date - dt.timedelta(
+            minutes=notification_rule.scheduled_time
+        )
+        scheduled_notification, _ = ScheduledNotification.objects.update_or_create(
+            timer=self,
+            notification_rule=notification_rule,
+            defaults={"timer_date": self.date, "notification_date": notification_date},
+        )
+        logger.info(
+            "Scheduled notification for timer #%d, rule #%d",
+            scheduled_notification.timer.pk,
+            scheduled_notification.notification_rule.pk,
+        )
+
     def send_notification(
         self, webhook: DiscordWebhook, content: Optional[str] = None
     ) -> None:
-        """Sends notification related to this timer to given webhook."""
+        """Send notification related to this timer to a webhook."""
         structure_type_name = self.structure_type.name
         solar_system_name = self.eve_solar_system.name if self.eve_solar_system else ""
         title = f"{structure_type_name} in {solar_system_name}"
@@ -631,7 +656,7 @@ def handle_timer_save(
     needs_recalc = (
         created
         or date_changed
-        or instance.eve_solar_system.id != instance._original_eve_solar_system_id
+        or instance.eve_solar_system_id != instance._original_eve_solar_system_id
     )
     if needs_recalc:
         instance.distances.all().delete()
@@ -946,14 +971,13 @@ def handle_rule_save(
     **kwargs,
 ):
     """Update scheduled notifications a needed on save."""
-    if (
-        STRUCTURETIMERS_NOTIFICATIONS_ENABLED
-        and instance.is_enabled
-        and instance.trigger == NotificationRule.Trigger.SCHEDULED_TIME_REACHED
-    ):
-        instance._import_schedule_notifications_for_rule().apply_async(
-            kwargs={"notification_rule_pk": instance.pk}, priority=4
-        )
+    if instance.trigger == NotificationRule.Trigger.SCHEDULED_TIME_REACHED:
+        if STRUCTURETIMERS_NOTIFICATIONS_ENABLED and instance.is_enabled:
+            instance._import_schedule_notifications_for_rule().apply_async(
+                kwargs={"notification_rule_pk": instance.pk}, priority=4
+            )
+        else:
+            instance.scheduled_notifications.all().delete()
 
     if instance.trigger == NotificationRule.Trigger.NEW_TIMER_CREATED:
         instance.scheduled_notifications.all().delete()
@@ -973,7 +997,6 @@ class ScheduledNotification(models.Model):
 
     timer_date = models.DateTimeField(db_index=True)
     notification_date = models.DateTimeField(db_index=True)
-    celery_task_id = models.CharField(max_length=765, default="")
 
     class Meta:
         constraints = [
@@ -987,7 +1010,6 @@ class ScheduledNotification(models.Model):
         return (
             f"ScheduledNotification(timer='{self.timer}', "
             f"notification_rule='{self.notification_rule}', "
-            f"celery_task_id='{self.celery_task_id}', "
             f"timer_date='{self.timer_date}', "
             f"notification_date='{self.notification_date}')"
         )
@@ -1024,7 +1046,7 @@ def handle_staging_system_save(
     """Update distances for staging system on save as needed."""
     needs_recalc = (
         created
-        or instance.eve_solar_system.id != instance._original_eve_solar_system_id
+        or instance.eve_solar_system_id != instance._original_eve_solar_system_id
     )
     if instance.is_main:
         StagingSystem.objects.exclude(pk=instance.pk).update(is_main=False)

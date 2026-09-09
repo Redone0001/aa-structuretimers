@@ -421,15 +421,15 @@ class FastCreateTimerView(CreateTimerView):
     title = _("Quick Add Timer")
 
 
-# FIXME: User without permission can still post to edit timers directly
-
-
 class EditTimerMixin:
     permission_required = "structuretimers.basic_access"
 
     def dispatch(self, request, *args, **kwargs):
-        response = super().dispatch(request, *args, **kwargs)
-        if response.status_code == 200:
+        # Check object-level permission before processing the request - an
+        # edit/delete mutates the DB immediately, so checking afterward
+        # would be too late.
+        if request.user.is_authenticated and self.has_permission():
+            self.object = self.get_object()
             can_view = (
                 Timer.objects.filter(pk=self.object.pk)
                 .visible_to_user(self.request.user)
@@ -439,7 +439,7 @@ class EditTimerMixin:
             if not can_view or not can_edit:
                 raise PermissionDenied()
 
-        return response
+        return super().dispatch(request, *args, **kwargs)
 
 
 class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateView):
@@ -460,9 +460,6 @@ class CopyTimerView(CreateTimerView):
         new_obj.date = None
         kwargs["instance"] = deepcopy(new_obj)
         return kwargs
-
-
-# FIXME: User without permission can still post to delete timers directly
 
 
 class RemoveTimerView(

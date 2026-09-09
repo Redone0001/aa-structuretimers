@@ -1,6 +1,7 @@
 import datetime as dt
 from http import HTTPStatus
 from typing import Optional, Set
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.http import HttpResponse
@@ -27,6 +28,7 @@ from structuretimers.tests.testdata.factory import (
     TimerFactory,
     UserMainFactory,
     UserWithAccessFactory,
+    UserWithCreateFactory,
     UserWithManageFactory,
 )
 
@@ -486,6 +488,81 @@ class TestSelect2Views_SolarSystems(NoSocketsTestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         data = json_response_to_python(response)
         self.assertEqual(data, {"results": None})
+
+
+class TestEditRemoveTimerView(NoSocketsTestCase):
+    def _edit_form_data(self, timer: Timer) -> dict:
+        return {
+            "eve_solar_system_2": str(timer.eve_solar_system_id),
+            "structure_type_2": str(timer.structure_type_id),
+            "timer_type": Timer.Type.ARMOR,
+            "objective": Timer.Objective.UNDEFINED,
+            "visibility": Timer.Visibility.UNRESTRICTED,
+            "date": timer.date.strftime("%Y-%m-%d %H:%M"),
+            "structure_name": "Hacked Name",
+        }
+
+    def test_should_not_allow_unauthorized_user_to_delete_timer(self):
+        # given
+        timer = TimerFactory()
+        self.client.force_login(UserWithAccessFactory())
+
+        # when
+        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
+        self.assertTrue(Timer.objects.filter(pk=timer.pk).exists())
+
+    def test_should_not_allow_unauthorized_user_to_edit_timer(self):
+        # given
+        timer = TimerFactory(structure_name="Original Name")
+        self.client.force_login(UserWithAccessFactory())
+
+        # when
+        response = self.client.post(
+            reverse("structuretimers:edit", args=[timer.pk]),
+            data=self._edit_form_data(timer),
+        )
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
+        timer.refresh_from_db()
+        self.assertEqual(timer.structure_name, "Original Name")
+
+    def test_should_allow_manager_to_delete_any_timer(self):
+        # given
+        timer = TimerFactory()
+        self.client.force_login(UserWithManageFactory())
+
+        # when
+        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertFalse(Timer.objects.filter(pk=timer.pk).exists())
+
+    @patch(
+        "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+        Mock(),
+    )
+    @patch("structuretimers.models._task_schedule_notifications_for_timer", Mock())
+    def test_should_allow_creator_to_edit_own_timer(self):
+        # given
+        user = UserWithCreateFactory()
+        timer = TimerFactory(user=user, structure_name="Original Name")
+        self.client.force_login(user)
+
+        # when
+        response = self.client.post(
+            reverse("structuretimers:edit", args=[timer.pk]),
+            data=self._edit_form_data(timer),
+        )
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        timer.refresh_from_db()
+        self.assertEqual(timer.structure_name, "Hacked Name")
 
 
 class TestSelect2Views_StructureTypes(NoSocketsTestCase):

@@ -336,3 +336,70 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
         rule.save()
 
         self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
+
+    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    def test_should_delete_scheduled_notifications_when_rule_disabled(
+        self, mock_schedule_notifications
+    ):
+        rule: NotificationRule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_10,
+            webhook=DiscordWebhookFactory(),
+            is_enabled=True,
+        )
+        timer: Timer = TimerFactory(date=now() + dt.timedelta(hours=4))
+        obj = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date - dt.timedelta(minutes=10),
+        )
+
+        rule.is_enabled = False
+        rule.save()
+
+        self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
+
+    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+    def test_should_delete_scheduled_notifications_when_globally_disabled(
+        self, mock_schedule_notifications
+    ):
+        rule: NotificationRule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_10,
+            webhook=DiscordWebhookFactory(),
+            is_enabled=True,
+        )
+        timer: Timer = TimerFactory(date=now() + dt.timedelta(hours=4))
+        obj = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date - dt.timedelta(minutes=10),
+        )
+
+        rule.save()
+
+        self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
+
+    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    def test_should_not_delete_scheduled_notifications_when_rule_stays_enabled(
+        self, mock_schedule_notifications
+    ):
+        rule: NotificationRule = NotificationRuleFactory(
+            trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
+            scheduled_time=NotificationRule.MINUTES_10,
+            webhook=DiscordWebhookFactory(),
+            is_enabled=True,
+        )
+        timer: Timer = TimerFactory(date=now() + dt.timedelta(hours=4))
+        obj = ScheduledNotificationFactory(
+            timer=timer,
+            notification_rule=rule,
+            timer_date=timer.date,
+            notification_date=timer.date - dt.timedelta(minutes=10),
+        )
+
+        rule.save()
+
+        self.assertTrue(ScheduledNotification.objects.filter(pk=obj.pk).exists())
