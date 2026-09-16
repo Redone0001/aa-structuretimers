@@ -20,3 +20,24 @@ assert.deepEqual(graph.nodes.map(n=>[n.id,n.px,n.py]), moved.nodes.map(n=>[n.id,
 assert.notDeepEqual(graph.nodes.map(n=>[n.px,n.py]), layout(systems, []).nodes.map(n=>[n.px,n.py]));
 assert.equal(new Set(graph.nodes.map(n => `${n.px},${n.py}`)).size,40);
 console.log('Graph checks: stargates drive the layout; changing physical coordinates does not.');
+const fs = require('node:fs');
+const path = require('node:path');
+const bundled = JSON.parse(fs.readFileSync(path.join(__dirname, '../../data/region_layouts.json'))).regions;
+const fixed = bundled.Querious;
+const fixedSystems = Object.keys(fixed.positions).map((name, id) => ({id, name}));
+const fixedResult = layout(fixedSystems, [], fixed);
+const subset = layout(fixedSystems.slice(0, 5), [], fixed);
+assert.deepEqual(subset.nodes, fixedResult.nodes.slice(0, 5));
+assert.equal(subset.width, fixedResult.width);
+const changedLinks = layout(fixedSystems, [[0, 1], [2, 3]], fixed);
+assert.deepEqual(changedLinks, fixedResult);
+const extra = layout([...fixedSystems, {id:999999,name:'New system'}], [], fixed);
+assert.equal(extra.missing, 1);
+assert(extra.nodes.at(-1).py > Math.max(...fixedResult.nodes.map(n=>n.py)));
+for (const region of Object.values(bundled)) {
+    const result = layout(Object.keys(region.positions).map((name,id)=>({name,id})), [], region);
+    result.nodes.forEach((a,i) => result.nodes.slice(i+1).forEach(b => {
+        assert(Math.abs(a.px-b.px) >= 139.9 || Math.abs(a.py-b.py) >= 65.9);
+    }));
+}
+console.log('Bundled layouts: fixed positions, stable subsets, unmapped-system shelf, all-region label separation.');

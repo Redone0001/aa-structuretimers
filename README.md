@@ -263,15 +263,34 @@ After upgrading, run `python manage.py migrate` to install the campaign tables a
 permission, then assign the coordinator permission to the appropriate group.
 
 
-Campaigns also offer a **Map view** with one schematic per region. Stargate
-connections drive the layout; physical distance does not. Each selectable system
+Campaigns also offer a **Map view** with one schematic per region. Bundled DOTLAN regional
+positions drive the layout; no external map service is contacted. Each selectable system
 shows its name and visible preliminary-timer count, with reservation/completion
 colors. Selections are shared with the list and use the same bulk actions.
 Use the zoom controls and scroll within each map to inspect larger regions.
-The chosen view is remembered in the current browser tab.
+The chosen view is remembered in the current browser tab. Hold the left mouse
+button and drag to pan.
 
 New campaigns import gate connections. For existing campaigns, coordinators can
 use **Load / refresh gate connections** in Map view. Missing gate data is shown
 explicitly; disconnected campaign systems remain selectable. Maps include only
-campaign systems and connections between them within a region, and do not copy
-Dotlan's manually arranged coordinates.
+campaign systems and connections between them within a region, and use bundled coordinates extracted from DOTLAN's regional PDFs.
+
+
+#### Self-contained regional layouts
+
+The package includes system positions for the available DOTLAN regional maps in
+`structuretimers/data/region_layouts.json`. The browser receives coordinates from
+Alliance Auth and draws its own interactive SVG: no PDF/image embedding, external
+website links, CDN scripts, or requests to DOTLAN are required. Attribution is
+plain text. Layout source: DOTLAN EveMaps / Wollari; EVE universe by CCP Games.
+
+Unsupported regions retain the gate-based schematic with an explicit notice.
+Systems absent from a bundled map appear below its fixed layout, so existing
+system positions never move when the campaign selection changes.
+
+To update bundled positions, developers can run
+`python structuretimers/tools/build_region_layouts.py SOURCE_DIRECTORY OUTPUT_JSON`
+with local regional PDFs and an `index.json` mapping each region name to its
+`file` and list of `systems`. Only this offline build tool requires `pdfplumber`;
+production installations have no PDF parser or map download dependency.

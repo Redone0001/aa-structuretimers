@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views import View
 from eveuniverse.models import EveRegion, EveSolarSystem, EveStargate
 
+from .map_layouts import get_region_layout
 from .forms import ReconForm
 from .models import ReconCampaign, ReconCampaignSystem, Timer
 
@@ -176,6 +177,8 @@ def campaign_map_data(entries):
             links.add(tuple(sorted((source, target))))
     for source, target in sorted(links):
         regions[system_regions[source]]["links"].append([source, target])
+    for region in regions.values():
+        region["layout"] = get_region_layout(region["name"])
     return sorted(regions.values(), key=lambda region: region["name"])
 
 

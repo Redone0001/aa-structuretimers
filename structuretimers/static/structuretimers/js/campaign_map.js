@@ -2,7 +2,27 @@
 (function () {
     "use strict";
 
-    function layout(systems, links = []) {
+    function layout(systems, links = [], fixed = null) {
+        if (fixed) {
+            const all = Object.values(fixed.positions);
+            // One uniform scale preserves the source layout while leaving room for labels.
+            let scale = 3;
+            for (let i = 0; i < all.length; i += 1) {
+                for (let j = i + 1; j < all.length; j += 1) {
+                    const dx = Math.abs(all[i][0] - all[j][0]), dy = Math.abs(all[i][1] - all[j][1]);
+                    if (dx || dy) scale = Math.max(scale, Math.min(dx ? 140 / dx : Infinity, dy ? 66 / dy : Infinity));
+                }
+            }
+            const width = Math.max(160, fixed.width * scale + 160);
+            let missing = 0;
+            const nodes = systems.map(system => {
+                const position = fixed.positions[system.name];
+                if (position) return {...system, px: position[0] * scale + 80, py: position[1] * scale + 42};
+                const index = missing++, columns = Math.max(1, Math.floor(width / 152));
+                return {...system, px: (index % columns) * 152 + 80, py: fixed.height * scale + 140 + Math.floor(index / columns) * 82};
+            });
+            return {nodes, width, height: Math.max(fixed.height * scale + 84, ...nodes.map(n => n.py + 42)), missing};
+        }
         const byId = new Map(systems.map(system => [system.id, system]));
         const adjacency = new Map(systems.map(system => [system.id, new Set()]));
         links.forEach(([a, b]) => {
@@ -173,13 +193,18 @@
     }
 
     function renderRegion(region) {
-        const drawing = layout(region.systems, region.links);
+        const drawing = layout(region.systems, region.links, region.layout);
         const section = document.createElement("section");
         section.className = "mb-4";
         const heading = document.createElement("h2");
         heading.className = "h4";
         heading.textContent = region.name;
         section.appendChild(heading);
+        const sourceNote = document.createElement("p");
+        sourceNote.className = "small text-muted";
+        sourceNote.textContent = region.layout ? container.dataset.localLayoutLabel : container.dataset.fallbackLayoutLabel;
+        if (drawing.missing) sourceNote.textContent += " " + container.dataset.unmappedLabel;
+        section.appendChild(sourceNote);
         const toolbar = document.createElement("div");
         toolbar.className = "d-flex gap-2 mb-2";
         section.appendChild(toolbar);
