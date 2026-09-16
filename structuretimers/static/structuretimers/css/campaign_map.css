@@ -1,6 +1,8 @@
 #campaign-view-controls[hidden], #campaign-map-view[hidden], #campaign-list-view[hidden] { display: none !important; }
 .campaign-map-scroll { overflow: auto; max-height: 72vh; border: 1px solid var(--bs-border-color, #adb5bd); border-radius: .4rem; background: var(--bs-body-bg, #fff); }
 .campaign-map-svg { display: block; }
+.campaign-map-scroll { cursor: grab; user-select: none; }
+.campaign-map-scroll.is-panning, .campaign-map-scroll.is-panning * { cursor: grabbing; }
 .campaign-map-link { stroke: #8995a5; stroke-width: 1.5; }
 .campaign-map-node { cursor: pointer; }
 .campaign-map-node rect { fill: #e9ecef; stroke: #687582; stroke-width: 1.5; }

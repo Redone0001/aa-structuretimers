@@ -127,6 +127,51 @@
         document.getElementById("campaign-selected-count").textContent = inputs.filter(input => input.checked).length;
     }
 
+    function enableMapPanning(viewport) {
+        let pointer = null;
+        let suppressClick = false;
+        viewport.addEventListener("pointerdown", event => {
+            if (event.pointerType !== "mouse" || event.button !== 0) return;
+            suppressClick = false;
+            pointer = {id: event.pointerId, x: event.clientX, y: event.clientY,
+                left: viewport.scrollLeft, top: viewport.scrollTop, dragging: false};
+        });
+        viewport.addEventListener("pointermove", event => {
+            if (!pointer || event.pointerId !== pointer.id) return;
+            const dx = event.clientX - pointer.x, dy = event.clientY - pointer.y;
+            if (!pointer.dragging && Math.hypot(dx, dy) < 5) return;
+            if (!pointer.dragging) {
+                pointer.dragging = true;
+                suppressClick = true;
+                viewport.setPointerCapture(event.pointerId);
+                viewport.classList.add("is-panning");
+            }
+            event.preventDefault();
+            viewport.scrollLeft = pointer.left - dx;
+            viewport.scrollTop = pointer.top - dy;
+        });
+        function finish(event) {
+            if (!pointer || event.pointerId !== pointer.id) return;
+            pointer = null;
+            viewport.classList.remove("is-panning");
+            if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+        }
+        viewport.addEventListener("pointerup", finish);
+        viewport.addEventListener("pointercancel", finish);
+        viewport.addEventListener("lostpointercapture", finish);
+        viewport.addEventListener("pointerleave", event => {
+            if (pointer && !pointer.dragging) finish(event);
+        });
+        // A drag starting on a system must never become a selection click on release.
+        viewport.addEventListener("click", event => {
+            if (suppressClick && event.detail !== 0) {
+                event.preventDefault();
+                event.stopPropagation();
+                suppressClick = false;
+            }
+        }, true);
+    }
+
     function renderRegion(region) {
         const drawing = layout(region.systems, region.links);
         const section = document.createElement("section");
@@ -140,6 +185,7 @@
         section.appendChild(toolbar);
         const viewport = document.createElement("div");
         viewport.className = "campaign-map-scroll";
+        enableMapPanning(viewport);
         const svg = svgElement("svg", {viewBox: `0 0 ${drawing.width} ${drawing.height}`, class: "campaign-map-svg", role: "group", "aria-label": region.name});
         viewport.appendChild(svg);
         section.appendChild(viewport);
