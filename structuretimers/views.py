@@ -9,6 +9,7 @@ from typing import Iterable
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -41,7 +42,8 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
 )
-from structuretimers.forms import FastTimerForm, TimerForm
+from structuretimers.constants import EveTypeId
+from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
 from structuretimers.models import DistancesFromStaging, StagingSystem, Timer
 from structuretimers.selectors import supported_eve_types
 
@@ -170,7 +172,11 @@ class TimerListDataView(
                     "objective_name": timer.get_objective_display(),
                     "system_name": timer.eve_solar_system.name,
                     "region_name": timer.eve_solar_system.eve_constellation.eve_region.name,
-                    "structure_type_name": timer.structure_type.name,
+                    "structure_type_name": (
+                        timer.structure_type.name
+                        if timer.structure_type
+                        else "(unknown)"
+                    ),
                     "owner_name": owner_name,
                     "visibility": visibility,
                     "opsec_str": yesno_str(timer.is_opsec),
@@ -248,6 +254,7 @@ class TimerListDataView(
             "type_name": structure_type_name,
             "timer_name": timer.get_timer_type_display(),
             "timer_style": timer.label_type_for_timer_type(),
+            "reinforcement_time": timer.reinforcement_time,
         }
         return render_to_string("structuretimers/partials/structure_box.html", context)
 
@@ -353,6 +360,63 @@ class TimerListDataView(
         return actions
 
 
+class ManageReconDataView(TimerListDataView):
+    """All preliminary timers visible to this user, with recon actions."""
+
+    def get_queryset(self):
+        self.kwargs["tab_name"] = "preliminary"
+        return super().get_queryset()
+
+    def get_data(self, context):
+        data = super().get_data(context)
+        for row, timer in zip(data, self.object_list):
+            row["reinforcement_time"] = (
+                timer.reinforcement_time.strftime("%H:%M")
+                if timer.reinforcement_time is not None
+                else None
+            )
+            row["window_minutes"] = (
+                30
+                if timer.structure_type_id
+                in {EveTypeId.ANSIBLEX, EveTypeId.METENOX_MOON_DRILL}
+                else 180
+            )
+        return data
+
+    def _get_data_actions(self, timer):
+        return render_to_string(
+            "structuretimers/partials/recon_actions.html",
+            {"timer": timer, "can_edit": timer.user_can_edit(self.request.user)},
+        )
+
+
+class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """POST-only recon mutations; enforce visibility and edit permission."""
+
+    permission_required = "structuretimers.basic_access"
+
+    def post(self, request, pk, action):
+        timer = get_object_or_404(
+            Timer.objects.visible_to_user(request.user).filter(
+                timer_type=Timer.Type.PRELIMINARY
+            ),
+            pk=pk,
+        )
+        if not timer.user_can_edit(request.user):
+            raise PermissionDenied()
+        if action == "refresh":
+            refreshed_at = now()
+            # Update only freshness, without rescheduling notifications or distances.
+            Timer.objects.filter(pk=timer.pk, timer_type=Timer.Type.PRELIMINARY).update(
+                last_updated_at=refreshed_at
+            )
+            return JsonResponse({"last_updated_at": refreshed_at.isoformat()})
+        if action == "destroy":
+            timer.delete()
+            return JsonResponse({"deleted": True})
+        return JsonResponse({"error": "Unknown action"}, status=400)
+
+
 class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """View for showing details of a timer."""
 
@@ -421,6 +485,12 @@ class FastCreateTimerView(CreateTimerView):
     title = _("Quick Add Timer")
 
 
+class CreateReconView(CreateTimerView):
+    form_class = ReconForm
+    template_name = "structuretimers/recon_create_form.html"
+    title = _("Add recon")
+
+
 class EditTimerMixin:
     permission_required = "structuretimers.basic_access"
 
@@ -444,6 +514,27 @@ class EditTimerMixin:
 
 class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateView):
     template_name_suffix = "_update_form"
+
+    def get_success_url(self):
+        if self.request.GET.get("tab") == "manage-recon":
+            return reverse("structuretimers:timer_list") + "?tab=manage-recon"
+        return super().get_success_url()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.GET.get("tab") == "manage-recon":
+            context["cancel_url"] = (
+                reverse("structuretimers:timer_list") + "?tab=manage-recon"
+            )
+        return context
+
+    def get_form_class(self):
+        if (
+            self.object.timer_type == Timer.Type.PRELIMINARY
+            and not self.object.structure_type_id
+        ):
+            return ReconForm
+        return super().get_form_class()
 
     def form_valid(self, form):
         result = super().form_valid(form)

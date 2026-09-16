@@ -1,0 +1,51 @@
+{% load i18n %}
+<div id="recon-dashboard" data-url="{% url 'structuretimers:recon_data' %}">
+    <div class="row g-3 mb-4" aria-live="polite">
+        <div class="col-md-4"><div class="card h-100"><div class="card-body">
+            <h6 class="text-muted">{% translate "Oldest recon / refresh" %}</h6>
+            <strong id="recon-oldest">—</strong><div id="recon-oldest-age" class="small"></div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body">
+            <h6 class="text-muted">{% translate "Latest recon / refresh" %}</h6>
+            <strong id="recon-latest">—</strong><div id="recon-latest-age" class="small"></div>
+        </div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body">
+            <h6 class="text-muted">{% translate "Timers matching filters" %}</h6>
+            <strong id="recon-count">—</strong><div class="small text-muted">{% translate "Across all table pages" %}</div>
+        </div></div></div>
+    </div>
+    <h5>{% translate "Reinforcement distribution · EVE time (UTC)" %}</h5>
+    <p class="small text-muted">{% translate "Darker cells mean more overlapping reinforcement windows. Each cell covers 30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown structure types use ±3 hours." %}</p>
+    <div class="recon-heatmap-scroll mb-2">
+        <div id="recon-heatmap" class="recon-heatmap" role="group" aria-label="{% translate 'Reinforcement distribution in 30-minute intervals' %}"></div>
+        <div class="recon-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+    </div>
+    <div class="d-flex flex-wrap gap-3 small mb-4">
+        <span>{% translate "Low" %} <span class="recon-legend"></span> {% translate "High" %}</span>
+        <span id="recon-peak"></span><span id="recon-missing" class="text-muted"></span>
+    </div>
+    <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
+        <div><label class="form-label" for="recon-age">{% translate "Last updated" %}</label>
+            <select id="recon-age" class="form-select">
+                <option value="all">{% translate "Any time" %}</option>
+                <option value="stale">{% translate "Older than 30 days" %}</option>
+                <option value="recent30">{% translate "Within 30 days" %}</option>
+                <option value="recent7">{% translate "Within 7 days" %}</option>
+            </select>
+        </div>
+        <div><label class="form-label" for="recon-from">{% translate "Updated from (UTC)" %}</label><input id="recon-from" class="form-control" type="date"></div>
+        <div><label class="form-label" for="recon-to">{% translate "Updated through (UTC)" %}</label><input id="recon-to" class="form-control" type="date"></div>
+        <button id="recon-reset" class="btn btn-secondary" type="button">{% translate "Reset filters" %}</button>
+    </div>
+    <div id="recon-status" role="status" aria-live="polite"></div>
+    <form id="recon-csrf" hidden>{% csrf_token %}</form>
+    <div class="table-responsive">
+        <table class="table table-striped" id="tbl_manage_recon" style="width:100%">
+            <thead><tr>
+                <th>{% translate "Location" %}</th><th>{% translate "Structure / reinforcement" %}</th>
+                <th>{% translate "Name / Owner" %}</th><th>{% translate "Objective / Tags" %}</th>
+                <th>{% translate "Last updated (UTC)" %}</th><th>{% translate "Actions" %}</th>
+            </tr></thead>
+        </table>
+    </div>
+</div>

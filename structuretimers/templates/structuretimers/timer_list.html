@@ -21,6 +21,11 @@
                 {% translate "Past" %}
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-target="#manage-recon" aria-controls="manage-recon" role="tab" data-bs-toggle="tab">
+                {% translate "Manage recon" %}
+            </button>
+        </li>
         <li role="presentation" class="nav-item ms-auto">
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -47,6 +52,9 @@
     <div class="card card-default">
         <div class="card-body">
             <div class="tab-content">
+                <div role="tabpanel" class="tab-pane" id="manage-recon">
+                    {% include 'structuretimers/partials/manage_recon.html' %}
+                </div>
                 <!-- targets tab -->
                 <div role="tabpanel" class="tab-pane" id="preliminary">
                     {% include 'structuretimers/partials/preliminary_list_table.html' %}
@@ -140,4 +148,6 @@
     {% include 'bundles/datatables-js-bs5.html' %}
     <script type="application/javascript" src="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>
     <script type="application/javascript" src="{% static 'structuretimers/js/timer_list.js' %}"></script>
+    <script type="text/javascript" src="{% static 'structuretimers/js/recon_distribution.js' %}"></script>
+    <script type="text/javascript" src="{% static 'structuretimers/js/manage_recon.js' %}"></script>
 {% endblock extra_javascript %}

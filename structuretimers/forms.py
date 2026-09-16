@@ -156,6 +156,19 @@ class TimerForm(forms.ModelForm):
         widget=forms.NumberInput(attrs=TIME_REMAINING_WIDGET_ATTRS),
         help_text=TIME_REMAINING_HELP_TEXT,
     )
+    reinforcement_time = forms.TimeField(
+        required=False,
+        label=_("Reinforcement timer"),
+        input_formats=["%H:%M"],
+        widget=forms.TimeInput(
+            format="%H:%M",
+            attrs={
+                "placeholder": "HH:MM",
+                "pattern": "(?:[01][0-9]|2[0-3]):[0-5][0-9]",
+            },
+        ),
+        help_text=_("24-hour EVE time (UTC), HH:MM."),
+    )
     details_image_url = forms.URLField(
         required=False,
         help_text=_("Paste a public URL to an image into this field."),
@@ -166,6 +179,7 @@ class TimerForm(forms.ModelForm):
         fields = (
             "eve_solar_system_2",
             "location_details",
+            "reinforcement_time",
             "structure_type_2",
             "timer_type",
             "structure_name",
@@ -200,9 +214,13 @@ class TimerForm(forms.ModelForm):
                     my_instance.eve_solar_system.name,
                 )
             ]
-            self.fields["structure_type_2"].widget.choices = [
-                (str(my_instance.structure_type_id), my_instance.structure_type.name)
-            ]
+            if my_instance.structure_type:
+                self.fields["structure_type_2"].widget.choices = [
+                    (
+                        str(my_instance.structure_type_id),
+                        my_instance.structure_type.name,
+                    )
+                ]
 
     def clean(self):
         cleaned_data = super().clean()
@@ -243,6 +261,15 @@ class TimerForm(forms.ModelForm):
             or date is not None
         ):
             cleaned_data["timer_type"] = Timer.Type.NONE.value
+
+    def clean_reinforcement_time(self):
+        value = self.cleaned_data.get("reinforcement_time")
+        raw_value = self.data.get("reinforcement_time", "").strip()
+        if raw_value and not re.fullmatch(
+            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", raw_value
+        ):
+            raise ValidationError(_("Enter a 24-hour time in HH:MM format."))
+        return value
 
     def _clean_structure_type(self, cleaned_data: Dict[str, Any]):
         try:
@@ -380,7 +407,7 @@ class TimerForm(forms.ModelForm):
             timer.date = None
 
         # structure type
-        timer.structure_type_id = self.cleaned_data.get("structure_type_2")
+        timer.structure_type_id = self.cleaned_data.get("structure_type_2") or None
         timer.eve_solar_system_id = self.cleaned_data.get("eve_solar_system_2")
 
         if commit:
@@ -484,3 +511,46 @@ class FastTimerForm(TimerForm):
                 params={"name": parsed_timer.solar_system_name},
             )
         return value
+
+
+class ReconForm(TimerForm):
+    """Capture reconnaissance as an unscheduled preliminary timer."""
+
+    recon_fields = (
+        "eve_solar_system_2",
+        "location_details",
+        "structure_type_2",
+        "reinforcement_time",
+        "timer_type",
+        "structure_name",
+        "owner_name",
+        "objective",
+        "details_notes",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in tuple(self.fields):
+            if name not in self.recon_fields:
+                self.fields.pop(name)
+        self.fields["structure_type_2"].required = False
+        self.fields["structure_type_2"].label = _("Structure type")
+        self.fields["structure_type_2"].help_text = _(
+            "Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; "
+            "other or unknown types use ±3 hours."
+        )
+        self.fields["timer_type"].widget = forms.HiddenInput()
+        self.fields["timer_type"].disabled = True
+        self.initial["timer_type"] = Timer.Type.PRELIMINARY
+        self.fields["structure_name"].required = True
+        self.fields["structure_name"].label = format_html(
+            "{} {}", _("Structure name"), self.ASTERISK_HTML
+        )
+        self.fields["objective"].required = False
+        if self.is_new:
+            self.initial["objective"] = Timer.Objective.NEUTRAL
+            self.initial["reinforcement_time"] = dt.time(0, 0)
+        self.order_fields(self.recon_fields)
+
+    def clean_objective(self):
+        return self.cleaned_data.get("objective") or Timer.Objective.NEUTRAL

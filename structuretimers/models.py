@@ -366,6 +366,7 @@ class Timer(models.Model):
         null=True,
         help_text="Date when this timer happens",
     )
+    reinforcement_time = models.TimeField(null=True, blank=True)
     details_image_url = models.CharField(
         max_length=1024,
         default=None,
@@ -453,7 +454,7 @@ class Timer(models.Model):
         help_text="Name of the corporation owning the structure",
     )
     structure_type = models.ForeignKey(
-        EveType, on_delete=models.CASCADE, related_name="+"
+        EveType, on_delete=models.CASCADE, related_name="+", null=True, blank=True
     )
     structure_name = models.CharField(max_length=254, default="", blank=True)
     timer_type = models.CharField(max_length=2, choices=Type.choices, default=Type.NONE)
@@ -505,7 +506,7 @@ class Timer(models.Model):
     @property
     def structure_display_name(self) -> str:
         """Return structure name for display."""
-        type_name = self.structure_type.name
+        type_name = self.structure_type.name if self.structure_type else "(unknown)"
         structure_name = f' "{self.structure_name}"' if self.structure_name else ""
         solar_system = self.eve_solar_system.name if self.eve_solar_system else ""
         location = f" near {self.location_details}" if self.location_details else ""
@@ -582,7 +583,9 @@ class Timer(models.Model):
         self, webhook: DiscordWebhook, content: Optional[str] = None
     ) -> None:
         """Send notification related to this timer to a webhook."""
-        structure_type_name = self.structure_type.name
+        structure_type_name = (
+            self.structure_type.name if self.structure_type else "(unknown)"
+        )
         solar_system_name = self.eve_solar_system.name if self.eve_solar_system else ""
         title = f"{structure_type_name} in {solar_system_name}"
         if self.structure_name:
@@ -609,7 +612,9 @@ class Timer(models.Model):
             f"will elapse at **{elapse_at}**. "
             f"Our stance is: **{self.get_objective_display()}**."
         )
-        structure_icon_url = self.structure_type.icon_url(size=128)
+        structure_icon_url = (
+            self.structure_type.icon_url(size=128) if self.structure_type else None
+        )
         if self.objective == self.Objective.FRIENDLY:
             color = int("0x375a7f", 16)
         elif self.objective == self.Objective.HOSTILE:

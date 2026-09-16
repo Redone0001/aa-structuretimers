@@ -3,6 +3,11 @@
 <h5 for="timerboardTimer">{% translate "Timer" %}</h5>
 <p>{{ object }}</p>
 
+{% if object.reinforcement_time != None %}
+    <h5>{% translate "Reinforcement timer" %}</h5>
+    <p>{{ object.reinforcement_time|time:"H:i" }} UTC</p>
+{% endif %}
+
 <h5 for="timerboardImgScreenshot">{% translate "Image" %}</h5>
 <p>
     {% if object.details_image_url %}

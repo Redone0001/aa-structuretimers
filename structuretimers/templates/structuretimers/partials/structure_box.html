@@ -1,9 +1,13 @@
+{% load i18n %}
 <div class="d-flex flex-row align-items-center">
-  <div class="p-1"><img class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>
+  {% if type_icon_url %}<div class="p-1"><img class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>{% endif %}
   <div class="p-1">
       <div class="d-flex flex-column">
         <div class="p1"><span class="badge text-bg-info p1">{{ type_name }}</span></div>
         <div class="p1"><span class="badge text-bg-{{ timer_style }} p1">{{ timer_name }}</span></div>
+        {% if reinforcement_time != None %}
+            <div class="p1" title="{% translate 'Reinforcement timer' %}">{{ reinforcement_time|time:"H:i" }} UTC</div>
+        {% endif %}
     </div>
   </div>
 </div>

@@ -119,3 +119,12 @@
     background-color: #0d6efd;
     color: #ffffff;
 }
+
+.recon-heatmap-scroll { overflow-x: auto; padding: 3px; }
+.recon-heatmap { display: grid; grid-template-columns: repeat(48, minmax(10px, 1fr)); gap: 2px; min-width: 580px; }
+.recon-heat-cell { height: 54px; border-radius: 3px; border: 1px solid rgba(128,128,128,.25); }
+.recon-heat-cell:focus { outline: 2px solid var(--bs-body-color, #222); outline-offset: 1px; }
+.recon-axis { display: flex; justify-content: space-between; min-width: 580px; font-size: .8rem; margin-top: 6px; }
+.recon-legend { display: inline-block; width: 100px; height: 12px; background: linear-gradient(to right, hsl(210,80%,86%), hsl(210,80%,30%)); }
+#tbl_manage_recon td { vertical-align: middle; }
+#recon-status { margin-bottom: .75rem; }

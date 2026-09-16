@@ -10,6 +10,11 @@
 {% block header_nav_collapse_right %}
     {% if perms.structuretimers.create_timer %}
         <li class="nav-item">
+            <a class="btn btn-primary me-2" href="{% url 'structuretimers:add_recon' %}" title="{% translate 'Add reconnaissance' %}">
+                <i class="fa-solid fa-binoculars"></i>&nbsp;{% translate "Add recon" %}
+            </a>
+        </li>
+        <li class="nav-item">
             <a class="btn btn-primary me-2" href="{% url 'structuretimers:add_fast' %}" title="{% translate 'Quickly add a timer from EVE Online' %}">
                 <i class="fa-solid fa-bolt"></i>&nbsp;{% translate "Quick add timer" %}
             </a>

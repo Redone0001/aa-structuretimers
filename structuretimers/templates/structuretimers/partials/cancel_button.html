@@ -1,6 +1,6 @@
 {% load i18n %}
 <span class="pull-right">
-    <a href="{% url 'structuretimers:timer_list' %}" class="btn btn-secondary">
+    <a href="{% if cancel_url %}{{ cancel_url }}{% else %}{% url 'structuretimers:timer_list' %}{% endif %}" class="btn btn-secondary">
         {% translate "Cancel" %}
     </a>
 </span>

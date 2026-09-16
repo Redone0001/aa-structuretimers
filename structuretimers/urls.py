@@ -8,6 +8,13 @@ app_name = "structuretimers"
 
 urlpatterns = [
     path("", views.TimerListView.as_view(), name="timer_list"),
+    path("recon/data/", views.ManageReconDataView.as_view(), name="recon_data"),
+    path(
+        "recon/<int:pk>/<str:action>/",
+        views.ReconActionView.as_view(),
+        name="recon_action",
+    ),
+    path("add_recon/", views.CreateReconView.as_view(), name="add_recon"),
     path("add/", views.CreateTimerView.as_view(), name="add"),
     path("add_fast/", views.FastCreateTimerView.as_view(), name="add_fast"),
     path("remove/<int:pk>", views.RemoveTimerView.as_view(), name="delete"),
