@@ -94,7 +94,9 @@ class TestCampaigns(NoSocketsTestCase):
                 },
             )
         self.assertEqual(response.status_code, 302)
-        importer.assert_called_once_with(id=region.pk, include_children=True)
+        importer.assert_called_once_with(
+            id=region.pk, include_children=True, enabled_sections=["stargates"]
+        )
         campaign = ReconCampaign.objects.get(name="Region campaign")
         self.assertEqual(campaign.systems.count(), 1)
         with patch(
@@ -164,3 +166,96 @@ class TestCampaigns(NoSocketsTestCase):
             ).status_code,
             403,
         )
+
+    def test_map_groups_regions_and_counts_only_visible_preliminary_timers(self):
+        from eveuniverse.tests.testdata.factories_2 import EveStargateFactory
+
+        same_region = ReconCampaignSystem.objects.create(
+            campaign=self.campaign,
+            solar_system=EveSolarSystemFactory(
+                eve_constellation=self.entry.solar_system.eve_constellation
+            ),
+        )
+        other_region = ReconCampaignSystem.objects.create(
+            campaign=self.campaign, solar_system=EveSolarSystemFactory()
+        )
+        TimerFactory(
+            eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.PRELIMINARY
+        )
+        TimerFactory(
+            eve_solar_system=self.entry.solar_system,
+            timer_type=Timer.Type.PRELIMINARY,
+            is_opsec=True,
+        )
+        TimerFactory(
+            eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.HULL
+        )
+        EveStargateFactory(
+            eve_solar_system=self.entry.solar_system,
+            destination_eve_solar_system=same_region.solar_system,
+        )
+        EveStargateFactory(
+            eve_solar_system=same_region.solar_system,
+            destination_eve_solar_system=self.entry.solar_system,
+        )
+        EveStargateFactory(
+            eve_solar_system=self.entry.solar_system,
+            destination_eve_solar_system=other_region.solar_system,
+        )
+        response = self.client.get(self.url)
+        regions = response.context["map_regions"]
+        self.assertEqual(len(regions), 2)
+        region = next(r for r in regions if len(r["systems"]) == 2)
+        node = next(s for s in region["systems"] if s["entryId"] == self.entry.pk)
+        self.assertEqual(node["count"], 1)
+        self.assertEqual(node["status"], "available")
+        self.assertNotIn("timers", node)
+        self.assertEqual(
+            region["links"],
+            [sorted([self.entry.solar_system_id, same_region.solar_system_id])],
+        )
+        self.assertEqual(
+            next(r for r in regions if len(r["systems"]) == 1)["links"], []
+        )
+        self.act("reserve")
+        node = next(
+            s
+            for r in self.client.get(self.url).context["map_regions"]
+            for s in r["systems"]
+            if s["entryId"] == self.entry.pk
+        )
+        self.assertEqual(node["status"], "reserved")
+        self.act("complete")
+        node = next(
+            s
+            for r in self.client.get(self.url).context["map_regions"]
+            for s in r["systems"]
+            if s["entryId"] == self.entry.pk
+        )
+        self.assertEqual(node["status"], "completed")
+
+    def test_loading_gates_requires_coordinator_and_keeps_campaign_progress(self):
+        self.assertEqual(
+            self.client.post(self.url, {"action": "load_gates"}).status_code, 403
+        )
+        self.coordinator()
+        with patch(
+            "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi"
+        ) as importer:
+            self.assertEqual(
+                self.client.post(self.url, {"action": "load_gates"}).status_code, 302
+            )
+        importer.assert_called_once_with(
+            id=self.entry.solar_system_id,
+            include_children=True,
+            enabled_sections=["stargates"],
+        )
+        self.entry.refresh_from_db()
+        self.assertIsNone(self.entry.reserved_by)
+        self.assertIsNone(self.entry.completed_at)
+        with patch(
+            "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi",
+            side_effect=RuntimeError(),
+        ):
+            response = self.client.post(self.url, {"action": "load_gates"}, follow=True)
+        self.assertContains(response, "Gate import was interrupted")

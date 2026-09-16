@@ -1,0 +1,16 @@
+#campaign-view-controls[hidden], #campaign-map-view[hidden], #campaign-list-view[hidden] { display: none !important; }
+.campaign-map-scroll { overflow: auto; max-height: 72vh; border: 1px solid var(--bs-border-color, #adb5bd); border-radius: .4rem; background: var(--bs-body-bg, #fff); }
+.campaign-map-svg { display: block; }
+.campaign-map-link { stroke: #8995a5; stroke-width: 1.5; }
+.campaign-map-node { cursor: pointer; }
+.campaign-map-node rect { fill: #e9ecef; stroke: #687582; stroke-width: 1.5; }
+.campaign-map-node[data-status="reserved"] rect { fill: #ffe69c; stroke: #997404; }
+.campaign-map-node[data-status="completed"] rect { fill: #a3cfbb; stroke: #146c43; }
+.campaign-map-node text { fill: #17212b; font: 13px sans-serif; pointer-events: none; }
+.campaign-map-node .map-name { font-weight: 700; }
+.campaign-map-node .map-count { font-size: 12px; }
+.campaign-map-node .map-check { visibility: hidden; fill: #084298; font-weight: 700; }
+.campaign-map-node[aria-checked="true"] rect { stroke: #0d6efd; stroke-width: 4; }
+.campaign-map-node[aria-checked="true"] .map-check { visibility: visible; }
+.campaign-map-node:focus { outline: none; }
+.campaign-map-node:focus rect { stroke: #0d6efd; stroke-width: 4; stroke-dasharray: 5 3; }

@@ -261,3 +261,17 @@ campaign. Completed systems are read-only within the campaign until reopened.
 
 After upgrading, run `python manage.py migrate` to install the campaign tables and
 permission, then assign the coordinator permission to the appropriate group.
+
+
+Campaigns also offer a **Map view** with one schematic per region. Stargate
+connections drive the layout; physical distance does not. Each selectable system
+shows its name and visible preliminary-timer count, with reservation/completion
+colors. Selections are shared with the list and use the same bulk actions.
+Use the zoom controls and scroll within each map to inspect larger regions.
+The chosen view is remembered in the current browser tab.
+
+New campaigns import gate connections. For existing campaigns, coordinators can
+use **Load / refresh gate connections** in Map view. Missing gate data is shown
+explicitly; disconnected campaign systems remain selectable. Maps include only
+campaign systems and connections between them within a region, and do not copy
+Dotlan's manually arranged coordinates.

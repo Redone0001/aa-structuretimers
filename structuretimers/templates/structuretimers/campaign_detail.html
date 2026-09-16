@@ -5,6 +5,13 @@
 <h1>{{ campaign.name }}</h1>
 <p><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
 <p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Refresh this page to see the latest reservations and progress.' %}</p>
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3" id="campaign-view-controls" hidden>
+<div class="btn-group" role="group" aria-label="{% translate 'Campaign view' %}">
+<button type="button" class="btn btn-outline-primary" data-campaign-view="list" aria-pressed="true">{% translate 'List view' %}</button>
+<button type="button" class="btn btn-outline-primary" data-campaign-view="map" aria-pressed="false">{% translate 'Map view' %}</button>
+</div>
+<span aria-live="polite"><span id="campaign-selected-count">0</span> {% translate 'systems selected' %}</span>
+</div>
 <form id="campaign-bulk" method="post">{% csrf_token %}
 <div class="d-flex flex-wrap gap-2 mb-3">
 <button class="btn btn-primary" name="action" value="reserve">{% translate 'Reserve selected' %}</button>
@@ -12,6 +19,7 @@
 <button class="btn btn-success" name="action" value="complete">{% translate 'Mark selected complete' %}</button>
 {% if perms.structuretimers.recon_coordinator %}<button class="btn btn-warning" name="action" value="reopen">{% translate 'Reopen selected' %}</button>{% endif %}
 </div></form>
+<div id="campaign-list-view">
 {% regroup entries by solar_system.eve_constellation as constellations %}
 {% for constellation in constellations %}
 <section class="mb-4" data-constellation-group aria-labelledby="constellation-label-{{ constellation.grouper.pk }}">
@@ -46,7 +54,37 @@
 {% endfor %}
 </section>
 {% endfor %}
+</div>
+<div id="campaign-map-view" hidden>
+<p class="small text-muted">{% translate 'Select systems by clicking them or pressing Space. Each box shows the system name and visible preliminary timer count. Maps arrange campaign systems by stargate connections within each region, not physical distance.' %}</p>
+<div class="d-flex gap-3 flex-wrap mb-3 small">
+<span><span class="badge text-bg-secondary">{% translate 'Available' %}</span></span>
+<span><span class="badge text-bg-warning">{% translate 'Reserved' %}</span></span>
+<span><span class="badge text-bg-success">{% translate 'Completed' %}</span></span>
+<span>{% translate 'Blue outline and check mark: selected' %}</span>
+</div>
+{% if perms.structuretimers.recon_coordinator %}
+<form method="post" class="mb-3">{% csrf_token %}
+<button class="btn btn-sm btn-outline-secondary" name="action" value="load_gates">{% translate 'Load / refresh gate connections' %}</button>
+<span class="small text-muted">{% translate 'Imports gate connections for campaign systems. Large campaigns may take a few minutes.' %}</span>
+</form>
+{% endif %}
+<div id="campaign-region-maps"
+ data-count-label="{% translate 'Preliminary timers' %}"
+ data-available-label="{% translate 'Available' %}"
+ data-reserved-label="{% translate 'Reserved' %}"
+ data-completed-label="{% translate 'Completed' %}"
+ data-zoom-in-label="{% translate 'Zoom in' %}"
+ data-zoom-out-label="{% translate 'Zoom out' %}"
+ data-fit-label="{% translate 'Fit map' %}"
+ data-no-links-label="{% translate 'No stargate links are available for these campaign systems.' %}"></div>
+</div>
+{{ map_regions|json_script:'campaign-map-data' }}
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'structuretimers/css/campaign_map.css' %}">
 {% endblock %}
 {% block extra_javascript %}
 <script src="{% static 'structuretimers/js/campaign_selection.js' %}" defer></script>
+<script src="{% static 'structuretimers/js/campaign_map.js' %}" defer></script>
 {% endblock %}

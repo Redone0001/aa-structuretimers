@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from eveuniverse.models import EveRegion, EveSolarSystem
+from eveuniverse.models import EveRegion, EveSolarSystem, EveStargate
 
 from .forms import ReconForm
 from .models import ReconCampaign, ReconCampaignSystem, Timer
@@ -88,7 +88,9 @@ class CampaignCreateView(CampaignAccess, View):
             try:
                 for region in form.cleaned_data["regions"]:
                     EveRegion.objects.update_or_create_esi(
-                        id=region.pk, include_children=True
+                        id=region.pk,
+                        include_children=True,
+                        enabled_sections=[EveSolarSystem.Section.STARGATES],
                     )
                     systems.update(
                         {
@@ -98,9 +100,20 @@ class CampaignCreateView(CampaignAccess, View):
                             )
                         }
                     )
+                region_ids = {region.pk for region in form.cleaned_data["regions"]}
+                for system in systems.values():
+                    if system.eve_constellation.eve_region_id not in region_ids:
+                        EveSolarSystem.objects.update_or_create_esi(
+                            id=system.pk,
+                            include_children=True,
+                            enabled_sections=[EveSolarSystem.Section.STARGATES],
+                        )
             except Exception:  # An unavailable ESI must not create a partial campaign.
                 form.add_error(
-                    "regions", _("Could not import the regions. Please try again.")
+                    "regions",
+                    _(
+                        "Could not import systems and gate connections. Please try again."
+                    ),
                 )
                 return self.render_form(request, form)
             if not systems:
@@ -127,12 +140,53 @@ def can_work(user, entry):
     )
 
 
+def campaign_map_data(entries):
+    """Use the same visibility-filtered recon as the list, without timer details."""
+    regions = {}
+    system_regions = {}
+    for entry in entries:
+        system = entry.solar_system
+        region = system.eve_constellation.eve_region
+        group = regions.setdefault(
+            region.pk,
+            {"id": region.pk, "name": region.name, "systems": [], "links": []},
+        )
+        system_regions[system.pk] = region.pk
+        group["systems"].append(
+            {
+                "id": system.pk,
+                "entryId": entry.pk,
+                "name": system.name,
+                "x": system.position_x,
+                "z": system.position_z,
+                "count": len(entry.timers),
+                "status": (
+                    "completed"
+                    if entry.completed_at
+                    else "reserved" if entry.reserved_by_id else "available"
+                ),
+            }
+        )
+    links = set()
+    for source, target in EveStargate.objects.filter(
+        eve_solar_system_id__in=system_regions,
+        destination_eve_solar_system_id__in=system_regions,
+    ).values_list("eve_solar_system_id", "destination_eve_solar_system_id"):
+        if source != target and system_regions[source] == system_regions[target]:
+            links.add(tuple(sorted((source, target))))
+    for source, target in sorted(links):
+        regions[system_regions[source]]["links"].append([source, target])
+    return sorted(regions.values(), key=lambda region: region["name"])
+
+
 class CampaignDetailView(CampaignAccess, View):
     def get(self, request, pk):
         campaign = get_object_or_404(ReconCampaign, pk=pk)
         entries = list(
             campaign.systems.select_related(
-                "solar_system__eve_constellation", "reserved_by", "completed_by"
+                "solar_system__eve_constellation__eve_region",
+                "reserved_by",
+                "completed_by",
             ).order_by(
                 "solar_system__eve_constellation__name",
                 "solar_system__eve_constellation_id",
@@ -158,6 +212,7 @@ class CampaignDetailView(CampaignAccess, View):
             {
                 "campaign": campaign,
                 "entries": entries,
+                "map_regions": campaign_map_data(entries),
                 "completed": sum(bool(e.completed_at) for e in entries),
                 "title": campaign.name,
             },
@@ -165,6 +220,29 @@ class CampaignDetailView(CampaignAccess, View):
 
     def post(self, request, pk):
         action = request.POST.get("action")
+        if action == "load_gates":
+            if not request.user.has_perm("structuretimers.recon_coordinator"):
+                raise PermissionDenied()
+            campaign = get_object_or_404(ReconCampaign, pk=pk)
+            try:
+                for system_id in campaign.systems.values_list(
+                    "solar_system_id", flat=True
+                ):
+                    EveSolarSystem.objects.update_or_create_esi(
+                        id=system_id,
+                        include_children=True,
+                        enabled_sections=[EveSolarSystem.Section.STARGATES],
+                    )
+            except Exception:
+                messages.error(
+                    request,
+                    _(
+                        "Gate import was interrupted. Some connections may be missing; retry to finish loading."
+                    ),
+                )
+            else:
+                messages.success(request, _("Gate connections updated."))
+            return redirect(campaign)
         if action not in {"reserve", "release", "complete", "reopen"}:
             return HttpResponseBadRequest("Unknown action")
         with transaction.atomic():
