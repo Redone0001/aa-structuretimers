@@ -237,3 +237,27 @@ The following management commands are available:
 
 - **structuretimers_load_eve**: Preload all eve objects required for this app to function
 - **structuretimers_migrate_timers**: Migrate pending timers from Alliance Auth's Structure Timers app
+
+
+### Recon campaigns
+
+The **Recon campaigns** navigation link lists active and finished campaigns.
+Grant `structuretimers.recon_coordinator` and `structuretimers.basic_access`
+to a coordinator user or group in Alliance Auth to enable campaign creation and
+coordination. Coordinators enter system names (commas or new lines) and/or select
+regions. Region systems are imported from ESI; overlapping selections are deduplicated.
+An import failure leaves no partial campaign.
+
+Users with basic access can reserve multiple systems, release their reservations,
+and mark their reserved systems complete. Within reserved systems they can add,
+edit, refresh, or delete visible preliminary timers, including another scout's
+recon. Existing OPSEC visibility is respected. Coordinators can work on any campaign
+system and see reservation identities. Everyone sees reservation and completion
+status on the campaign page; refresh to load changes made by other users.
+
+A campaign finishes automatically once every system is marked complete, including
+systems with no structures. Coordinators may reopen systems, which reactivates the
+campaign. Completed systems are read-only within the campaign until reopened.
+
+After upgrading, run `python manage.py migrate` to install the campaign tables and
+permission, then assign the coordinator permission to the appropriate group.

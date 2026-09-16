@@ -1,0 +1,40 @@
+{% extends 'structuretimers/base.html' %}
+{% load i18n %}
+{% block content %}
+<a href="{% url 'structuretimers:campaign_list' %}">{% translate 'All campaigns' %}</a>
+<h1>{{ campaign.name }}</h1>
+<p><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
+<p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Refresh this page to see the latest reservations and progress.' %}</p>
+<form id="campaign-bulk" method="post">{% csrf_token %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+<button class="btn btn-primary" name="action" value="reserve">{% translate 'Reserve selected' %}</button>
+<button class="btn btn-secondary" name="action" value="release">{% translate 'Release selected' %}</button>
+<button class="btn btn-success" name="action" value="complete">{% translate 'Mark selected complete' %}</button>
+{% if perms.structuretimers.recon_coordinator %}<button class="btn btn-warning" name="action" value="reopen">{% translate 'Reopen selected' %}</button>{% endif %}
+</div></form>
+{% for entry in entries %}
+<section class="card mb-3"><div class="card-body">
+<div class="d-flex flex-wrap justify-content-between gap-2">
+<h2 class="h5"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h2>
+<div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
+{% if entry.reserved_by_id == request.user.pk %} {% translate 'By you' %}{% elif perms.structuretimers.recon_coordinator and entry.reserved_by %} {{ entry.reserved_by }}{% endif %}
+{% if perms.structuretimers.recon_coordinator and entry.completed_at %} · {{ entry.completed_by }} · {{ entry.completed_at|date:'Y-m-d H:i' }} UTC{% endif %}</div>
+</div>
+{% if entry.can_work %}<a class="btn btn-sm btn-primary my-2" href="{% url 'structuretimers:campaign_recon_add' campaign.pk entry.pk %}">{% translate 'Add recon' %}</a>{% endif %}
+{% for timer in entry.timers %}
+<div class="border-top py-3">
+<strong>{{ timer.structure_name }}</strong> · {{ timer.structure_type|default:'—' }} · {{ timer.owner_name }}
+<div class="small text-muted">{% translate 'Reinforcement' %}: {{ timer.reinforcement_time|time:'H:i'|default:'—' }} UTC · {% translate 'Last updated' %}: {{ timer.last_updated_at|date:'Y-m-d H:i' }} UTC</div>
+<details class="my-2"><summary class="text-info">{% translate 'View' %}</summary><p>{{ timer.location_details }}<br>{{ timer.details_notes|linebreaksbr }}</p></details>
+{% if entry.can_work %}
+<form class="d-flex gap-1" method="post" action="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% csrf_token %}
+<button class="btn btn-sm btn-success" name="action" value="refresh">{% translate 'Still there' %}</button>
+<button class="btn btn-sm btn-danger" name="action" value="destroy" onclick="return confirm(this.dataset.confirm)" data-confirm="{% translate 'Mark this structure as destroyed and remove its recon timer?' %}">{% translate 'Destroyed' %}</button>
+<a class="btn btn-sm btn-warning" href="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% translate 'Edit' %}</a>
+</form>
+{% endif %}
+</div>
+{% empty %}<p class="text-muted mb-0">{% translate 'No visible preliminary timers in this system.' %}</p>{% endfor %}
+</div></section>
+{% endfor %}
+{% endblock %}

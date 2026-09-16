@@ -2,11 +2,32 @@
 
 from django.urls import path
 
-from . import views
+from . import views, campaigns
 
 app_name = "structuretimers"
 
 urlpatterns = [
+    path("campaigns/", campaigns.CampaignListView.as_view(), name="campaign_list"),
+    path(
+        "campaigns/create/",
+        campaigns.CampaignCreateView.as_view(),
+        name="campaign_create",
+    ),
+    path(
+        "campaigns/<int:pk>/",
+        campaigns.CampaignDetailView.as_view(),
+        name="campaign_detail",
+    ),
+    path(
+        "campaigns/<int:pk>/systems/<int:entry_pk>/add/",
+        campaigns.CampaignReconView.as_view(),
+        name="campaign_recon_add",
+    ),
+    path(
+        "campaigns/<int:pk>/systems/<int:entry_pk>/timers/<int:timer_pk>/",
+        campaigns.CampaignReconView.as_view(),
+        name="campaign_recon_edit",
+    ),
     path("", views.TimerListView.as_view(), name="timer_list"),
     path("recon/data/", views.ManageReconDataView.as_view(), name="recon_data"),
     path(

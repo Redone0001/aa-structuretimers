@@ -78,6 +78,7 @@ class General(models.Model):
         default_permissions = ()
         permissions = (
             ("basic_access", "Can access this app and see timers"),
+            ("recon_coordinator", "Can create and coordinate recon campaigns"),
             ("create_timer", "Can create new timers and edit own timers"),
             ("manage_timer", "Can edit and delete any timer"),
             ("opsec_access", "Can create and see opsec timers"),
@@ -1108,3 +1109,46 @@ class DistancesFromStaging(models.Model):
             self.jumps = self.staging_system.eve_solar_system.jumps_to(
                 self.timer.eve_solar_system
             )
+
+
+class ReconCampaign(models.Model):
+    name = models.CharField(max_length=200)
+    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def get_absolute_url(self):
+        return reverse("structuretimers:campaign_detail", args=[self.pk])
+
+
+class ReconCampaignSystem(models.Model):
+    campaign = models.ForeignKey(
+        ReconCampaign, related_name="systems", on_delete=models.CASCADE
+    )
+    solar_system = models.ForeignKey(EveSolarSystem, on_delete=models.PROTECT)
+    reserved_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recon_reservations",
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="completed_recon_systems",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["campaign", "solar_system"], name="unique_recon_campaign_system"
+            )
+        ]
+        ordering = ["solar_system__name"]
