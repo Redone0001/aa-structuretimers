@@ -135,7 +135,11 @@ class CampaignDetailView(CampaignAccess, View):
         campaign = get_object_or_404(ReconCampaign, pk=pk)
         entries = list(
             campaign.systems.select_related(
-                "solar_system", "reserved_by", "completed_by"
+                "solar_system__eve_constellation", "reserved_by", "completed_by"
+            ).order_by(
+                "solar_system__eve_constellation__name",
+                "solar_system__eve_constellation_id",
+                "solar_system__name",
             )
         )
         timers = defaultdict(list)

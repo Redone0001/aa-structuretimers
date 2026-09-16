@@ -1,5 +1,5 @@
 {% extends 'structuretimers/base.html' %}
-{% load i18n %}
+{% load i18n static %}
 {% block content %}
 <a href="{% url 'structuretimers:campaign_list' %}">{% translate 'All campaigns' %}</a>
 <h1>{{ campaign.name }}</h1>
@@ -12,10 +12,18 @@
 <button class="btn btn-success" name="action" value="complete">{% translate 'Mark selected complete' %}</button>
 {% if perms.structuretimers.recon_coordinator %}<button class="btn btn-warning" name="action" value="reopen">{% translate 'Reopen selected' %}</button>{% endif %}
 </div></form>
-{% for entry in entries %}
+{% regroup entries by solar_system.eve_constellation as constellations %}
+{% for constellation in constellations %}
+<section class="mb-4" data-constellation-group aria-labelledby="constellation-label-{{ constellation.grouper.pk }}">
+<h2 class="h4">
+<input class="form-check-input me-2" type="checkbox" data-constellation-select id="constellation-{{ constellation.grouper.pk }}">
+<label id="constellation-label-{{ constellation.grouper.pk }}" for="constellation-{{ constellation.grouper.pk }}">{{ constellation.grouper.name }}</label>
+<span class="small text-muted">({{ constellation.list|length }} {% translate 'systems' %})</span>
+</h2>
+{% for entry in constellation.list %}
 <section class="card mb-3"><div class="card-body">
 <div class="d-flex flex-wrap justify-content-between gap-2">
-<h2 class="h5"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h2>
+<h3 class="h5"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
 <div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
 {% if entry.reserved_by_id == request.user.pk %} {% translate 'By you' %}{% elif perms.structuretimers.recon_coordinator and entry.reserved_by %} {{ entry.reserved_by }}{% endif %}
 {% if perms.structuretimers.recon_coordinator and entry.completed_at %} · {{ entry.completed_by }} · {{ entry.completed_at|date:'Y-m-d H:i' }} UTC{% endif %}</div>
@@ -37,4 +45,9 @@
 {% empty %}<p class="text-muted mb-0">{% translate 'No visible preliminary timers in this system.' %}</p>{% endfor %}
 </div></section>
 {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}
+{% block extra_javascript %}
+<script src="{% static 'structuretimers/js/campaign_selection.js' %}" defer></script>
 {% endblock %}
