@@ -26,6 +26,11 @@
                 {% translate "Manage recon" %}
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
+                {% translate "Recon campaigns" %}
+            </button>
+        </li>
         <li role="presentation" class="nav-item ms-auto">
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -54,6 +59,9 @@
             <div class="tab-content">
                 <div role="tabpanel" class="tab-pane" id="manage-recon">
                     {% include 'structuretimers/partials/manage_recon.html' %}
+                </div>
+                <div role="tabpanel" class="tab-pane" id="recon-campaigns">
+                    {% include 'structuretimers/partials/campaign_list.html' %}
                 </div>
                 <!-- targets tab -->
                 <div role="tabpanel" class="tab-pane" id="preliminary">

@@ -44,7 +44,7 @@ from structuretimers.app_settings import (
 )
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
-from structuretimers.models import DistancesFromStaging, StagingSystem, Timer
+from structuretimers.models import DistancesFromStaging, ReconCampaign, StagingSystem, Timer
 from structuretimers.selectors import supported_eve_types
 
 logger = get_extension_logger(__name__)
@@ -107,6 +107,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
                 "tab": self.request.GET.get("tab", "current"),
+                "campaigns": ReconCampaign.objects.all(),
                 "recon_translations": {
                     "noMatches": _("No matching recon"),
                     "stale": _("Older than 30 days"),

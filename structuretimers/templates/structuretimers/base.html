@@ -8,7 +8,6 @@
 {% block content %}{% endblock %}
 
 {% block header_nav_collapse_right %}
-    <li class="nav-item"><a class="btn btn-outline-info me-2" href="{% url 'structuretimers:campaign_list' %}">{% translate "Recon campaigns" %}</a></li>
     {% if perms.structuretimers.create_timer %}
         <li class="nav-item">
             <a class="btn btn-primary me-2" href="{% url 'structuretimers:add_recon' %}" title="{% translate 'Add reconnaissance' %}">

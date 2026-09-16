@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.views import View
@@ -61,11 +62,7 @@ class CampaignAccess(LoginRequiredMixin, PermissionRequiredMixin):
 
 class CampaignListView(CampaignAccess, View):
     def get(self, request):
-        return render(
-            request,
-            "structuretimers/campaign_list.html",
-            {"campaigns": ReconCampaign.objects.all(), "title": _("Recon campaigns")},
-        )
+        return redirect(reverse("structuretimers:timer_list") + "?tab=recon-campaigns")
 
 
 class CampaignCreateView(CampaignAccess, View):

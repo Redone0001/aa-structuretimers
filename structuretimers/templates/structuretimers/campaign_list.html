@@ -1,11 +1,4 @@
 {% extends 'structuretimers/base.html' %}
-{% load i18n %}
 {% block content %}
-<h1>{% translate 'Recon campaigns' %}</h1>
-{% if perms.structuretimers.recon_coordinator %}<a class="btn btn-primary mb-3" href="{% url 'structuretimers:campaign_create' %}">{% translate 'Create campaign' %}</a>{% endif %}
-<div class="list-group">
-{% for campaign in campaigns %}
-<a class="list-group-item list-group-item-action d-flex justify-content-between" href="{{ campaign.get_absolute_url }}"><span>{{ campaign.name }}</span><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span></a>
-{% empty %}<p>{% translate 'No recon campaigns yet.' %}</p>{% endfor %}
-</div>
+{% include 'structuretimers/partials/campaign_list.html' %}
 {% endblock %}

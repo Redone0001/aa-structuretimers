@@ -21,14 +21,13 @@
 <span class="small text-muted">({{ constellation.list|length }} {% translate 'systems' %})</span>
 </h2>
 {% for entry in constellation.list %}
-<section class="card mb-3"><div class="card-body">
+<section class="card mb-2"><div class="card-body py-2">
 <div class="d-flex flex-wrap justify-content-between gap-2">
-<h3 class="h5"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
+<h3 class="h5 mb-0"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
 <div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
 {% if entry.reserved_by_id == request.user.pk %} {% translate 'By you' %}{% elif perms.structuretimers.recon_coordinator and entry.reserved_by %} {{ entry.reserved_by }}{% endif %}
 {% if perms.structuretimers.recon_coordinator and entry.completed_at %} · {{ entry.completed_by }} · {{ entry.completed_at|date:'Y-m-d H:i' }} UTC{% endif %}</div>
 </div>
-{% if entry.can_work %}<a class="btn btn-sm btn-primary my-2" href="{% url 'structuretimers:campaign_recon_add' campaign.pk entry.pk %}">{% translate 'Add recon' %}</a>{% endif %}
 {% for timer in entry.timers %}
 <div class="border-top py-3">
 <strong>{{ timer.structure_name }}</strong> · {{ timer.structure_type|default:'—' }} · {{ timer.owner_name }}
@@ -42,7 +41,7 @@
 </form>
 {% endif %}
 </div>
-{% empty %}<p class="text-muted mb-0">{% translate 'No visible preliminary timers in this system.' %}</p>{% endfor %}
+{% endfor %}
 </div></section>
 {% endfor %}
 </section>
