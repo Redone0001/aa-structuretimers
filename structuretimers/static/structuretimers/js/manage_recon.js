@@ -2,6 +2,9 @@ $(document).ready(function () {
     const root = document.getElementById('recon-dashboard');
     if (!root) return;
     const exported = document.getElementById('dataExport');
+    const messages = JSON.parse(document.getElementById('recon-translations').textContent);
+    const formatMessage = (template, values) => template.replace(/%\((\w+)\)s/g, (_, key) => values[key]);
+    const number = value => Number(value.toFixed(2)).toLocaleString(document.documentElement.lang || undefined);
     const status = $('#recon-status');
     const filters = () => ({age: $('#recon-age').val(), from: $('#recon-from').val(), to: $('#recon-to').val()});
     const stateKey = 'structuretimers-recon-freshness';
@@ -21,28 +24,28 @@ $(document).ready(function () {
         const summary = ReconDistribution.summary(rows);
         $('#recon-count').text(summary.count);
         for (const [id, date] of [['oldest', summary.oldest], ['latest', summary.latest]]) {
-            $('#recon-' + id).text(date === null ? 'No matching recon' : moment(date).utc().format('YYYY-MM-DD HH:mm') + ' UTC');
+            $('#recon-' + id).text(date === null ? messages.noMatches : moment(date).utc().format('YYYY-MM-DD HH:mm') + ' UTC');
             $('#recon-' + id + '-age').text(date === null ? '' : moment(date).fromNow());
         }
         $('#recon-oldest').removeClass('text-danger text-success').addClass(
             summary.oldest === null ? '' : summary.stale ? 'text-danger' : 'text-success');
-        if (summary.stale) $('#recon-oldest-age').append(' · Older than 30 days');
+        if (summary.stale) $('#recon-oldest-age').append(' · ' + messages.stale);
         const {bins, missing} = ReconDistribution.distribution(rows);
         const peak = Math.max(...bins);
         const heatmap = $('#recon-heatmap').empty();
         bins.forEach((count, i) => {
-            const label = timeLabel(i * 30) + '–' + timeLabel((i + 1) * 30) + ' UTC: ' +
-                Number(count.toFixed(2)) + ' overlapping timers (average over this half-hour)';
+            const label = formatMessage(messages.overlap, {start: timeLabel(i * 30), end: timeLabel((i + 1) * 30), count: number(count)});
             $('<div>', {class: 'recon-heat-cell', tabindex: 0, role: 'img', title: label, 'aria-label': label})
                 .css('background-color', count ? `hsl(210, 80%, ${86 - 56 * count / peak}%)` : 'var(--bs-secondary-bg, #e9ecef)')
                 .appendTo(heatmap);
         });
-        $('#recon-peak').text('Peak overlap: ' + Number(peak.toFixed(2)));
-        $('#recon-missing').text(missing + ' without a reinforcement time · excluded from scale');
+        $('#recon-peak').text(formatMessage(messages.peak, {count: number(peak)}));
+        $('#recon-missing').text(formatMessage(messages.missing, {count: number(missing)}));
     }
     const table = $('#tbl_manage_recon').DataTable({
+        language: messages.table,
         ajax: {url: root.dataset.url, dataSrc: '', cache: false,
-            error: () => status.addClass('text-danger').text('Could not load recon. Reload the page to try again.')},
+            error: () => status.addClass('text-danger').text(messages.loadError)},
         columns: [
             {data: 'location'}, {data: 'structure_details'}, {data: 'name_objective'},
             {data: 'owner'},
@@ -53,12 +56,12 @@ $(document).ready(function () {
             {data: 'objective_name', visible: false}
         ],
         order: [[4, 'asc']], pageLength: 25,
-        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, messages.all]],
         drawCallback: function () { updateDashboard(this.api().rows({search: 'applied'}).data().toArray()); },
         initComplete: function () {
             initializeMultiSelectFilters(this.api(), {columns: [
-                {idx: 6, title: 'Solar System'}, {idx: 7, title: 'Region'},
-                {idx: 8, title: 'Structure Type'}, {idx: 9, title: 'Owner'}, {idx: 10, title: 'Objective'}
+                {idx: 6, title: messages.solarSystem}, {idx: 7, title: messages.region},
+                {idx: 8, title: messages.structureType}, {idx: 9, title: messages.owner}, {idx: 10, title: messages.objective}
             ]}, exported.getAttribute('data-titleFilterBy'), exported.getAttribute('data-titleAll'),
             exported.getAttribute('data-isNightMode') === 'true');
         }
@@ -77,9 +80,9 @@ $(document).ready(function () {
     $('#tbl_manage_recon').on('click', '.recon-action', async function () {
         const button = $(this);
         const destroy = button.attr('data-destroy') === 'true';
-        if (destroy && !window.confirm('Mark this structure as destroyed and remove its recon timer?')) return;
+        if (destroy && !window.confirm(messages.confirmDestroy)) return;
         const buttons = button.closest('tr').find('.recon-action').prop('disabled', true);
-        status.removeClass('text-danger').text('Saving…');
+        status.removeClass('text-danger').text(messages.saving);
         try {
             const response = await fetch(button.attr('data-url'), {
                 method: 'POST', credentials: 'same-origin',
@@ -87,11 +90,11 @@ $(document).ready(function () {
             });
             if (!response.ok) throw new Error('Request failed');
             await response.json();
-            status.text(destroy ? 'Recon removed.' : 'Recon refreshed to today.');
+            status.text(destroy ? messages.removed : messages.refreshed);
             table.ajax.reload(null, false);
             $('#tbl_preliminary').DataTable().ajax.reload(null, false);
         } catch (_) {
-            status.addClass('text-danger').text('Could not save this change. Reload the page and try again.');
+            status.addClass('text-danger').text(messages.saveError);
         } finally { buttons.prop('disabled', false); }
     });
     $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (event) {

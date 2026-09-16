@@ -546,6 +546,19 @@ class ReconForm(TimerForm):
         self.fields["structure_name"].label = format_html(
             "{} {}", _("Structure name"), self.ASTERISK_HTML
         )
+        self.fields["location_details"].label = _("Location details")
+        self.fields["location_details"].help_text = _(
+            "Nearby planet, moon, gate, or other location information."
+        )
+        self.fields["owner_name"].label = _("Owner name")
+        self.fields["owner_name"].help_text = _(
+            "Name of the corporation owning the structure."
+        )
+        self.fields["objective"].label = _("Objective")
+        self.fields["details_notes"].label = _("Details / notes")
+        self.fields["details_notes"].help_text = _(
+            "Additional information about this recon."
+        )
         self.fields["objective"].required = False
         if self.is_new:
             self.initial["objective"] = Timer.Objective.NEUTRAL

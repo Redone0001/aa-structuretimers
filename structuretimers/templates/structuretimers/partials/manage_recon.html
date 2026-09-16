@@ -1,4 +1,5 @@
 {% load i18n %}
+{{ recon_translations|json_script:"recon-translations" }}
 <div id="recon-dashboard" data-url="{% url 'structuretimers:recon_data' %}">
     <div class="row g-3 mb-4" aria-live="polite">
         <div class="col-md-4"><div class="card h-100"><div class="card-body">

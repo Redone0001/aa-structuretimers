@@ -3,194 +3,462 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: aa-structuretimers\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-18 04:51+0200\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2026-09-16 19:32+0200\n"
+"PO-Revision-Date: 2026-09-16 00:00+0000\n"
+"Last-Translator: Codex\n"
+"Language-Team: zh_Hans\n"
+"Language: zh_Hans\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: forms.py:33
+#: forms.py:54
 msgid ""
-"This field is calculated from the current time. Alternatively, you can enter "
-"the date above in the `Date` field."
+"Paste the EVE timer with 'System - Structure name' on the first line and "
+"either 'Reinforced until YYYY.MM.DD HH:MM:SS' or 'Anchoring until YYYY.MM.DD"
+" HH:MM:SS' below it."
 msgstr ""
 
-#: forms.py:61
+#: forms.py:64
+msgid "The solar system and structure name cannot be empty."
+msgstr ""
+
+#: forms.py:73
+msgid ""
+"Could not find a supported 'Reinforced until' or 'Anchoring until' timer in "
+"the text."
+msgstr ""
+
+#: forms.py:83
+msgid "The timer date or time is invalid."
+msgstr ""
+
+#: forms.py:100
+msgid ""
+"This field is calculated from the current time. Alternatively, you can enter"
+" the date above in the `Date` field."
+msgstr ""
+
+#: forms.py:105 templates/structuretimers/timer_list.html:119 views.py:133
+msgid "Solar System"
+msgstr "恒星系"
+
+#: forms.py:110 templates/structuretimers/timer_list.html:121 views.py:135
+msgid "Structure Type"
+msgstr "建筑类型"
+
+#: forms.py:128
 msgid "Date"
 msgstr ""
 
-#: forms.py:67
+#: forms.py:134
 msgid ""
 "The date when the timer happens. Alternatively, you can enter the remaining "
 "time below."
 msgstr ""
 
-#: forms.py:73
+#: forms.py:140
 msgid "Days Remaining"
 msgstr ""
 
-#: forms.py:80
+#: forms.py:147
 msgid "Hours Remaining"
 msgstr ""
 
-#: forms.py:87
+#: forms.py:154
 msgid "Minutes Remaining"
 msgstr ""
 
-#: forms.py:94
+#: forms.py:161 templates/structuretimers/partials/structure_box.html:9
+#: templates/structuretimers/timer_detail.html:7
+msgid "Reinforcement timer"
+msgstr "增强模式时间"
+
+#: forms.py:170
+msgid "24-hour EVE time (UTC), HH:MM."
+msgstr "24 小时制 EVE 时间（UTC），HH:MM。"
+
+#: forms.py:174
 msgid "Paste a public URL to an image into this field."
 msgstr ""
 
-#: forms.py:172
+#: forms.py:271
+msgid "Enter a 24-hour time in HH:MM format."
+msgstr "请输入 HH:MM 格式的 24 小时制时间。"
+
+#: forms.py:279
+msgid "Invalid structure type."
+msgstr "无效的建筑类型。"
+
+#: forms.py:290
 msgid "Moon mining timers are valid for refineries only."
 msgstr ""
 
-#: forms.py:192
+#: forms.py:297
+msgid "Theft timers are valid for skyhook only."
+msgstr ""
+
+#: forms.py:307
+msgid "Invalid solar system."
+msgstr "无效的恒星系。"
+
+#: forms.py:326
 msgid "Failed to load image file. Please double check URL."
 msgstr ""
 
-#: forms.py:208
+#: forms.py:343
 msgid ""
 "URL does not point to a valid image file. Valid types are: gif, jpeg, png"
 msgstr ""
 
-#: models.py:296
+#: forms.py:422
+msgid "EVE timer text"
+msgstr ""
+
+#: forms.py:424
+msgid ""
+"Copy the structure name, distance, and timer time from EVE Online, then "
+"paste them here. The time is interpreted as EVE time (UTC)."
+msgstr ""
+
+#: forms.py:496
+#: templates/structuretimers/partials/preliminary_list_table.html:12
+#: templates/structuretimers/partials/timer_list_table.html:14
+#: templates/structuretimers/timer_list.html:123 views.py:136
+msgid "Owner"
+msgstr "所有者"
+
+#: forms.py:510
+#, python-format
+msgid "Solar system '%(name)s' was not found."
+msgstr ""
+
+#: forms.py:537
+msgid "Structure type"
+msgstr "建筑类型"
+
+#: forms.py:539
+msgid ""
+"Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
+"or unknown types use ±3 hours."
+msgstr "选填。Ansiblex 和 Metenox 的增强时间窗口为 ±30 分钟；其他或未知类型为 ±3 小时。"
+
+#: forms.py:547
+msgid "Structure name"
+msgstr "建筑名称"
+
+#: forms.py:549
+msgid "Location details"
+msgstr "位置详情"
+
+#: forms.py:551
+msgid "Nearby planet, moon, gate, or other location information."
+msgstr "附近的行星、卫星、星门或其他位置信息。"
+
+#: forms.py:553
+msgid "Owner name"
+msgstr "所有者名称"
+
+#: forms.py:555
+msgid "Name of the corporation owning the structure."
+msgstr "拥有该建筑的军团名称。"
+
+#: forms.py:557
+#: templates/structuretimers/partials/preliminary_list_table.html:11
+#: templates/structuretimers/partials/timer_list_table.html:13
+#: templates/structuretimers/timer_list.html:124 views.py:137
+msgid "Objective"
+msgstr "目标"
+
+#: forms.py:558
+msgid "Details / notes"
+msgstr "详情／备注"
+
+#: forms.py:560
+msgid "Additional information about this recon."
+msgstr "有关此次侦察的其他信息。"
+
+#: models.py:308
 msgid "Unspecified"
 msgstr ""
 
-#: models.py:297
+#: models.py:309
 msgid "Armor"
 msgstr ""
 
-#: models.py:298
+#: models.py:310
 msgid "Hull"
 msgstr ""
 
-#: models.py:299
+#: models.py:311
 msgid "Final"
 msgstr ""
 
-#: models.py:300
+#: models.py:312
 msgid "Anchoring"
 msgstr ""
 
-#: models.py:301
+#: models.py:313
 msgid "Unanchoring"
 msgstr ""
 
-#: models.py:302
+#: models.py:314
 msgid "Moon Mining"
 msgstr ""
 
-#: models.py:303 templates/structuretimers/timer_list.html:24
+#: models.py:315
+msgid "Theft"
+msgstr ""
+
+#: models.py:316 templates/structuretimers/timer_list.html:11
 msgid "Preliminary"
-msgstr ""
+msgstr "初步"
 
-#: models.py:311
+#: models.py:326 models.py:341
 msgid "undefined"
-msgstr ""
+msgstr "未定义"
 
-#: models.py:312
+#: models.py:327
 msgid "hostile"
-msgstr ""
+msgstr "敌对"
 
-#: models.py:313
+#: models.py:328
 msgid "friendly"
-msgstr ""
+msgstr "友好"
 
-#: models.py:314
+#: models.py:329
 msgid "neutral"
-msgstr ""
+msgstr "中立"
 
-#: models.py:317
+#: models.py:334
 msgid "unrestricted"
 msgstr ""
 
-#: models.py:318
+#: models.py:335
 msgid "Alliance only"
 msgstr ""
 
-#: models.py:319
+#: models.py:336
 msgid "Corporation only"
 msgstr ""
 
-#: models.py:322
+#: models.py:342
 msgid "highsec"
 msgstr ""
 
-#: models.py:323
+#: models.py:343
 msgid "lowsec"
 msgstr ""
 
-#: models.py:324
+#: models.py:344
 msgid "nullsec"
 msgstr ""
 
-#: models.py:325
+#: models.py:345
 msgid "wh space"
 msgstr ""
 
-#: models.py:660
+#: models.py:495
+#, python-format
+msgid "%(timer_type)s timer for %(structure)s%(date)s"
+msgstr "%(structure)s的%(timer_type)s计时器%(date)s"
+
+#: models.py:513 views.py:229 views.py:301
+msgid "(unknown)"
+msgstr "（未知）"
+
+#: models.py:517
+#, python-format
+msgid "near %(location)s"
+msgstr "靠近%(location)s"
+
+#: models.py:521
+#, python-format
+msgid "%(type)s%(name)s in %(system)s%(location)s"
+msgstr "位于%(system)s的%(type)s%(name)s%(location)s"
+
+#: models.py:701
 msgid "New timer created"
 msgstr ""
 
-#: models.py:661
+#: models.py:702
 msgid "Scheduled time reached"
 msgstr ""
 
-#: models.py:675
+#: models.py:716
 msgid "T - 0 minutes"
 msgstr ""
 
-#: models.py:676
+#: models.py:717
 msgid "T - 5 minutes"
 msgstr ""
 
-#: models.py:677
+#: models.py:718
 msgid "T - 10 minutes"
 msgstr ""
 
-#: models.py:678
+#: models.py:719
 msgid "T - 15 minutes"
 msgstr ""
 
-#: models.py:679
+#: models.py:720
 msgid "T - 30 minutes"
 msgstr ""
 
-#: models.py:680
+#: models.py:721
 msgid "T - 45 minutes"
 msgstr ""
 
-#: models.py:681
+#: models.py:722
 msgid "T - 60 minutes"
 msgstr ""
 
-#: models.py:682
+#: models.py:723
 msgid "T - 90 minutes"
 msgstr ""
 
-#: models.py:683
+#: models.py:724
 msgid "T - 120 minutes"
 msgstr ""
 
+#: templates/structuretimers/base.html:4
+msgid "Structure Timers"
+msgstr "建筑计时器"
+
+#: templates/structuretimers/base.html:13
+msgid "Add reconnaissance"
+msgstr "添加侦察记录"
+
+#: templates/structuretimers/base.html:14
+#: templates/structuretimers/recon_create_form.html:4 views.py:542
+msgid "Add recon"
+msgstr "添加侦察记录"
+
+#: templates/structuretimers/base.html:18
+msgid "Quickly add a timer from EVE Online"
+msgstr "从 EVE Online 快速添加计时器"
+
+#: templates/structuretimers/base.html:19
+#: templates/structuretimers/timer_fast_create_form.html:11
+msgid "Quick add timer"
+msgstr "快速添加计时器"
+
+#: templates/structuretimers/base.html:23
+msgid "Add new timer"
+msgstr "添加新计时器"
+
+#: templates/structuretimers/base.html:24
+msgid "Add timer"
+msgstr "添加计时器"
+
 #: templates/structuretimers/partials/cancel_button.html:4
 msgid "Cancel"
-msgstr ""
+msgstr "取消"
 
+#: templates/structuretimers/partials/manage_recon.html:6
+msgid "Oldest recon / refresh"
+msgstr "最早的侦察／更新"
+
+#: templates/structuretimers/partials/manage_recon.html:10
+msgid "Latest recon / refresh"
+msgstr "最近的侦察／更新"
+
+#: templates/structuretimers/partials/manage_recon.html:14
+msgid "Timers matching filters"
+msgstr "符合筛选条件的计时器"
+
+#: templates/structuretimers/partials/manage_recon.html:15
+msgid "Across all table pages"
+msgstr "涵盖表格所有页面"
+
+#: templates/structuretimers/partials/manage_recon.html:18
+msgid "Reinforcement distribution · EVE time (UTC)"
+msgstr "增强时间分布 · EVE 时间（UTC）"
+
+#: templates/structuretimers/partials/manage_recon.html:19
+msgid ""
+"Darker cells mean more overlapping reinforcement windows. Each cell covers "
+"30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
+"structure types use ±3 hours."
+msgstr ""
+"颜色越深，重叠的增强时间窗口越多。每格代表 30 分钟。标准：±3 小时。Ansiblex／Metenox：±30 分钟。未知建筑类型按 ±3 "
+"小时计算。"
+
+#: templates/structuretimers/partials/manage_recon.html:21
+msgid "Reinforcement distribution in 30-minute intervals"
+msgstr "以 30 分钟为间隔的增强时间分布"
+
+#: templates/structuretimers/partials/manage_recon.html:25
+msgid "Low"
+msgstr "低"
+
+#: templates/structuretimers/partials/manage_recon.html:25
+msgid "High"
+msgstr "高"
+
+#: templates/structuretimers/partials/manage_recon.html:29
+#: templates/structuretimers/partials/preliminary_list_table.html:13
+msgid "Last updated"
+msgstr "最后更新"
+
+#: templates/structuretimers/partials/manage_recon.html:31
+msgid "Any time"
+msgstr "不限时间"
+
+#: templates/structuretimers/partials/manage_recon.html:32 views.py:112
+msgid "Older than 30 days"
+msgstr "超过 30 天"
+
+#: templates/structuretimers/partials/manage_recon.html:33
+msgid "Within 30 days"
+msgstr "最近 30 天内"
+
+#: templates/structuretimers/partials/manage_recon.html:34
+msgid "Within 7 days"
+msgstr "最近 7 天内"
+
+#: templates/structuretimers/partials/manage_recon.html:37
+msgid "Updated from (UTC)"
+msgstr "更新起始日期（UTC）"
+
+#: templates/structuretimers/partials/manage_recon.html:38
+msgid "Updated through (UTC)"
+msgstr "更新截止日期（UTC）"
+
+#: templates/structuretimers/partials/manage_recon.html:39
+msgid "Reset filters"
+msgstr "重置筛选"
+
+#: templates/structuretimers/partials/manage_recon.html:46
 #: templates/structuretimers/partials/preliminary_list_table.html:8
 #: templates/structuretimers/partials/timer_list_table.html:10
 msgid "Location"
-msgstr ""
+msgstr "位置"
+
+#: templates/structuretimers/partials/manage_recon.html:46
+msgid "Structure / reinforcement"
+msgstr "建筑／增强"
+
+#: templates/structuretimers/partials/manage_recon.html:47
+msgid "Name / Owner"
+msgstr "名称／所有者"
+
+#: templates/structuretimers/partials/manage_recon.html:47
+msgid "Objective / Tags"
+msgstr "目标／标签"
+
+#: templates/structuretimers/partials/manage_recon.html:48
+msgid "Last updated (UTC)"
+msgstr "最后更新（UTC）"
+
+#: templates/structuretimers/partials/manage_recon.html:48
+msgid "Actions"
+msgstr "操作"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:9
 #: templates/structuretimers/partials/timer_list_table.html:11
@@ -200,39 +468,39 @@ msgstr ""
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
 msgid "Structure"
-msgstr ""
+msgstr "建筑"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
-#: templates/structuretimers/timer_list.html:113
+#: templates/structuretimers/timer_list.html:122
 msgid "Timer Type"
-msgstr ""
-
-#: templates/structuretimers/partials/preliminary_list_table.html:11
-#: templates/structuretimers/partials/timer_list_table.html:13
-#: templates/structuretimers/timer_list.html:115
-msgid "Objective"
-msgstr ""
+msgstr "计时器类型"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:11
 #: templates/structuretimers/partials/timer_list_table.html:13
 msgid "Tags"
-msgstr ""
+msgstr "标签"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:12
 #: templates/structuretimers/partials/timer_list_table.html:14
 msgid "Name"
-msgstr ""
+msgstr "名称"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:12
-#: templates/structuretimers/partials/timer_list_table.html:14
-#: templates/structuretimers/timer_list.html:114
-msgid "Owner"
-msgstr ""
+#: templates/structuretimers/partials/recon_actions.html:3
+msgid "View"
+msgstr "查看"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:13
-msgid "Last updated"
-msgstr ""
+#: templates/structuretimers/partials/recon_actions.html:5
+msgid "Still there"
+msgstr "仍然存在"
+
+#: templates/structuretimers/partials/recon_actions.html:6
+msgid "Destroyed"
+msgstr "已摧毁"
+
+#: templates/structuretimers/partials/recon_actions.html:7
+msgid "Edit"
+msgstr "编辑"
 
 #: templates/structuretimers/partials/timer_list_table.html:8
 msgid "Eve Time"
@@ -242,19 +510,15 @@ msgstr ""
 msgid "Local Time"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:4
-msgid "Delete Timer"
-msgstr ""
-
-#: templates/structuretimers/timer_confirm_delete.html:9
+#: templates/structuretimers/timer_confirm_delete.html:10
 msgid "Delete Structure Timer"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:16
-msgid "Are you sure you want to delete timer this timer?"
+#: templates/structuretimers/timer_confirm_delete.html:15
+msgid "Are you sure you want to delete this timer?"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:21
+#: templates/structuretimers/timer_confirm_delete.html:20
 msgid "Delete"
 msgstr ""
 
@@ -264,110 +528,226 @@ msgstr ""
 
 #: templates/structuretimers/timer_detail.html:3
 msgid "Timer"
-msgstr ""
+msgstr "计时器"
 
-#: templates/structuretimers/timer_detail.html:6
+#: templates/structuretimers/timer_detail.html:11
 msgid "Image"
-msgstr ""
+msgstr "图片"
 
-#: templates/structuretimers/timer_detail.html:17
+#: templates/structuretimers/timer_detail.html:22
 msgid "Notes"
-msgstr ""
+msgstr "备注"
 
-#: templates/structuretimers/timer_edit.html:12
+#: templates/structuretimers/timer_edit.html:15
 msgid "Please correct the input errors below"
-msgstr ""
+msgstr "请更正以下输入错误"
 
-#: templates/structuretimers/timer_edit.html:20
+#: templates/structuretimers/timer_edit.html:23
 msgid "required fields"
-msgstr ""
+msgstr "必填项"
 
-#: templates/structuretimers/timer_list.html:8
-msgid "Current Eve Time:"
+#: templates/structuretimers/timer_fast_create_form.html:6
+msgid ""
+"Paste a reinforced or anchoring structure timer from EVE Online. The solar "
+"system, structure name, and UTC time will be filled automatically."
 msgstr ""
 
 #: templates/structuretimers/timer_list.html:16
-msgid "Add new timer"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:17
-msgid "Add Timer"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:25
 msgid "Current"
-msgstr ""
+msgstr "当前"
+
+#: templates/structuretimers/timer_list.html:21
+msgid "Past"
+msgstr "历史"
 
 #: templates/structuretimers/timer_list.html:26
-msgid "Past"
-msgstr ""
+#: tests/test_recon_translations.py:63
+msgid "Manage recon"
+msgstr "管理侦察记录"
 
-#: templates/structuretimers/timer_list.html:29
+#: templates/structuretimers/timer_list.html:32
 msgid "Staging:"
-msgstr ""
+msgstr "集结地："
 
-#: templates/structuretimers/timer_list.html:35
+#: templates/structuretimers/timer_list.html:39
 msgid "[MAIN]"
-msgstr ""
+msgstr "[主要]"
 
-#: templates/structuretimers/timer_list.html:38
+#: templates/structuretimers/timer_list.html:44
 msgid "No staging system configured."
-msgstr ""
+msgstr "尚未配置集结星系。"
 
-#: templates/structuretimers/timer_list.html:51
+#: templates/structuretimers/timer_list.html:62
 msgid "This page contains potential future timers."
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:59
+#: templates/structuretimers/timer_list.html:70
 #, python-format
 msgid ""
-"Timers remain on this page for %(max_hours_expired)s hours after they expired"
+"Timers remain on this page for %(max_hours_expired)s hours after they "
+"expired"
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:69
+#: templates/structuretimers/timer_list.html:80
 msgid "*: Distance from selected staging system:"
-msgstr ""
+msgstr "*：距所选集结星系的距离："
 
-#: templates/structuretimers/timer_list.html:83
+#: templates/structuretimers/timer_list.html:91
 msgid "Timer details"
-msgstr ""
+msgstr "计时器详情"
 
-#: templates/structuretimers/timer_list.html:97
+#: templates/structuretimers/timer_list.html:106
 msgid "Close"
-msgstr ""
+msgstr "关闭"
 
-#: templates/structuretimers/timer_list.html:110
-msgid "Solar System"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:111
+#: templates/structuretimers/timer_list.html:120 views.py:134
 msgid "Region"
-msgstr ""
+msgstr "星域"
 
-#: templates/structuretimers/timer_list.html:112
-msgid "Structure Type"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:116
+#: templates/structuretimers/timer_list.html:125
 msgid "Visibility"
-msgstr ""
+msgstr "可见范围"
+
+#: templates/structuretimers/timer_list.html:126
+msgid "Filter by"
+msgstr "筛选条件"
+
+#: templates/structuretimers/timer_list.html:127 views.py:132
+msgid "All"
+msgstr "全部"
 
 #: templates/structuretimers/timer_update_form.html:5
 msgid "Update Structure Timer"
+msgstr "更新建筑计时器"
+
+#: views.py:54
+msgid "Super"
 msgstr ""
 
-#: views.py:342
+#: views.py:55
+msgid "Cap"
+msgstr ""
+
+#: views.py:56
+msgid "Command carrier"
+msgstr ""
+
+#: views.py:111 views.py:140
+msgid "No matching recon"
+msgstr "没有符合条件的侦察记录"
+
+#: views.py:114
+#, python-format
+msgid "%(start)s–%(end)s UTC: average window overlap: %(count)s"
+msgstr "%(start)s–%(end)s UTC：平均重叠窗口数：%(count)s"
+
+#: views.py:116
+#, python-format
+msgid "Peak overlap: %(count)s"
+msgstr "最大重叠数：%(count)s"
+
+#: views.py:118
+#, python-format
+msgid "Without reinforcement time: %(count)s · excluded from scale"
+msgstr "未设置增强时间：%(count)s · 不计入分布"
+
+#: views.py:121
+msgid "Could not load recon. Reload the page to try again."
+msgstr "无法加载侦察记录。请刷新页面后重试。"
+
+#: views.py:124
+msgid "Mark this structure as destroyed and remove its recon timer?"
+msgstr "将此建筑标记为已摧毁并删除其侦察计时器？"
+
+#: views.py:126
+msgid "Saving…"
+msgstr "正在保存…"
+
+#: views.py:127
+msgid "Recon removed."
+msgstr "侦察记录已删除。"
+
+#: views.py:128
+msgid "Recon refreshed to today."
+msgstr "侦察记录已更新为今天。"
+
+#: views.py:130
+msgid "Could not save this change. Reload the page and try again."
+msgstr "无法保存此更改。请刷新页面后重试。"
+
+#: views.py:139
+msgid "No recon available"
+msgstr "暂无侦察记录"
+
+#. Translators: Keep DataTables tokens such as _START_ unchanged.
+#: views.py:142
+msgid "Showing _START_ to _END_ of _TOTAL_ entries"
+msgstr "显示第 _START_ 至 _END_ 条，共 _TOTAL_ 条"
+
+#: views.py:143
+msgid "Showing 0 to 0 of 0 entries"
+msgstr "显示第 0 至 0 条，共 0 条"
+
+#: views.py:144
+msgid "(filtered from _MAX_ total entries)"
+msgstr "(从共 _MAX_ 条记录中筛选)"
+
+#: views.py:145
+msgid "Show _MENU_ entries"
+msgstr "每页显示 _MENU_ 条"
+
+#: views.py:146
+msgid "Search:"
+msgstr "搜索："
+
+#: views.py:147
+msgid "Loading…"
+msgstr "正在加载…"
+
+#: views.py:148
+msgid "Processing…"
+msgstr "正在处理…"
+
+#: views.py:150
+msgid "First"
+msgstr "首页"
+
+#: views.py:151
+msgid "Last"
+msgstr "末页"
+
+#: views.py:152
+msgid "Next"
+msgstr "下一页"
+
+#: views.py:153
+msgid "Previous"
+msgstr "上一页"
+
+#: views.py:156
+msgid "Activate to sort column ascending"
+msgstr "点击按升序排列此列"
+
+#: views.py:157
+msgid "Activate to sort column descending"
+msgstr "点击按降序排列此列"
+
+#: views.py:489
 msgid "Edit Structure Timer"
-msgstr ""
+msgstr "编辑建筑计时器"
 
-#: views.py:369
+#: views.py:516
 msgid "Create New Timer"
 msgstr ""
 
-#: views.py:380
+#: views.py:527
 msgid "Added"
+msgstr "已添加"
+
+#: views.py:536
+msgid "Quick Add Timer"
 msgstr ""
 
-#: views.py:406
+#: views.py:592
 msgid "Updated"
-msgstr ""
+msgstr "已更新"

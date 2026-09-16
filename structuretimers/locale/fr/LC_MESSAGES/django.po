@@ -10,12 +10,12 @@ msgstr ""
 "POT-Creation-Date: 2026-09-16 19:32+0200\n"
 "PO-Revision-Date: 2026-09-16 00:00+0000\n"
 "Last-Translator: Codex\n"
-"Language-Team: de\n"
-"Language: de\n"
+"Language-Team: fr\n"
+"Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #: forms.py:54
 msgid ""
@@ -46,11 +46,11 @@ msgstr ""
 
 #: forms.py:105 templates/structuretimers/timer_list.html:119 views.py:133
 msgid "Solar System"
-msgstr "Sonnensystem"
+msgstr "Système solaire"
 
 #: forms.py:110 templates/structuretimers/timer_list.html:121 views.py:135
 msgid "Structure Type"
-msgstr "Strukturtyp"
+msgstr "Type de structure"
 
 #: forms.py:128
 msgid "Date"
@@ -77,11 +77,11 @@ msgstr ""
 #: forms.py:161 templates/structuretimers/partials/structure_box.html:9
 #: templates/structuretimers/timer_detail.html:7
 msgid "Reinforcement timer"
-msgstr "Verstärkungszeit"
+msgstr "Heure de renforcement"
 
 #: forms.py:170
 msgid "24-hour EVE time (UTC), HH:MM."
-msgstr "EVE-Zeit (UTC) im 24-Stunden-Format, HH:MM."
+msgstr "Heure EVE (UTC) sur 24 h, HH:MM."
 
 #: forms.py:174
 msgid "Paste a public URL to an image into this field."
@@ -89,11 +89,11 @@ msgstr ""
 
 #: forms.py:271
 msgid "Enter a 24-hour time in HH:MM format."
-msgstr "Eine Uhrzeit im 24-Stunden-Format HH:MM eingeben."
+msgstr "Saisissez une heure sur 24 h au format HH:MM."
 
 #: forms.py:279
 msgid "Invalid structure type."
-msgstr "Ungültiger Strukturtyp."
+msgstr "Type de structure non valide."
 
 #: forms.py:290
 msgid "Moon mining timers are valid for refineries only."
@@ -105,7 +105,7 @@ msgstr ""
 
 #: forms.py:307
 msgid "Invalid solar system."
-msgstr "Ungültiges Sonnensystem."
+msgstr "Système solaire non valide."
 
 #: forms.py:326
 msgid "Failed to load image file. Please double check URL."
@@ -131,7 +131,7 @@ msgstr ""
 #: templates/structuretimers/partials/timer_list_table.html:14
 #: templates/structuretimers/timer_list.html:123 views.py:136
 msgid "Owner"
-msgstr "Eigentümer"
+msgstr "Propriétaire"
 
 #: forms.py:510
 #, python-format
@@ -140,50 +140,50 @@ msgstr ""
 
 #: forms.py:537
 msgid "Structure type"
-msgstr "Strukturtyp"
+msgstr "Type de structure"
 
 #: forms.py:539
 msgid ""
 "Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
 "or unknown types use ±3 hours."
 msgstr ""
-"Optional. Ansiblex und Metenox haben ein Verstärkungsfenster von ±30 "
-"Minuten; andere oder unbekannte Typen verwenden ±3 Stunden."
+"Facultatif. Ansiblex et Metenox ont une fenêtre de renforcement de ±30 "
+"minutes ; les autres types ou les types inconnus utilisent ±3 heures."
 
 #: forms.py:547
 msgid "Structure name"
-msgstr "Strukturname"
+msgstr "Nom de la structure"
 
 #: forms.py:549
 msgid "Location details"
-msgstr "Standortdetails"
+msgstr "Précisions sur le lieu"
 
 #: forms.py:551
 msgid "Nearby planet, moon, gate, or other location information."
-msgstr "Nahe gelegener Planet, Mond, Sprungtor oder andere Standortangaben."
+msgstr "Planète, lune, portail à proximité ou autre précision sur le lieu."
 
 #: forms.py:553
 msgid "Owner name"
-msgstr "Name des Eigentümers"
+msgstr "Nom du propriétaire"
 
 #: forms.py:555
 msgid "Name of the corporation owning the structure."
-msgstr "Name der Corporation, der die Struktur gehört."
+msgstr "Nom de la corporation propriétaire de la structure."
 
 #: forms.py:557
 #: templates/structuretimers/partials/preliminary_list_table.html:11
 #: templates/structuretimers/partials/timer_list_table.html:13
 #: templates/structuretimers/timer_list.html:124 views.py:137
 msgid "Objective"
-msgstr "Ziel"
+msgstr "Objectif"
 
 #: forms.py:558
 msgid "Details / notes"
-msgstr "Details / Notizen"
+msgstr "Détails / notes"
 
 #: forms.py:560
 msgid "Additional information about this recon."
-msgstr "Zusätzliche Informationen zu dieser Aufklärung."
+msgstr "Informations complémentaires sur cette reconnaissance."
 
 #: models.py:308
 msgid "Unspecified"
@@ -219,23 +219,23 @@ msgstr ""
 
 #: models.py:316 templates/structuretimers/timer_list.html:11
 msgid "Preliminary"
-msgstr "Vorläufig"
+msgstr "Préliminaire"
 
 #: models.py:326 models.py:341
 msgid "undefined"
-msgstr "undefiniert"
+msgstr "indéfini"
 
 #: models.py:327
 msgid "hostile"
-msgstr "feindlich"
+msgstr "hostile"
 
 #: models.py:328
 msgid "friendly"
-msgstr "freundlich"
+msgstr "amical"
 
 #: models.py:329
 msgid "neutral"
-msgstr "neutral"
+msgstr "neutre"
 
 #: models.py:334
 msgid "unrestricted"
@@ -268,21 +268,21 @@ msgstr ""
 #: models.py:495
 #, python-format
 msgid "%(timer_type)s timer for %(structure)s%(date)s"
-msgstr "%(timer_type)s-Timer für %(structure)s%(date)s"
+msgstr "Timer %(timer_type)s pour %(structure)s%(date)s"
 
 #: models.py:513 views.py:229 views.py:301
 msgid "(unknown)"
-msgstr "(unbekannt)"
+msgstr "(inconnu)"
 
 #: models.py:517
 #, python-format
 msgid "near %(location)s"
-msgstr "bei %(location)s"
+msgstr "près de %(location)s"
 
 #: models.py:521
 #, python-format
 msgid "%(type)s%(name)s in %(system)s%(location)s"
-msgstr "%(type)s%(name)s in %(system)s%(location)s"
+msgstr "%(type)s%(name)s dans %(system)s%(location)s"
 
 #: models.py:701
 msgid "New timer created"
@@ -330,57 +330,57 @@ msgstr ""
 
 #: templates/structuretimers/base.html:4
 msgid "Structure Timers"
-msgstr "Strukturtimer"
+msgstr "Timers de structures"
 
 #: templates/structuretimers/base.html:13
 msgid "Add reconnaissance"
-msgstr "Aufklärung hinzufügen"
+msgstr "Ajouter une reconnaissance"
 
 #: templates/structuretimers/base.html:14
 #: templates/structuretimers/recon_create_form.html:4 views.py:542
 msgid "Add recon"
-msgstr "Aufklärung hinzufügen"
+msgstr "Ajouter une reconnaissance"
 
 #: templates/structuretimers/base.html:18
 msgid "Quickly add a timer from EVE Online"
-msgstr "Timer schnell aus EVE Online hinzufügen"
+msgstr "Ajouter rapidement un timer depuis EVE Online"
 
 #: templates/structuretimers/base.html:19
 #: templates/structuretimers/timer_fast_create_form.html:11
 msgid "Quick add timer"
-msgstr "Timer schnell hinzufügen"
+msgstr "Ajout rapide de timer"
 
 #: templates/structuretimers/base.html:23
 msgid "Add new timer"
-msgstr "Neuen Timer hinzufügen"
+msgstr "Ajouter un nouveau timer"
 
 #: templates/structuretimers/base.html:24
 msgid "Add timer"
-msgstr "Timer hinzufügen"
+msgstr "Ajouter un timer"
 
 #: templates/structuretimers/partials/cancel_button.html:4
 msgid "Cancel"
-msgstr "Abbrechen"
+msgstr "Annuler"
 
 #: templates/structuretimers/partials/manage_recon.html:6
 msgid "Oldest recon / refresh"
-msgstr "Älteste Aufklärung / Aktualisierung"
+msgstr "Reconnaissance / actualisation la plus ancienne"
 
 #: templates/structuretimers/partials/manage_recon.html:10
 msgid "Latest recon / refresh"
-msgstr "Neueste Aufklärung / Aktualisierung"
+msgstr "Dernière reconnaissance / actualisation"
 
 #: templates/structuretimers/partials/manage_recon.html:14
 msgid "Timers matching filters"
-msgstr "Timer passend zu den Filtern"
+msgstr "Timers correspondant aux filtres"
 
 #: templates/structuretimers/partials/manage_recon.html:15
 msgid "Across all table pages"
-msgstr "Über alle Tabellenseiten"
+msgstr "Sur toutes les pages du tableau"
 
 #: templates/structuretimers/partials/manage_recon.html:18
 msgid "Reinforcement distribution · EVE time (UTC)"
-msgstr "Verteilung der Verstärkungszeiten · EVE-Zeit (UTC)"
+msgstr "Répartition des renforcements · heure EVE (UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:19
 msgid ""
@@ -388,80 +388,80 @@ msgid ""
 "30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
 "structure types use ±3 hours."
 msgstr ""
-"Dunklere Zellen zeigen mehr überlappende Verstärkungsfenster. Jede Zelle "
-"umfasst 30 Minuten. Standard: ±3 Stunden. Ansiblex / Metenox: ±30 Minuten. "
-"Unbekannte Strukturtypen verwenden ±3 Stunden."
+"Les cases plus foncées indiquent davantage de fenêtres de renforcement "
+"superposées. Chaque case couvre 30 minutes. Standard : ±3 heures. Ansiblex /"
+" Metenox : ±30 minutes. Les types de structure inconnus utilisent ±3 heures."
 
 #: templates/structuretimers/partials/manage_recon.html:21
 msgid "Reinforcement distribution in 30-minute intervals"
-msgstr "Verteilung der Verstärkungszeiten in 30-Minuten-Intervallen"
+msgstr "Répartition des renforcements par intervalles de 30 minutes"
 
 #: templates/structuretimers/partials/manage_recon.html:25
 msgid "Low"
-msgstr "Niedrig"
+msgstr "Faible"
 
 #: templates/structuretimers/partials/manage_recon.html:25
 msgid "High"
-msgstr "Hoch"
+msgstr "Élevé"
 
 #: templates/structuretimers/partials/manage_recon.html:29
 #: templates/structuretimers/partials/preliminary_list_table.html:13
 msgid "Last updated"
-msgstr "Zuletzt aktualisiert"
+msgstr "Dernière mise à jour"
 
 #: templates/structuretimers/partials/manage_recon.html:31
 msgid "Any time"
-msgstr "Beliebiger Zeitpunkt"
+msgstr "Toutes les dates"
 
 #: templates/structuretimers/partials/manage_recon.html:32 views.py:112
 msgid "Older than 30 days"
-msgstr "Älter als 30 Tage"
+msgstr "Plus de 30 jours"
 
 #: templates/structuretimers/partials/manage_recon.html:33
 msgid "Within 30 days"
-msgstr "Innerhalb von 30 Tagen"
+msgstr "Au cours des 30 derniers jours"
 
 #: templates/structuretimers/partials/manage_recon.html:34
 msgid "Within 7 days"
-msgstr "Innerhalb von 7 Tagen"
+msgstr "Au cours des 7 derniers jours"
 
 #: templates/structuretimers/partials/manage_recon.html:37
 msgid "Updated from (UTC)"
-msgstr "Aktualisiert ab (UTC)"
+msgstr "Mis à jour à partir du (UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:38
 msgid "Updated through (UTC)"
-msgstr "Aktualisiert bis (UTC)"
+msgstr "Mis à jour jusqu'au (UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:39
 msgid "Reset filters"
-msgstr "Filter zurücksetzen"
+msgstr "Réinitialiser les filtres"
 
 #: templates/structuretimers/partials/manage_recon.html:46
 #: templates/structuretimers/partials/preliminary_list_table.html:8
 #: templates/structuretimers/partials/timer_list_table.html:10
 msgid "Location"
-msgstr "Standort"
+msgstr "Lieu"
 
 #: templates/structuretimers/partials/manage_recon.html:46
 msgid "Structure / reinforcement"
-msgstr "Struktur / Verstärkung"
+msgstr "Structure / renforcement"
 
 #: templates/structuretimers/partials/manage_recon.html:47
 msgid "Name / Owner"
-msgstr "Name / Eigentümer"
+msgstr "Nom / propriétaire"
 
 #: templates/structuretimers/partials/manage_recon.html:47
 msgid "Objective / Tags"
-msgstr "Ziel / Tags"
+msgstr "Objectif / étiquettes"
 
 #: templates/structuretimers/partials/manage_recon.html:48
 msgid "Last updated (UTC)"
-msgstr "Zuletzt aktualisiert (UTC)"
+msgstr "Dernière mise à jour (UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:48
 msgid "Actions"
-msgstr "Aktionen"
+msgstr "Actions"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:9
 #: templates/structuretimers/partials/timer_list_table.html:11
@@ -471,39 +471,39 @@ msgstr ""
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
 msgid "Structure"
-msgstr "Struktur"
+msgstr "Structure"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
 #: templates/structuretimers/timer_list.html:122
 msgid "Timer Type"
-msgstr "Timertyp"
+msgstr "Type de timer"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:11
 #: templates/structuretimers/partials/timer_list_table.html:13
 msgid "Tags"
-msgstr "Tags"
+msgstr "Étiquettes"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:12
 #: templates/structuretimers/partials/timer_list_table.html:14
 msgid "Name"
-msgstr "Name"
+msgstr "Nom"
 
 #: templates/structuretimers/partials/recon_actions.html:3
 msgid "View"
-msgstr "Ansehen"
+msgstr "Voir"
 
 #: templates/structuretimers/partials/recon_actions.html:5
 msgid "Still there"
-msgstr "Noch vorhanden"
+msgstr "Toujours présente"
 
 #: templates/structuretimers/partials/recon_actions.html:6
 msgid "Destroyed"
-msgstr "Zerstört"
+msgstr "Détruite"
 
 #: templates/structuretimers/partials/recon_actions.html:7
 msgid "Edit"
-msgstr "Bearbeiten"
+msgstr "Modifier"
 
 #: templates/structuretimers/partials/timer_list_table.html:8
 msgid "Eve Time"
@@ -535,19 +535,19 @@ msgstr "Timer"
 
 #: templates/structuretimers/timer_detail.html:11
 msgid "Image"
-msgstr "Bild"
+msgstr "Image"
 
 #: templates/structuretimers/timer_detail.html:22
 msgid "Notes"
-msgstr "Notizen"
+msgstr "Notes"
 
 #: templates/structuretimers/timer_edit.html:15
 msgid "Please correct the input errors below"
-msgstr "Bitte die folgenden Eingabefehler korrigieren"
+msgstr "Veuillez corriger les erreurs de saisie ci-dessous"
 
 #: templates/structuretimers/timer_edit.html:23
 msgid "required fields"
-msgstr "Pflichtfelder"
+msgstr "champs obligatoires"
 
 #: templates/structuretimers/timer_fast_create_form.html:6
 msgid ""
@@ -557,28 +557,28 @@ msgstr ""
 
 #: templates/structuretimers/timer_list.html:16
 msgid "Current"
-msgstr "Aktuell"
+msgstr "En cours"
 
 #: templates/structuretimers/timer_list.html:21
 msgid "Past"
-msgstr "Vergangen"
+msgstr "Passés"
 
 #: templates/structuretimers/timer_list.html:26
 #: tests/test_recon_translations.py:63
 msgid "Manage recon"
-msgstr "Aufklärung verwalten"
+msgstr "Gérer les reconnaissances"
 
 #: templates/structuretimers/timer_list.html:32
 msgid "Staging:"
-msgstr "Sammelpunkt:"
+msgstr "Point de rassemblement :"
 
 #: templates/structuretimers/timer_list.html:39
 msgid "[MAIN]"
-msgstr "[HAUPT]"
+msgstr "[PRINCIPAL]"
 
 #: templates/structuretimers/timer_list.html:44
 msgid "No staging system configured."
-msgstr "Kein Sammelsystem konfiguriert."
+msgstr "Aucun système de rassemblement configuré."
 
 #: templates/structuretimers/timer_list.html:62
 msgid "This page contains potential future timers."
@@ -593,35 +593,35 @@ msgstr ""
 
 #: templates/structuretimers/timer_list.html:80
 msgid "*: Distance from selected staging system:"
-msgstr "*: Entfernung vom ausgewählten Sammelsystem:"
+msgstr "* : Distance depuis le système de rassemblement sélectionné :"
 
 #: templates/structuretimers/timer_list.html:91
 msgid "Timer details"
-msgstr "Timerdetails"
+msgstr "Détails du timer"
 
 #: templates/structuretimers/timer_list.html:106
 msgid "Close"
-msgstr "Schließen"
+msgstr "Fermer"
 
 #: templates/structuretimers/timer_list.html:120 views.py:134
 msgid "Region"
-msgstr "Region"
+msgstr "Région"
 
 #: templates/structuretimers/timer_list.html:125
 msgid "Visibility"
-msgstr "Sichtbarkeit"
+msgstr "Visibilité"
 
 #: templates/structuretimers/timer_list.html:126
 msgid "Filter by"
-msgstr "Filtern nach"
+msgstr "Filtrer par"
 
 #: templates/structuretimers/timer_list.html:127 views.py:132
 msgid "All"
-msgstr "Alle"
+msgstr "Tous"
 
 #: templates/structuretimers/timer_update_form.html:5
 msgid "Update Structure Timer"
-msgstr "Strukturtimer aktualisieren"
+msgstr "Mettre à jour le timer de structure"
 
 #: views.py:54
 msgid "Super"
@@ -637,113 +637,111 @@ msgstr ""
 
 #: views.py:111 views.py:140
 msgid "No matching recon"
-msgstr "Keine passende Aufklärung"
+msgstr "Aucune reconnaissance correspondante"
 
 #: views.py:114
 #, python-format
 msgid "%(start)s–%(end)s UTC: average window overlap: %(count)s"
-msgstr ""
-"%(start)s–%(end)s UTC: durchschnittliche Fensterüberlappung: %(count)s"
+msgstr "%(start)s–%(end)s UTC : chevauchement moyen des fenêtres : %(count)s"
 
 #: views.py:116
 #, python-format
 msgid "Peak overlap: %(count)s"
-msgstr "Maximale Überlappung: %(count)s"
+msgstr "Chevauchement maximal : %(count)s"
 
 #: views.py:118
 #, python-format
 msgid "Without reinforcement time: %(count)s · excluded from scale"
-msgstr "Ohne Verstärkungszeit: %(count)s · nicht in der Skala enthalten"
+msgstr "Sans heure de renforcement : %(count)s · exclus de l'échelle"
 
 #: views.py:121
 msgid "Could not load recon. Reload the page to try again."
 msgstr ""
-"Aufklärung konnte nicht geladen werden. Seite neu laden und erneut "
-"versuchen."
+"Impossible de charger les reconnaissances. Rechargez la page pour réessayer."
 
 #: views.py:124
 msgid "Mark this structure as destroyed and remove its recon timer?"
 msgstr ""
-"Diese Struktur als zerstört markieren und ihren Aufklärungstimer entfernen?"
+"Marquer cette structure comme détruite et supprimer son timer de "
+"reconnaissance ?"
 
 #: views.py:126
 msgid "Saving…"
-msgstr "Wird gespeichert…"
+msgstr "Enregistrement…"
 
 #: views.py:127
 msgid "Recon removed."
-msgstr "Aufklärung entfernt."
+msgstr "Reconnaissance supprimée."
 
 #: views.py:128
 msgid "Recon refreshed to today."
-msgstr "Aufklärung auf heute aktualisiert."
+msgstr "Reconnaissance actualisée à aujourd'hui."
 
 #: views.py:130
 msgid "Could not save this change. Reload the page and try again."
 msgstr ""
-"Änderung konnte nicht gespeichert werden. Seite neu laden und erneut "
-"versuchen."
+"Impossible d'enregistrer cette modification. Rechargez la page et réessayez."
 
 #: views.py:139
 msgid "No recon available"
-msgstr "Keine Aufklärung vorhanden"
+msgstr "Aucune reconnaissance disponible"
 
 #. Translators: Keep DataTables tokens such as _START_ unchanged.
 #: views.py:142
 msgid "Showing _START_ to _END_ of _TOTAL_ entries"
-msgstr "_START_ bis _END_ von _TOTAL_ Einträgen"
+msgstr "Affichage de _START_ à _END_ sur _TOTAL_ entrées"
 
 #: views.py:143
 msgid "Showing 0 to 0 of 0 entries"
-msgstr "0 bis 0 von 0 Einträgen"
+msgstr "Affichage de 0 à 0 sur 0 entrée"
 
 #: views.py:144
 msgid "(filtered from _MAX_ total entries)"
-msgstr "(gefiltert aus insgesamt _MAX_ Einträgen)"
+msgstr "(filtré sur _MAX_ entrées au total)"
 
 #: views.py:145
 msgid "Show _MENU_ entries"
-msgstr "_MENU_ Einträge anzeigen"
+msgstr "Afficher _MENU_ entrées"
 
 #: views.py:146
 msgid "Search:"
-msgstr "Suchen:"
+msgstr "Rechercher :"
 
 #: views.py:147
 msgid "Loading…"
-msgstr "Wird geladen…"
+msgstr "Chargement…"
 
 #: views.py:148
 msgid "Processing…"
-msgstr "Wird verarbeitet…"
+msgstr "Traitement…"
 
 #: views.py:150
 msgid "First"
-msgstr "Erste"
+msgstr "Première"
 
 #: views.py:151
 msgid "Last"
-msgstr "Letzte"
+msgstr "Dernière"
 
 #: views.py:152
 msgid "Next"
-msgstr "Weiter"
+msgstr "Suivante"
 
 #: views.py:153
 msgid "Previous"
-msgstr "Zurück"
+msgstr "Précédente"
 
 #: views.py:156
 msgid "Activate to sort column ascending"
-msgstr "Aktivieren, um die Spalte aufsteigend zu sortieren"
+msgstr "Activer pour trier la colonne par ordre croissant"
 
 #: views.py:157
 msgid "Activate to sort column descending"
-msgstr "Aktivieren, um die Spalte absteigend zu sortieren"
+msgstr "Activer pour trier la colonne par ordre décroissant"
 
 #: views.py:489
 msgid "Edit Structure Timer"
-msgstr "Strukturtimer bearbeiten"
+msgstr "Modifier le timer de structure"
 
 #: views.py:516
 msgid "Create New Timer"
@@ -751,7 +749,7 @@ msgstr ""
 
 #: views.py:527
 msgid "Added"
-msgstr "Hinzugefügt"
+msgstr "Ajouté"
 
 #: views.py:536
 msgid "Quick Add Timer"
@@ -759,4 +757,4 @@ msgstr ""
 
 #: views.py:592
 msgid "Updated"
-msgstr "Aktualisiert"
+msgstr "Mis à jour"

@@ -3,194 +3,463 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: aa-structuretimers\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-18 01:19+0200\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2026-09-16 19:32+0200\n"
+"PO-Revision-Date: 2026-09-16 00:00+0000\n"
+"Last-Translator: Codex\n"
+"Language-Team: ko\n"
+"Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: forms.py:33
+#: forms.py:54
 msgid ""
-"This field is calculated from the current time. Alternatively, you can enter "
-"the date above in the `Date` field."
+"Paste the EVE timer with 'System - Structure name' on the first line and "
+"either 'Reinforced until YYYY.MM.DD HH:MM:SS' or 'Anchoring until YYYY.MM.DD"
+" HH:MM:SS' below it."
 msgstr ""
 
-#: forms.py:61
+#: forms.py:64
+msgid "The solar system and structure name cannot be empty."
+msgstr ""
+
+#: forms.py:73
+msgid ""
+"Could not find a supported 'Reinforced until' or 'Anchoring until' timer in "
+"the text."
+msgstr ""
+
+#: forms.py:83
+msgid "The timer date or time is invalid."
+msgstr ""
+
+#: forms.py:100
+msgid ""
+"This field is calculated from the current time. Alternatively, you can enter"
+" the date above in the `Date` field."
+msgstr ""
+
+#: forms.py:105 templates/structuretimers/timer_list.html:119 views.py:133
+msgid "Solar System"
+msgstr "항성계"
+
+#: forms.py:110 templates/structuretimers/timer_list.html:121 views.py:135
+msgid "Structure Type"
+msgstr "구조물 유형"
+
+#: forms.py:128
 msgid "Date"
 msgstr ""
 
-#: forms.py:67
+#: forms.py:134
 msgid ""
 "The date when the timer happens. Alternatively, you can enter the remaining "
 "time below."
 msgstr ""
 
-#: forms.py:73
+#: forms.py:140
 msgid "Days Remaining"
 msgstr ""
 
-#: forms.py:80
+#: forms.py:147
 msgid "Hours Remaining"
 msgstr ""
 
-#: forms.py:87
+#: forms.py:154
 msgid "Minutes Remaining"
 msgstr ""
 
-#: forms.py:94
+#: forms.py:161 templates/structuretimers/partials/structure_box.html:9
+#: templates/structuretimers/timer_detail.html:7
+msgid "Reinforcement timer"
+msgstr "강화 시간"
+
+#: forms.py:170
+msgid "24-hour EVE time (UTC), HH:MM."
+msgstr "24시간 형식의 EVE 시간(UTC), HH:MM."
+
+#: forms.py:174
 msgid "Paste a public URL to an image into this field."
 msgstr ""
 
-#: forms.py:172
+#: forms.py:271
+msgid "Enter a 24-hour time in HH:MM format."
+msgstr "24시간제 HH:MM 형식으로 시간을 입력하세요."
+
+#: forms.py:279
+msgid "Invalid structure type."
+msgstr "유효하지 않은 구조물 유형입니다."
+
+#: forms.py:290
 msgid "Moon mining timers are valid for refineries only."
 msgstr ""
 
-#: forms.py:192
+#: forms.py:297
+msgid "Theft timers are valid for skyhook only."
+msgstr ""
+
+#: forms.py:307
+msgid "Invalid solar system."
+msgstr "유효하지 않은 항성계입니다."
+
+#: forms.py:326
 msgid "Failed to load image file. Please double check URL."
 msgstr ""
 
-#: forms.py:208
+#: forms.py:343
 msgid ""
 "URL does not point to a valid image file. Valid types are: gif, jpeg, png"
 msgstr ""
 
-#: models.py:296
+#: forms.py:422
+msgid "EVE timer text"
+msgstr ""
+
+#: forms.py:424
+msgid ""
+"Copy the structure name, distance, and timer time from EVE Online, then "
+"paste them here. The time is interpreted as EVE time (UTC)."
+msgstr ""
+
+#: forms.py:496
+#: templates/structuretimers/partials/preliminary_list_table.html:12
+#: templates/structuretimers/partials/timer_list_table.html:14
+#: templates/structuretimers/timer_list.html:123 views.py:136
+msgid "Owner"
+msgstr "소유자"
+
+#: forms.py:510
+#, python-format
+msgid "Solar system '%(name)s' was not found."
+msgstr ""
+
+#: forms.py:537
+msgid "Structure type"
+msgstr "구조물 유형"
+
+#: forms.py:539
+msgid ""
+"Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
+"or unknown types use ±3 hours."
+msgstr ""
+"선택 사항입니다. Ansiblex와 Metenox의 강화 시간 범위는 ±30분이며, 나머지 또는 알 수 없는 유형은 ±3시간입니다."
+
+#: forms.py:547
+msgid "Structure name"
+msgstr "구조물 이름"
+
+#: forms.py:549
+msgid "Location details"
+msgstr "위치 상세 정보"
+
+#: forms.py:551
+msgid "Nearby planet, moon, gate, or other location information."
+msgstr "주변 행성, 위성, 게이트 또는 기타 위치 정보."
+
+#: forms.py:553
+msgid "Owner name"
+msgstr "소유자 이름"
+
+#: forms.py:555
+msgid "Name of the corporation owning the structure."
+msgstr "구조물을 소유한 코퍼레이션의 이름."
+
+#: forms.py:557
+#: templates/structuretimers/partials/preliminary_list_table.html:11
+#: templates/structuretimers/partials/timer_list_table.html:13
+#: templates/structuretimers/timer_list.html:124 views.py:137
+msgid "Objective"
+msgstr "목적"
+
+#: forms.py:558
+msgid "Details / notes"
+msgstr "상세 정보 / 메모"
+
+#: forms.py:560
+msgid "Additional information about this recon."
+msgstr "이 정찰에 대한 추가 정보."
+
+#: models.py:308
 msgid "Unspecified"
 msgstr ""
 
-#: models.py:297
+#: models.py:309
 msgid "Armor"
 msgstr ""
 
-#: models.py:298
+#: models.py:310
 msgid "Hull"
 msgstr ""
 
-#: models.py:299
+#: models.py:311
 msgid "Final"
 msgstr ""
 
-#: models.py:300
+#: models.py:312
 msgid "Anchoring"
 msgstr ""
 
-#: models.py:301
+#: models.py:313
 msgid "Unanchoring"
 msgstr ""
 
-#: models.py:302
+#: models.py:314
 msgid "Moon Mining"
 msgstr ""
 
-#: models.py:303 templates/structuretimers/timer_list.html:24
+#: models.py:315
+msgid "Theft"
+msgstr ""
+
+#: models.py:316 templates/structuretimers/timer_list.html:11
 msgid "Preliminary"
-msgstr ""
+msgstr "예비"
 
-#: models.py:311
+#: models.py:326 models.py:341
 msgid "undefined"
-msgstr ""
+msgstr "미정"
 
-#: models.py:312
+#: models.py:327
 msgid "hostile"
-msgstr ""
+msgstr "적대"
 
-#: models.py:313
+#: models.py:328
 msgid "friendly"
-msgstr ""
+msgstr "우호"
 
-#: models.py:314
+#: models.py:329
 msgid "neutral"
-msgstr ""
+msgstr "중립"
 
-#: models.py:317
+#: models.py:334
 msgid "unrestricted"
 msgstr ""
 
-#: models.py:318
+#: models.py:335
 msgid "Alliance only"
 msgstr ""
 
-#: models.py:319
+#: models.py:336
 msgid "Corporation only"
 msgstr ""
 
-#: models.py:322
+#: models.py:342
 msgid "highsec"
 msgstr ""
 
-#: models.py:323
+#: models.py:343
 msgid "lowsec"
 msgstr ""
 
-#: models.py:324
+#: models.py:344
 msgid "nullsec"
 msgstr ""
 
-#: models.py:325
+#: models.py:345
 msgid "wh space"
 msgstr ""
 
-#: models.py:660
+#: models.py:495
+#, python-format
+msgid "%(timer_type)s timer for %(structure)s%(date)s"
+msgstr "%(structure)s의 %(timer_type)s 타이머%(date)s"
+
+#: models.py:513 views.py:229 views.py:301
+msgid "(unknown)"
+msgstr "(알 수 없음)"
+
+#: models.py:517
+#, python-format
+msgid "near %(location)s"
+msgstr "%(location)s 근처"
+
+#: models.py:521
+#, python-format
+msgid "%(type)s%(name)s in %(system)s%(location)s"
+msgstr "%(system)s의 %(type)s%(name)s%(location)s"
+
+#: models.py:701
 msgid "New timer created"
 msgstr ""
 
-#: models.py:661
+#: models.py:702
 msgid "Scheduled time reached"
 msgstr ""
 
-#: models.py:675
+#: models.py:716
 msgid "T - 0 minutes"
 msgstr ""
 
-#: models.py:676
+#: models.py:717
 msgid "T - 5 minutes"
 msgstr ""
 
-#: models.py:677
+#: models.py:718
 msgid "T - 10 minutes"
 msgstr ""
 
-#: models.py:678
+#: models.py:719
 msgid "T - 15 minutes"
 msgstr ""
 
-#: models.py:679
+#: models.py:720
 msgid "T - 30 minutes"
 msgstr ""
 
-#: models.py:680
+#: models.py:721
 msgid "T - 45 minutes"
 msgstr ""
 
-#: models.py:681
+#: models.py:722
 msgid "T - 60 minutes"
 msgstr ""
 
-#: models.py:682
+#: models.py:723
 msgid "T - 90 minutes"
 msgstr ""
 
-#: models.py:683
+#: models.py:724
 msgid "T - 120 minutes"
 msgstr ""
 
+#: templates/structuretimers/base.html:4
+msgid "Structure Timers"
+msgstr "구조물 타이머"
+
+#: templates/structuretimers/base.html:13
+msgid "Add reconnaissance"
+msgstr "정찰 추가"
+
+#: templates/structuretimers/base.html:14
+#: templates/structuretimers/recon_create_form.html:4 views.py:542
+msgid "Add recon"
+msgstr "정찰 추가"
+
+#: templates/structuretimers/base.html:18
+msgid "Quickly add a timer from EVE Online"
+msgstr "EVE Online에서 타이머 빠르게 추가"
+
+#: templates/structuretimers/base.html:19
+#: templates/structuretimers/timer_fast_create_form.html:11
+msgid "Quick add timer"
+msgstr "빠른 타이머 추가"
+
+#: templates/structuretimers/base.html:23
+msgid "Add new timer"
+msgstr "새 타이머 추가"
+
+#: templates/structuretimers/base.html:24
+msgid "Add timer"
+msgstr "타이머 추가"
+
 #: templates/structuretimers/partials/cancel_button.html:4
 msgid "Cancel"
-msgstr ""
+msgstr "취소"
 
+#: templates/structuretimers/partials/manage_recon.html:6
+msgid "Oldest recon / refresh"
+msgstr "가장 오래된 정찰 / 갱신"
+
+#: templates/structuretimers/partials/manage_recon.html:10
+msgid "Latest recon / refresh"
+msgstr "가장 최근 정찰 / 갱신"
+
+#: templates/structuretimers/partials/manage_recon.html:14
+msgid "Timers matching filters"
+msgstr "필터에 일치하는 타이머"
+
+#: templates/structuretimers/partials/manage_recon.html:15
+msgid "Across all table pages"
+msgstr "표의 모든 페이지 기준"
+
+#: templates/structuretimers/partials/manage_recon.html:18
+msgid "Reinforcement distribution · EVE time (UTC)"
+msgstr "강화 시간 분포 · EVE 시간(UTC)"
+
+#: templates/structuretimers/partials/manage_recon.html:19
+msgid ""
+"Darker cells mean more overlapping reinforcement windows. Each cell covers "
+"30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
+"structure types use ±3 hours."
+msgstr ""
+"색이 진할수록 겹치는 강화 시간 범위가 많습니다. 각 칸은 30분입니다. 기본: ±3시간. Ansiblex / Metenox: ±30분."
+" 알 수 없는 구조물 유형은 ±3시간을 적용합니다."
+
+#: templates/structuretimers/partials/manage_recon.html:21
+msgid "Reinforcement distribution in 30-minute intervals"
+msgstr "30분 간격의 강화 시간 분포"
+
+#: templates/structuretimers/partials/manage_recon.html:25
+msgid "Low"
+msgstr "낮음"
+
+#: templates/structuretimers/partials/manage_recon.html:25
+msgid "High"
+msgstr "높음"
+
+#: templates/structuretimers/partials/manage_recon.html:29
+#: templates/structuretimers/partials/preliminary_list_table.html:13
+msgid "Last updated"
+msgstr "마지막 갱신"
+
+#: templates/structuretimers/partials/manage_recon.html:31
+msgid "Any time"
+msgstr "전체 기간"
+
+#: templates/structuretimers/partials/manage_recon.html:32 views.py:112
+msgid "Older than 30 days"
+msgstr "30일 초과"
+
+#: templates/structuretimers/partials/manage_recon.html:33
+msgid "Within 30 days"
+msgstr "최근 30일 이내"
+
+#: templates/structuretimers/partials/manage_recon.html:34
+msgid "Within 7 days"
+msgstr "최근 7일 이내"
+
+#: templates/structuretimers/partials/manage_recon.html:37
+msgid "Updated from (UTC)"
+msgstr "갱신 시작일(UTC)"
+
+#: templates/structuretimers/partials/manage_recon.html:38
+msgid "Updated through (UTC)"
+msgstr "갱신 종료일(UTC)"
+
+#: templates/structuretimers/partials/manage_recon.html:39
+msgid "Reset filters"
+msgstr "필터 초기화"
+
+#: templates/structuretimers/partials/manage_recon.html:46
 #: templates/structuretimers/partials/preliminary_list_table.html:8
 #: templates/structuretimers/partials/timer_list_table.html:10
 msgid "Location"
-msgstr ""
+msgstr "위치"
+
+#: templates/structuretimers/partials/manage_recon.html:46
+msgid "Structure / reinforcement"
+msgstr "구조물 / 강화"
+
+#: templates/structuretimers/partials/manage_recon.html:47
+msgid "Name / Owner"
+msgstr "이름 / 소유자"
+
+#: templates/structuretimers/partials/manage_recon.html:47
+msgid "Objective / Tags"
+msgstr "목적 / 태그"
+
+#: templates/structuretimers/partials/manage_recon.html:48
+msgid "Last updated (UTC)"
+msgstr "마지막 갱신(UTC)"
+
+#: templates/structuretimers/partials/manage_recon.html:48
+msgid "Actions"
+msgstr "작업"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:9
 #: templates/structuretimers/partials/timer_list_table.html:11
@@ -200,39 +469,39 @@ msgstr ""
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
 msgid "Structure"
-msgstr ""
+msgstr "구조물"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:10
 #: templates/structuretimers/partials/timer_list_table.html:12
-#: templates/structuretimers/timer_list.html:113
+#: templates/structuretimers/timer_list.html:122
 msgid "Timer Type"
-msgstr ""
-
-#: templates/structuretimers/partials/preliminary_list_table.html:11
-#: templates/structuretimers/partials/timer_list_table.html:13
-#: templates/structuretimers/timer_list.html:115
-msgid "Objective"
-msgstr ""
+msgstr "타이머 유형"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:11
 #: templates/structuretimers/partials/timer_list_table.html:13
 msgid "Tags"
-msgstr ""
+msgstr "태그"
 
 #: templates/structuretimers/partials/preliminary_list_table.html:12
 #: templates/structuretimers/partials/timer_list_table.html:14
 msgid "Name"
-msgstr ""
+msgstr "이름"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:12
-#: templates/structuretimers/partials/timer_list_table.html:14
-#: templates/structuretimers/timer_list.html:114
-msgid "Owner"
-msgstr ""
+#: templates/structuretimers/partials/recon_actions.html:3
+msgid "View"
+msgstr "보기"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:13
-msgid "Last updated"
-msgstr ""
+#: templates/structuretimers/partials/recon_actions.html:5
+msgid "Still there"
+msgstr "존재 확인"
+
+#: templates/structuretimers/partials/recon_actions.html:6
+msgid "Destroyed"
+msgstr "파괴됨"
+
+#: templates/structuretimers/partials/recon_actions.html:7
+msgid "Edit"
+msgstr "편집"
 
 #: templates/structuretimers/partials/timer_list_table.html:8
 msgid "Eve Time"
@@ -242,19 +511,15 @@ msgstr ""
 msgid "Local Time"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:4
-msgid "Delete Timer"
-msgstr ""
-
-#: templates/structuretimers/timer_confirm_delete.html:9
+#: templates/structuretimers/timer_confirm_delete.html:10
 msgid "Delete Structure Timer"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:16
-msgid "Are you sure you want to delete timer this timer?"
+#: templates/structuretimers/timer_confirm_delete.html:15
+msgid "Are you sure you want to delete this timer?"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:21
+#: templates/structuretimers/timer_confirm_delete.html:20
 msgid "Delete"
 msgstr ""
 
@@ -264,110 +529,226 @@ msgstr ""
 
 #: templates/structuretimers/timer_detail.html:3
 msgid "Timer"
-msgstr ""
+msgstr "타이머"
 
-#: templates/structuretimers/timer_detail.html:6
+#: templates/structuretimers/timer_detail.html:11
 msgid "Image"
-msgstr ""
+msgstr "이미지"
 
-#: templates/structuretimers/timer_detail.html:17
+#: templates/structuretimers/timer_detail.html:22
 msgid "Notes"
-msgstr ""
+msgstr "메모"
 
-#: templates/structuretimers/timer_edit.html:12
+#: templates/structuretimers/timer_edit.html:15
 msgid "Please correct the input errors below"
-msgstr ""
+msgstr "아래 입력 오류를 수정하세요"
 
-#: templates/structuretimers/timer_edit.html:20
+#: templates/structuretimers/timer_edit.html:23
 msgid "required fields"
-msgstr ""
+msgstr "필수 항목"
 
-#: templates/structuretimers/timer_list.html:8
-msgid "Current Eve Time:"
+#: templates/structuretimers/timer_fast_create_form.html:6
+msgid ""
+"Paste a reinforced or anchoring structure timer from EVE Online. The solar "
+"system, structure name, and UTC time will be filled automatically."
 msgstr ""
 
 #: templates/structuretimers/timer_list.html:16
-msgid "Add new timer"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:17
-msgid "Add Timer"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:25
 msgid "Current"
-msgstr ""
+msgstr "현재"
+
+#: templates/structuretimers/timer_list.html:21
+msgid "Past"
+msgstr "지난 기록"
 
 #: templates/structuretimers/timer_list.html:26
-msgid "Past"
-msgstr ""
+#: tests/test_recon_translations.py:63
+msgid "Manage recon"
+msgstr "정찰 관리"
 
-#: templates/structuretimers/timer_list.html:29
+#: templates/structuretimers/timer_list.html:32
 msgid "Staging:"
-msgstr ""
+msgstr "집결지:"
 
-#: templates/structuretimers/timer_list.html:35
+#: templates/structuretimers/timer_list.html:39
 msgid "[MAIN]"
-msgstr ""
+msgstr "[주 집결지]"
 
-#: templates/structuretimers/timer_list.html:38
+#: templates/structuretimers/timer_list.html:44
 msgid "No staging system configured."
-msgstr ""
+msgstr "집결 항성계가 설정되지 않았습니다."
 
-#: templates/structuretimers/timer_list.html:51
+#: templates/structuretimers/timer_list.html:62
 msgid "This page contains potential future timers."
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:59
+#: templates/structuretimers/timer_list.html:70
 #, python-format
 msgid ""
-"Timers remain on this page for %(max_hours_expired)s hours after they expired"
+"Timers remain on this page for %(max_hours_expired)s hours after they "
+"expired"
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:69
+#: templates/structuretimers/timer_list.html:80
 msgid "*: Distance from selected staging system:"
-msgstr ""
+msgstr "*: 선택한 집결 항성계로부터의 거리:"
 
-#: templates/structuretimers/timer_list.html:83
+#: templates/structuretimers/timer_list.html:91
 msgid "Timer details"
-msgstr ""
+msgstr "타이머 상세 정보"
 
-#: templates/structuretimers/timer_list.html:97
+#: templates/structuretimers/timer_list.html:106
 msgid "Close"
-msgstr ""
+msgstr "닫기"
 
-#: templates/structuretimers/timer_list.html:110
-msgid "Solar System"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:111
+#: templates/structuretimers/timer_list.html:120 views.py:134
 msgid "Region"
-msgstr ""
+msgstr "리전"
 
-#: templates/structuretimers/timer_list.html:112
-msgid "Structure Type"
-msgstr ""
-
-#: templates/structuretimers/timer_list.html:116
+#: templates/structuretimers/timer_list.html:125
 msgid "Visibility"
-msgstr ""
+msgstr "공개 범위"
+
+#: templates/structuretimers/timer_list.html:126
+msgid "Filter by"
+msgstr "필터 기준"
+
+#: templates/structuretimers/timer_list.html:127 views.py:132
+msgid "All"
+msgstr "전체"
 
 #: templates/structuretimers/timer_update_form.html:5
 msgid "Update Structure Timer"
+msgstr "구조물 타이머 갱신"
+
+#: views.py:54
+msgid "Super"
 msgstr ""
 
-#: views.py:342
+#: views.py:55
+msgid "Cap"
+msgstr ""
+
+#: views.py:56
+msgid "Command carrier"
+msgstr ""
+
+#: views.py:111 views.py:140
+msgid "No matching recon"
+msgstr "일치하는 정찰 없음"
+
+#: views.py:114
+#, python-format
+msgid "%(start)s–%(end)s UTC: average window overlap: %(count)s"
+msgstr "%(start)s–%(end)s UTC: 평균 시간 범위 중첩 수: %(count)s"
+
+#: views.py:116
+#, python-format
+msgid "Peak overlap: %(count)s"
+msgstr "최대 중첩 수: %(count)s"
+
+#: views.py:118
+#, python-format
+msgid "Without reinforcement time: %(count)s · excluded from scale"
+msgstr "강화 시간 없음: %(count)s · 분포에서 제외"
+
+#: views.py:121
+msgid "Could not load recon. Reload the page to try again."
+msgstr "정찰을 불러오지 못했습니다. 페이지를 새로고침하여 다시 시도하세요."
+
+#: views.py:124
+msgid "Mark this structure as destroyed and remove its recon timer?"
+msgstr "이 구조물을 파괴됨으로 표시하고 정찰 타이머를 삭제할까요?"
+
+#: views.py:126
+msgid "Saving…"
+msgstr "저장 중…"
+
+#: views.py:127
+msgid "Recon removed."
+msgstr "정찰이 삭제되었습니다."
+
+#: views.py:128
+msgid "Recon refreshed to today."
+msgstr "정찰 날짜가 오늘로 갱신되었습니다."
+
+#: views.py:130
+msgid "Could not save this change. Reload the page and try again."
+msgstr "변경 사항을 저장하지 못했습니다. 페이지를 새로고침하고 다시 시도하세요."
+
+#: views.py:139
+msgid "No recon available"
+msgstr "등록된 정찰 없음"
+
+#. Translators: Keep DataTables tokens such as _START_ unchanged.
+#: views.py:142
+msgid "Showing _START_ to _END_ of _TOTAL_ entries"
+msgstr "전체 _TOTAL_개 중 _START_~_END_ 표시"
+
+#: views.py:143
+msgid "Showing 0 to 0 of 0 entries"
+msgstr "전체 0개 중 0~0 표시"
+
+#: views.py:144
+msgid "(filtered from _MAX_ total entries)"
+msgstr "(전체 _MAX_개에서 필터링됨)"
+
+#: views.py:145
+msgid "Show _MENU_ entries"
+msgstr "_MENU_개씩 표시"
+
+#: views.py:146
+msgid "Search:"
+msgstr "검색:"
+
+#: views.py:147
+msgid "Loading…"
+msgstr "불러오는 중…"
+
+#: views.py:148
+msgid "Processing…"
+msgstr "처리 중…"
+
+#: views.py:150
+msgid "First"
+msgstr "처음"
+
+#: views.py:151
+msgid "Last"
+msgstr "마지막"
+
+#: views.py:152
+msgid "Next"
+msgstr "다음"
+
+#: views.py:153
+msgid "Previous"
+msgstr "이전"
+
+#: views.py:156
+msgid "Activate to sort column ascending"
+msgstr "열을 오름차순으로 정렬하려면 활성화하세요"
+
+#: views.py:157
+msgid "Activate to sort column descending"
+msgstr "열을 내림차순으로 정렬하려면 활성화하세요"
+
+#: views.py:489
 msgid "Edit Structure Timer"
-msgstr ""
+msgstr "구조물 타이머 편집"
 
-#: views.py:369
+#: views.py:516
 msgid "Create New Timer"
 msgstr ""
 
-#: views.py:380
+#: views.py:527
 msgid "Added"
+msgstr "추가됨"
+
+#: views.py:536
+msgid "Quick Add Timer"
 msgstr ""
 
-#: views.py:406
+#: views.py:592
 msgid "Updated"
-msgstr ""
+msgstr "갱신됨"

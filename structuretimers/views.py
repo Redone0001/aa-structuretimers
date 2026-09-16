@@ -107,6 +107,57 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
                 "tab": self.request.GET.get("tab", "current"),
+                "recon_translations": {
+                    "noMatches": _("No matching recon"),
+                    "stale": _("Older than 30 days"),
+                    "overlap": _(
+                        "%(start)s–%(end)s UTC: average window overlap: %(count)s"
+                    ),
+                    "peak": _("Peak overlap: %(count)s"),
+                    "missing": _(
+                        "Without reinforcement time: %(count)s · excluded from scale"
+                    ),
+                    "loadError": _(
+                        "Could not load recon. Reload the page to try again."
+                    ),
+                    "confirmDestroy": _(
+                        "Mark this structure as destroyed and remove its recon timer?"
+                    ),
+                    "saving": _("Saving…"),
+                    "removed": _("Recon removed."),
+                    "refreshed": _("Recon refreshed to today."),
+                    "saveError": _(
+                        "Could not save this change. Reload the page and try again."
+                    ),
+                    "all": _("All"),
+                    "solarSystem": _("Solar System"),
+                    "region": _("Region"),
+                    "structureType": _("Structure Type"),
+                    "owner": _("Owner"),
+                    "objective": _("Objective"),
+                    "table": {
+                        "emptyTable": _("No recon available"),
+                        "zeroRecords": _("No matching recon"),
+                        # Translators: Keep DataTables tokens such as _START_ unchanged.
+                        "info": _("Showing _START_ to _END_ of _TOTAL_ entries"),
+                        "infoEmpty": _("Showing 0 to 0 of 0 entries"),
+                        "infoFiltered": _("(filtered from _MAX_ total entries)"),
+                        "lengthMenu": _("Show _MENU_ entries"),
+                        "search": _("Search:"),
+                        "loadingRecords": _("Loading…"),
+                        "processing": _("Processing…"),
+                        "paginate": {
+                            "first": _("First"),
+                            "last": _("Last"),
+                            "next": _("Next"),
+                            "previous": _("Previous"),
+                        },
+                        "aria": {
+                            "sortAscending": _("Activate to sort column ascending"),
+                            "sortDescending": _("Activate to sort column descending"),
+                        },
+                    },
+                },
             }
         )
         return context
@@ -175,7 +226,7 @@ class TimerListDataView(
                     "structure_type_name": (
                         timer.structure_type.name
                         if timer.structure_type
-                        else "(unknown)"
+                        else _("(unknown)")
                     ),
                     "owner_name": owner_name,
                     "visibility": visibility,
@@ -247,7 +298,7 @@ class TimerListDataView(
             structure_type_name = timer.structure_type.name
         else:
             structure_type_icon_url = ""
-            structure_type_name = "(unknown)"
+            structure_type_name = _("(unknown)")
 
         context = {
             "type_icon_url": structure_type_icon_url,

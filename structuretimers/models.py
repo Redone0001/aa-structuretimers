@@ -492,7 +492,11 @@ class Timer(models.Model):
             date = ""
         timer_type = self.get_timer_type_display()
         structure_name = self.structure_display_name
-        return f"{timer_type} timer for {structure_name}{date}"
+        return _("%(timer_type)s timer for %(structure)s%(date)s") % {
+            "timer_type": timer_type,
+            "structure": structure_name,
+            "date": date,
+        }
 
     def get_absolute_url(self) -> str:
         """Returns the absolute URL of a timer."""
@@ -506,11 +510,20 @@ class Timer(models.Model):
     @property
     def structure_display_name(self) -> str:
         """Return structure name for display."""
-        type_name = self.structure_type.name if self.structure_type else "(unknown)"
+        type_name = self.structure_type.name if self.structure_type else _("(unknown)")
         structure_name = f' "{self.structure_name}"' if self.structure_name else ""
         solar_system = self.eve_solar_system.name if self.eve_solar_system else ""
-        location = f" near {self.location_details}" if self.location_details else ""
-        return f"{type_name}{structure_name} in {solar_system}{location}"
+        location = (
+            " " + _("near %(location)s") % {"location": self.location_details}
+            if self.location_details
+            else ""
+        )
+        return _("%(type)s%(name)s in %(system)s%(location)s") % {
+            "type": type_name,
+            "name": structure_name,
+            "system": solar_system,
+            "location": location,
+        }
 
     @property
     def space_type(self) -> "SpaceType":

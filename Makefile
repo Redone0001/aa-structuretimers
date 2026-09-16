@@ -18,9 +18,10 @@ makemessages:
 		-l de \
 		-l en \
 		-l es \
-		-l fr_FR \
-		-l it_IT \
+		-l fr \
+		-l it \
 		-l ja \
+		-l ko \
 		-l ko_KR \
 		-l ru \
 		-l uk \
@@ -40,9 +41,10 @@ compilemessages:
 		-l de \
 		-l en \
 		-l es \
-		-l fr_FR \
-		-l it_IT \
+		-l fr \
+		-l it \
 		-l ja \
+		-l ko \
 		-l ko_KR \
 		-l ru \
 		-l uk \
