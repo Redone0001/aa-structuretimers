@@ -12,5 +12,22 @@ def region_layouts():
     )["regions"]
 
 
+@lru_cache(maxsize=128)
 def get_region_layout(name):
-    return region_layouts().get(name)
+    layout = region_layouts().get(name)
+    if layout is None:
+        return None
+    scale = 3
+    positions = list(layout["positions"].values())
+    for i, (x, y) in enumerate(positions):
+        for other_x, other_y in positions[i + 1 :]:
+            dx, dy = abs(x - other_x), abs(y - other_y)
+            if dx or dy:
+                scale = max(
+                    scale,
+                    min(
+                        140 / dx if dx else float("inf"),
+                        66 / dy if dy else float("inf"),
+                    ),
+                )
+    return {**layout, "scale": scale}

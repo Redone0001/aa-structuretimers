@@ -7,7 +7,9 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import HttpResponseBadRequest
+from django.db.models import Count
+from django.db.models.functions import Lower
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.timezone import now
@@ -39,18 +41,22 @@ class CampaignForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        systems = {}
-        for name in data.get("systems", "").replace(",", "\n").splitlines():
-            name = name.strip()
-            if not name:
-                continue
-            system = EveSolarSystem.objects.filter(name__iexact=name).first()
-            if system is None:
-                self.add_error(
-                    "systems", _("Unknown solar system: %(name)s") % {"name": name}
-                )
-            else:
-                systems[system.pk] = system
+        names = {
+            name.strip().lower()
+            for name in data.get("systems", "").replace(",", "\n").splitlines()
+            if name.strip()
+        }
+        found = {
+            system.name.lower(): system
+            for system in EveSolarSystem.objects.annotate(
+                lower_name=Lower("name")
+            ).filter(lower_name__in=names)
+        }
+        systems = {system.pk: system for system in found.values()}
+        for name in sorted(names - found.keys()):
+            self.add_error(
+                "systems", _("Unknown solar system: %(name)s") % {"name": name}
+            )
         data["resolved_systems"] = systems
         if not systems and not data.get("regions"):
             raise forms.ValidationError(_("Add at least one system or region."))
@@ -86,58 +92,40 @@ class CampaignCreateView(CampaignAccess, View):
         form = CampaignForm(request.POST)
         if form.is_valid():
             systems = form.cleaned_data["resolved_systems"]
-            try:
-                for region in form.cleaned_data["regions"]:
-                    EveRegion.objects.update_or_create_esi(
-                        id=region.pk,
-                        include_children=True,
-                        enabled_sections=[EveSolarSystem.Section.STARGATES],
-                    )
-                    systems.update(
-                        {
-                            s.pk: s
-                            for s in EveSolarSystem.objects.filter(
-                                eve_constellation__eve_region=region
-                            )
-                        }
-                    )
-                region_ids = {region.pk for region in form.cleaned_data["regions"]}
-                for system in systems.values():
-                    if system.eve_constellation.eve_region_id not in region_ids:
-                        EveSolarSystem.objects.update_or_create_esi(
-                            id=system.pk,
-                            include_children=True,
-                            enabled_sections=[EveSolarSystem.Section.STARGATES],
-                        )
-            except Exception:  # An unavailable ESI must not create a partial campaign.
-                form.add_error(
-                    "regions",
-                    _(
-                        "Could not import systems and gate connections. Please try again."
-                    ),
-                )
-                return self.render_form(request, form)
-            if not systems:
-                form.add_error(None, _("No systems found."))
-                return self.render_form(request, form)
+            region_ids = list(form.cleaned_data["regions"].values_list("pk", flat=True))
             with transaction.atomic():
                 campaign = ReconCampaign.objects.create(
-                    name=form.cleaned_data["name"], created_by=request.user
+                    name=form.cleaned_data["name"],
+                    created_by=request.user,
+                    region_ids=region_ids,
+                    import_status="pending" if region_ids else "ready",
+                    gates_status="pending",
                 )
                 ReconCampaignSystem.objects.bulk_create(
                     [
-                        ReconCampaignSystem(campaign=campaign, solar_system=s)
-                        for s in systems.values()
+                        ReconCampaignSystem(campaign=campaign, solar_system=system)
+                        for system in systems.values()
                     ]
+                )
+                from .campaign_jobs import enqueue_campaign_job
+
+                transaction.on_commit(
+                    lambda: enqueue_campaign_job(
+                        campaign.pk, "systems" if region_ids else "gates"
+                    )
                 )
             return redirect(campaign)
         return self.render_form(request, form)
 
 
 def can_work(user, entry):
-    return not entry.completed_at and (
-        entry.reserved_by_id == user.pk
-        or user.has_perm("structuretimers.recon_coordinator")
+    return (
+        entry.campaign.import_status == "ready"
+        and not entry.completed_at
+        and (
+            entry.reserved_by_id == user.pk
+            or user.has_perm("structuretimers.recon_coordinator")
+        )
     )
 
 
@@ -160,7 +148,11 @@ def campaign_map_data(entries):
                 "name": system.name,
                 "x": system.position_x,
                 "z": system.position_z,
-                "count": len(entry.timers),
+                "count": (
+                    entry.timer_count
+                    if hasattr(entry, "timer_count")
+                    else len(entry.timers)
+                ),
                 "status": (
                     "completed"
                     if entry.completed_at
@@ -207,6 +199,7 @@ class CampaignDetailView(CampaignAccess, View):
         ):
             timers[timer.eve_solar_system_id].append(timer)
         for entry in entries:
+            entry.campaign = campaign
             entry.timers = timers[entry.solar_system_id]
             entry.can_work = can_work(request.user, entry)
         return render(
@@ -215,7 +208,6 @@ class CampaignDetailView(CampaignAccess, View):
             {
                 "campaign": campaign,
                 "entries": entries,
-                "map_regions": campaign_map_data(entries),
                 "completed": sum(bool(e.completed_at) for e in entries),
                 "title": campaign.name,
             },
@@ -223,28 +215,30 @@ class CampaignDetailView(CampaignAccess, View):
 
     def post(self, request, pk):
         action = request.POST.get("action")
-        if action == "load_gates":
+        if action in {"load_gates", "retry_import"}:
             if not request.user.has_perm("structuretimers.recon_coordinator"):
                 raise PermissionDenied()
-            campaign = get_object_or_404(ReconCampaign, pk=pk)
-            try:
-                for system_id in campaign.systems.values_list(
-                    "solar_system_id", flat=True
-                ):
-                    EveSolarSystem.objects.update_or_create_esi(
-                        id=system_id,
-                        include_children=True,
-                        enabled_sections=[EveSolarSystem.Section.STARGATES],
-                    )
-            except Exception:
-                messages.error(
-                    request,
-                    _(
-                        "Gate import was interrupted. Some connections may be missing; retry to finish loading."
-                    ),
+            from .campaign_jobs import enqueue_campaign_job
+
+            with transaction.atomic():
+                campaign = get_object_or_404(
+                    ReconCampaign.objects.select_for_update(), pk=pk
                 )
-            else:
-                messages.success(request, _("Gate connections updated."))
+                if action == "retry_import" and campaign.import_status == "failed":
+                    campaign.import_status = "pending"
+                    campaign.gates_status = "pending"
+                    campaign.save(update_fields=["import_status", "gates_status"])
+                    transaction.on_commit(lambda: enqueue_campaign_job(pk, "systems"))
+                elif (
+                    action == "load_gates"
+                    and campaign.import_status == "ready"
+                    and campaign.gates_status != "pending"
+                ):
+                    campaign.gates_status = "pending"
+                    campaign.save(update_fields=["gates_status"])
+                    transaction.on_commit(
+                        lambda: enqueue_campaign_job(pk, "gates", refresh=True)
+                    )
             return redirect(campaign)
         if action not in {"reserve", "release", "complete", "reopen"}:
             return HttpResponseBadRequest("Unknown action")
@@ -252,6 +246,10 @@ class CampaignDetailView(CampaignAccess, View):
             campaign = get_object_or_404(
                 ReconCampaign.objects.select_for_update(), pk=pk
             )
+            if campaign.import_status != "ready":
+                return HttpResponseBadRequest(
+                    "Campaign systems are still being imported"
+                )
             ids = request.POST.getlist("systems")
             entries = (
                 list(campaign.systems.select_for_update().filter(pk__in=ids))
@@ -262,6 +260,7 @@ class CampaignDetailView(CampaignAccess, View):
                 return HttpResponseBadRequest("Select systems from this campaign")
             coordinator = request.user.has_perm("structuretimers.recon_coordinator")
             for entry in entries:
+                entry.campaign = campaign
                 if action == "reserve":
                     if entry.completed_at or entry.reserved_by_id not in {
                         None,
@@ -280,6 +279,7 @@ class CampaignDetailView(CampaignAccess, View):
                 elif not can_work(request.user, entry):
                     raise PermissionDenied()
             for entry in entries:
+                entry.campaign = campaign
                 if action == "reserve":
                     entry.reserved_by = request.user
                 elif action == "release":
@@ -296,6 +296,45 @@ class CampaignDetailView(CampaignAccess, View):
             )
             campaign.save(update_fields=["finished_at"])
         return redirect(campaign)
+
+
+class CampaignStatusView(CampaignAccess, View):
+    def get(self, request, pk):
+        campaign = get_object_or_404(ReconCampaign, pk=pk)
+        response = JsonResponse(
+            {
+                "import_status": campaign.import_status,
+                "gates_status": campaign.gates_status,
+            }
+        )
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class CampaignMapDataView(CampaignAccess, View):
+    def get(self, request, pk):
+        campaign = get_object_or_404(ReconCampaign, pk=pk)
+        entries = list(
+            campaign.systems.select_related(
+                "solar_system__eve_constellation__eve_region"
+            )
+        )
+        counts = dict(
+            Timer.objects.visible_to_user(request.user)
+            .filter(
+                timer_type=Timer.Type.PRELIMINARY,
+                eve_solar_system_id__in=[entry.solar_system_id for entry in entries],
+            )
+            .order_by()
+            .values("eve_solar_system_id")
+            .annotate(count=Count("pk"))
+            .values_list("eve_solar_system_id", "count")
+        )
+        for entry in entries:
+            entry.timer_count = counts.get(entry.solar_system_id, 0)
+        response = JsonResponse(campaign_map_data(entries), safe=False)
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 class CampaignReconView(CampaignAccess, View):

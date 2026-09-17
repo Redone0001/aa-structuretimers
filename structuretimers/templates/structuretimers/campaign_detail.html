@@ -3,6 +3,13 @@
 {% block content %}
 <a href="{% url 'structuretimers:campaign_list' %}">{% translate 'All campaigns' %}</a>
 <h1>{{ campaign.name }}</h1>
+<div id="campaign-import-status" data-url="{% url 'structuretimers:campaign_status' campaign.pk %}" data-import="{{ campaign.import_status }}" data-gates="{{ campaign.gates_status }}">
+{% if campaign.import_status == 'pending' %}<p class="alert alert-info" role="status">{% translate 'Preparing campaign systems in the background. This page will update when they are ready.' %}</p>{% endif %}
+{% if campaign.import_status == 'failed' %}<p class="alert alert-danger">{% translate 'System import failed. A coordinator can retry it.' %}</p>{% if perms.structuretimers.recon_coordinator %}<form method="post" class="mb-3">{% csrf_token %}<button class="btn btn-warning" name="action" value="retry_import">{% translate 'Retry system import' %}</button></form>{% endif %}{% endif %}
+{% if campaign.gates_status == 'pending' and campaign.import_status == 'ready' %}<p class="alert alert-info" role="status">{% translate 'Gate connections are loading in the background. You can already work on this campaign.' %}</p>{% endif %}
+{% if campaign.gates_status == 'failed' and campaign.import_status == 'ready' %}<p class="alert alert-warning">{% translate 'Gate import failed. A coordinator can retry from Map view.' %}</p>{% endif %}
+<p id="campaign-import-changed" class="alert alert-info" hidden>{% translate 'Campaign import status changed.' %} <a href="{{ campaign.get_absolute_url }}">{% translate 'Refresh when ready' %}</a></p>
+</div>
 <p><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
 <p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Refresh this page to see the latest reservations and progress.' %}</p>
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3" id="campaign-view-controls" hidden>
@@ -13,25 +20,25 @@
 <span aria-live="polite"><span id="campaign-selected-count">0</span> {% translate 'systems selected' %}</span>
 </div>
 <form id="campaign-bulk" method="post">{% csrf_token %}
-<div class="d-flex flex-wrap gap-2 mb-3">
+<fieldset class="d-flex flex-wrap gap-2 mb-3" {% if campaign.import_status != 'ready' %}disabled{% endif %}>
 <button class="btn btn-primary" name="action" value="reserve">{% translate 'Reserve selected' %}</button>
 <button class="btn btn-secondary" name="action" value="release">{% translate 'Release selected' %}</button>
 <button class="btn btn-success" name="action" value="complete">{% translate 'Mark selected complete' %}</button>
 {% if perms.structuretimers.recon_coordinator %}<button class="btn btn-warning" name="action" value="reopen">{% translate 'Reopen selected' %}</button>{% endif %}
-</div></form>
+</fieldset></form>
 <div id="campaign-list-view">
 {% regroup entries by solar_system.eve_constellation as constellations %}
 {% for constellation in constellations %}
 <section class="mb-4" data-constellation-group aria-labelledby="constellation-label-{{ constellation.grouper.pk }}">
 <h2 class="h4">
-<input class="form-check-input me-2" type="checkbox" data-constellation-select id="constellation-{{ constellation.grouper.pk }}">
+<input class="form-check-input me-2" type="checkbox" {% if campaign.import_status != 'ready' %}disabled{% endif %} data-constellation-select id="constellation-{{ constellation.grouper.pk }}">
 <label id="constellation-label-{{ constellation.grouper.pk }}" for="constellation-{{ constellation.grouper.pk }}">{{ constellation.grouper.name }}</label>
 <span class="small text-muted">({{ constellation.list|length }} {% translate 'systems' %})</span>
 </h2>
 {% for entry in constellation.list %}
 <section class="card mb-2"><div class="card-body py-2">
 <div class="d-flex flex-wrap justify-content-between gap-2">
-<h3 class="h5 mb-0"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
+<h3 class="h5 mb-0"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" {% if campaign.import_status != 'ready' %}disabled{% endif %} name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
 <div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
 {% if entry.reserved_by_id == request.user.pk %} {% translate 'By you' %}{% elif perms.structuretimers.recon_coordinator and entry.reserved_by %} {{ entry.reserved_by }}{% endif %}
 {% if perms.structuretimers.recon_coordinator and entry.completed_at %} · {{ entry.completed_by }} · {{ entry.completed_at|date:'Y-m-d H:i' }} UTC{% endif %}</div>
@@ -65,11 +72,13 @@
 </div>
 {% if perms.structuretimers.recon_coordinator %}
 <form method="post" class="mb-3">{% csrf_token %}
-<button class="btn btn-sm btn-outline-secondary" name="action" value="load_gates">{% translate 'Load / refresh gate connections' %}</button>
-<span class="small text-muted">{% translate 'Imports gate connections for campaign systems. Large campaigns may take a few minutes.' %}</span>
+<button class="btn btn-sm btn-outline-secondary" name="action" value="load_gates" {% if campaign.gates_status == 'pending' or campaign.import_status != 'ready' %}disabled{% endif %}>{% translate 'Load / refresh gate connections' %}</button>
+<span class="small text-muted">{% translate 'Loads gate connections in the background. You can keep using the campaign.' %}</span>
 </form>
 {% endif %}
 <div id="campaign-region-maps"
+ data-loading-label="{% translate 'Loading map…' %}"
+ data-error-label="{% translate 'Could not load the map. Click Map view to retry.' %}"
  data-local-layout-label="{% translate 'Layout: DOTLAN EveMaps. Stored locally.' %}"
  data-fallback-layout-label="{% translate 'No bundled regional layout is available. Showing the gate-based layout.' %}"
  data-unmapped-label="{% translate 'Systems missing from the regional layout are shown below the map.' %}"
@@ -82,12 +91,13 @@
  data-fit-label="{% translate 'Fit map' %}"
  data-no-links-label="{% translate 'No stargate links are available for these campaign systems.' %}"></div>
 </div>
-{{ map_regions|json_script:'campaign-map-data' }}
+<div id="campaign-map-data" data-url="{% url 'structuretimers:campaign_map_data' campaign.pk %}" hidden></div>
 {% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'structuretimers/css/campaign_map.css' %}">
 {% endblock %}
 {% block extra_javascript %}
+<script src="{% static 'structuretimers/js/campaign_status.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_selection.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_map.js' %}" defer></script>
 {% endblock %}

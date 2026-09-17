@@ -6,8 +6,8 @@
         if (fixed) {
             const all = Object.values(fixed.positions);
             // One uniform scale preserves the source layout while leaving room for labels.
-            let scale = 3;
-            for (let i = 0; i < all.length; i += 1) {
+            let scale = fixed.scale || 3;
+            for (let i = 0; !fixed.scale && i < all.length; i += 1) {
                 for (let j = i + 1; j < all.length; j += 1) {
                     const dx = Math.abs(all[i][0] - all[j][0]), dy = Math.abs(all[i][1] - all[j][1]);
                     if (dx || dy) scale = Math.max(scale, Math.min(dx ? 140 / dx : Infinity, dy ? 66 / dy : Infinity));
@@ -122,7 +122,7 @@
     if (typeof document === "undefined") return;
     const source = document.getElementById("campaign-map-data");
     if (!source) return;
-    const regions = JSON.parse(source.textContent);
+    let regions = [];
     const container = document.getElementById("campaign-region-maps");
     const list = document.getElementById("campaign-list-view");
     const map = document.getElementById("campaign-map-view");
@@ -131,6 +131,7 @@
     const rendered = new Map();
     const storageKey = `campaign-view:${window.location.pathname}`;
     let initialized = false;
+    let loading = false;
 
     function svgElement(tag, attrs, text) {
         const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -243,6 +244,7 @@
         }
         drawing.nodes.forEach(system => {
             const input = document.getElementById(`system-${system.entryId}`);
+            if (!input) return; // A background import may finish before the status refresh.
             const label = `${system.name}, ${container.dataset.countLabel}: ${system.count}, ${container.dataset[`${system.status}Label`]}`;
             const node = svgElement("g", {transform: `translate(${system.px},${system.py})`, class: "campaign-map-node", "data-status": system.status, "data-entry-id": system.entryId, tabindex: "0", role: "checkbox", "aria-checked": String(input.checked), "aria-label": label});
             node.appendChild(svgElement("title", {}, label));
@@ -250,7 +252,7 @@
             node.appendChild(svgElement("text", {x: 0, y: -3, "text-anchor": "middle", class: "map-name"}, system.name));
             node.appendChild(svgElement("text", {x: 0, y: 16, "text-anchor": "middle", class: "map-count"}, String(system.count)));
             node.appendChild(svgElement("text", {x: 47, y: 16, class: "map-check", "aria-hidden": "true"}, "✓"));
-            function toggle() { input.checked = !input.checked; input.dispatchEvent(new Event("change", {bubbles: true})); }
+            function toggle() { if (input.disabled) return; input.checked = !input.checked; input.dispatchEvent(new Event("change", {bubbles: true})); }
             node.addEventListener("click", toggle);
             node.addEventListener("keydown", event => {
                 if (event.key === " " || event.key === "Enter") { event.preventDefault(); toggle(); }
@@ -264,7 +266,21 @@
         list.hidden = view === "map";
         map.hidden = view !== "map";
         controls.querySelectorAll("[data-campaign-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.campaignView === view)));
-        if (view === "map" && !initialized) { regions.forEach(renderRegion); initialized = true; }
+        if (view === "map" && !initialized && !loading) {
+            loading = true;
+            container.textContent = container.dataset.loadingLabel;
+            fetch(source.dataset.url, {credentials: "same-origin", headers: {Accept: "application/json"}})
+                .then(response => { if (!response.ok) throw new Error("Map request failed"); return response.json(); })
+                .then(data => {
+                    regions = data;
+                    container.textContent = "";
+                    regions.forEach(renderRegion);
+                    initialized = true;
+                    sync();
+                })
+                .catch(() => { container.textContent = container.dataset.errorLabel; })
+                .finally(() => { loading = false; });
+        }
         try { sessionStorage.setItem(storageKey, view); } catch (_) { /* Storage may be unavailable. */ }
         sync();
     }

@@ -1112,6 +1112,18 @@ class DistancesFromStaging(models.Model):
 
 
 class ReconCampaign(models.Model):
+    class ImportStatus(models.TextChoices):
+        READY = "ready", "Ready"
+        PENDING = "pending", "Importing"
+        FAILED = "failed", "Import failed"
+
+    region_ids = models.JSONField(default=list, blank=True)
+    import_status = models.CharField(
+        max_length=10, choices=ImportStatus.choices, default=ImportStatus.READY
+    )
+    gates_status = models.CharField(
+        max_length=10, choices=ImportStatus.choices, default=ImportStatus.READY
+    )
     name = models.CharField(max_length=200)
     created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -7,6 +7,16 @@ from . import views, campaigns
 app_name = "structuretimers"
 
 urlpatterns = [
+    path(
+        "campaigns/<int:pk>/map/",
+        campaigns.CampaignMapDataView.as_view(),
+        name="campaign_map_data",
+    ),
+    path(
+        "campaigns/<int:pk>/status/",
+        campaigns.CampaignStatusView.as_view(),
+        name="campaign_status",
+    ),
     path("campaigns/", campaigns.CampaignListView.as_view(), name="campaign_list"),
     path(
         "campaigns/create/",

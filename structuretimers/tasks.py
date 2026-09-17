@@ -317,3 +317,6 @@ def calc_timer_distances_for_staging_system(
     DistancesFromStaging.objects.calc_timer_for_staging_system(
         timer=timer, staging_system=staging_system, force_update=force_update
     )
+
+# Celery autodiscovers tasks.py; campaign imports are implemented separately.
+from .campaign_jobs import prepare_campaign  # noqa: E402,F401

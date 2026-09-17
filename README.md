@@ -246,7 +246,8 @@ Grant `structuretimers.recon_coordinator` and `structuretimers.basic_access`
 to a coordinator user or group in Alliance Auth to enable campaign creation and
 coordination. Coordinators enter system names (commas or new lines) and/or select
 regions. Region systems are imported from ESI; overlapping selections are deduplicated.
-An import failure leaves no partial campaign.
+System imports run in the background; failures leave a retryable campaign without
+publishing partial region membership.
 
 Users with basic access can reserve multiple systems, release their reservations,
 and mark their reserved systems complete. Within reserved systems they can add,
@@ -271,7 +272,7 @@ Use the zoom controls and scroll within each map to inspect larger regions.
 The chosen view is remembered in the current browser tab. Hold the left mouse
 button and drag to pan.
 
-New campaigns import gate connections. For existing campaigns, coordinators can
+New campaigns import gate connections in the background. For existing campaigns, coordinators can
 use **Load / refresh gate connections** in Map view. Missing gate data is shown
 explicitly; disconnected campaign systems remain selectable. Maps include only
 campaign systems and connections between them within a region, and use bundled coordinates extracted from DOTLAN's regional PDFs.
@@ -294,3 +295,23 @@ To update bundled positions, developers can run
 with local regional PDFs and an `index.json` mapping each region name to its
 `file` and list of `systems`. Only this offline build tool requires `pdfplumber`;
 production installations have no PDF parser or map download dependency.
+
+
+#### Campaign responsiveness
+
+Campaign creation saves and redirects immediately, without waiting for ESI. Explicit
+systems are available immediately; selected regions show **Preparing** until the
+Celery worker finishes importing their systems. Completed region membership is
+cached for one hour for subsequent campaigns. Gate imports run separately and
+reuse existing universe data; coordinators can request a background refresh.
+Import failures and broker errors show a retry control. Pending system imports
+cannot be reserved or marked complete. Pages poll a small status endpoint and
+refresh on completion unless the user has selected systems.
+
+Map data is requested only on opening Map view. Visible timer counts are aggregated
+in the database, and region layout scaling is cached by the server. No recon
+visibility restrictions are bypassed or shared between users.
+
+This update requires `python manage.py migrate` and restarting Celery workers so
+they discover the campaign import task. The regular Alliance Auth Celery worker
+and broker must be running for region imports and gate refreshes to finish.

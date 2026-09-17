@@ -76,35 +76,34 @@ class TestCampaigns(NoSocketsTestCase):
         self.campaign.refresh_from_db()
         self.assertIsNotNone(self.campaign.finished_at)
 
-    def test_creation_requires_coordinator_and_region_deduplicates(self):
+    def test_creation_requires_coordinator_and_queues_region_import(self):
         url = reverse("structuretimers:campaign_create")
         self.assertEqual(self.client.get(url).status_code, 403)
         self.coordinator()
-        self.assertEqual(self.client.get(url).status_code, 200)
         region = self.entry.solar_system.eve_constellation.eve_region
-        with patch(
-            "structuretimers.campaigns.EveRegion.objects.update_or_create_esi"
-        ) as importer:
-            response = self.client.post(
-                url,
-                {
-                    "name": "Region campaign",
-                    "systems": self.entry.solar_system.name,
-                    "regions": [region.pk],
-                },
-            )
-        self.assertEqual(response.status_code, 302)
-        importer.assert_called_once_with(
-            id=region.pk, include_children=True, enabled_sections=["stargates"]
-        )
-        campaign = ReconCampaign.objects.get(name="Region campaign")
-        self.assertEqual(campaign.systems.count(), 1)
-        with patch(
-            "structuretimers.campaigns.EveRegion.objects.update_or_create_esi",
-            side_effect=RuntimeError(),
+        with (
+            patch(
+                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
+            ) as queue,
+            patch(
+                "structuretimers.campaigns.EveRegion.objects.update_or_create_esi"
+            ) as importer,
         ):
-            self.client.post(url, {"name": "Failed import", "regions": [region.pk]})
-        self.assertFalse(ReconCampaign.objects.filter(name="Failed import").exists())
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(
+                    url,
+                    {
+                        "name": "Region campaign",
+                        "systems": self.entry.solar_system.name,
+                        "regions": [region.pk],
+                    },
+                )
+        self.assertEqual(response.status_code, 302)
+        importer.assert_not_called()
+        campaign = ReconCampaign.objects.get(name="Region campaign")
+        self.assertEqual(campaign.import_status, "pending")
+        self.assertEqual(campaign.region_ids, [region.pk])
+        queue.assert_called_once_with(args=[campaign.pk, "systems", False], retry=False)
 
     def test_reserved_user_can_manage_existing_recon_but_not_hidden(self):
         timer = TimerFactory(
@@ -202,8 +201,10 @@ class TestCampaigns(NoSocketsTestCase):
             eve_solar_system=self.entry.solar_system,
             destination_eve_solar_system=other_region.solar_system,
         )
-        response = self.client.get(self.url)
-        regions = response.context["map_regions"]
+        response = self.client.get(
+            reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+        )
+        regions = response.json()
         self.assertEqual(len(regions), 2)
         region = next(r for r in regions if len(r["systems"]) == 2)
         node = next(s for s in region["systems"] if s["entryId"] == self.entry.pk)
@@ -220,7 +221,9 @@ class TestCampaigns(NoSocketsTestCase):
         self.act("reserve")
         node = next(
             s
-            for r in self.client.get(self.url).context["map_regions"]
+            for r in self.client.get(
+                reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+            ).json()
             for s in r["systems"]
             if s["entryId"] == self.entry.pk
         )
@@ -228,34 +231,37 @@ class TestCampaigns(NoSocketsTestCase):
         self.act("complete")
         node = next(
             s
-            for r in self.client.get(self.url).context["map_regions"]
+            for r in self.client.get(
+                reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+            ).json()
             for s in r["systems"]
             if s["entryId"] == self.entry.pk
         )
         self.assertEqual(node["status"], "completed")
 
-    def test_loading_gates_requires_coordinator_and_keeps_campaign_progress(self):
+    def test_loading_gates_requires_coordinator_and_queues_once(self):
         self.assertEqual(
             self.client.post(self.url, {"action": "load_gates"}).status_code, 403
         )
         self.coordinator()
-        with patch(
-            "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi"
-        ) as importer:
-            self.assertEqual(
-                self.client.post(self.url, {"action": "load_gates"}).status_code, 302
-            )
-        importer.assert_called_once_with(
-            id=self.entry.solar_system_id,
-            include_children=True,
-            enabled_sections=["stargates"],
+        with (
+            patch(
+                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
+            ) as queue,
+            patch(
+                "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi"
+            ) as importer,
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(
+                    self.client.post(self.url, {"action": "load_gates"}).status_code,
+                    302,
+                )
+                self.client.post(self.url, {"action": "load_gates"})
+        importer.assert_not_called()
+        queue.assert_called_once_with(
+            args=[self.campaign.pk, "gates", True], retry=False
         )
         self.entry.refresh_from_db()
         self.assertIsNone(self.entry.reserved_by)
         self.assertIsNone(self.entry.completed_at)
-        with patch(
-            "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi",
-            side_effect=RuntimeError(),
-        ):
-            response = self.client.post(self.url, {"action": "load_gates"}, follow=True)
-        self.assertContains(response, "Gate import was interrupted")
