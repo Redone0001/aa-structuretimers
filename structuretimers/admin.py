@@ -7,7 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Count, Q
 from django.db.models.functions import Lower
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
 from eveuniverse.models import EveRegion
@@ -17,6 +20,8 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from . import tasks
 from .models import (
     DiscordWebhook,
+    ReconCampaign,
+    ReconCampaignSystem,
     NotificationRule,
     ScheduledNotification,
     StagingSystem,
@@ -399,3 +404,177 @@ class StagingSystemAdmin(admin.ModelAdmin):
             self.message_user(
                 request, f"{obj}: Started to update timers for staging system..."
             )
+
+
+class ReconCampaignSystemAdminForm(forms.ModelForm):
+    completed = forms.BooleanField(required=False, label="Completed")
+
+    class Meta:
+        model = ReconCampaignSystem
+        fields = ("solar_system", "reserved_by", "completed")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["completed"].initial = bool(self.instance.completed_at)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.cleaned_data["completed"]:
+            instance.completed_at = instance.completed_at or now()
+        else:
+            instance.completed_at = None
+            instance.completed_by = None
+        if commit:
+            instance.save()
+        return instance
+
+
+class ReconCampaignSystemInline(admin.TabularInline):
+    model = ReconCampaignSystem
+    form = ReconCampaignSystemAdminForm
+    extra = 0
+    autocomplete_fields = ("solar_system",)
+    raw_id_fields = ("reserved_by",)
+    fields = (
+        "solar_system",
+        "reserved_by",
+        "completed",
+        "completed_at",
+        "completed_by",
+    )
+    readonly_fields = ("completed_at", "completed_by")
+
+    @admin.display(boolean=True, description="Completed")
+    def completed(self, obj):
+        return bool(obj.completed_at)
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("solar_system", "reserved_by", "completed_by")
+        )
+
+    def has_add_permission(self, request, obj=None):
+        return bool(
+            obj and obj.import_status == "ready"
+        ) and super().has_add_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        return bool(
+            obj and obj.import_status == "ready"
+        ) and super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(
+            obj and obj.import_status == "ready"
+        ) and super().has_delete_permission(request, obj)
+
+
+@admin.register(ReconCampaign)
+class ReconCampaignAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "created_by",
+        "created_at",
+        "import_status",
+        "gates_status",
+        "progress",
+        "finished_at",
+    )
+    list_filter = (
+        "import_status",
+        "gates_status",
+        ("finished_at", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("name", "created_by__username")
+    list_select_related = ("created_by",)
+    readonly_fields = (
+        "created_by",
+        "created_at",
+        "finished_at",
+        "import_status",
+        "gates_status",
+        "region_ids",
+        "open_campaign",
+    )
+    fields = (
+        "name",
+        "open_campaign",
+        "created_by",
+        "created_at",
+        "finished_at",
+        "import_status",
+        "gates_status",
+        "region_ids",
+    )
+    inlines = (ReconCampaignSystemInline,)
+    actions = ("retry_failed_imports",)
+
+    def has_add_permission(self, request):
+        # Region imports and background jobs are initialized by the campaign form.
+        return False
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                system_count=Count("systems"),
+                complete_count=Count(
+                    "systems", filter=Q(systems__completed_at__isnull=False)
+                ),
+            )
+        )
+
+    @admin.display(description="Systems completed")
+    def progress(self, obj):
+        return f"{obj.complete_count} / {obj.system_count}"
+
+    @admin.display(description="Campaign page")
+    def open_campaign(self, obj):
+        return format_html('<a href="{}">Open campaign</a>', obj.get_absolute_url())
+
+    def save_formset(self, request, form, formset, change):
+        campaign = ReconCampaign.objects.select_for_update().get(pk=form.instance.pk)
+        instances = formset.save(commit=False)
+        for deleted in formset.deleted_objects:
+            deleted.delete()
+        for instance in instances:
+            if instance.completed_at and not instance.completed_by_id:
+                instance.completed_by = request.user
+            instance.save()
+        formset.save_m2m()
+        complete = (
+            campaign.import_status == "ready"
+            and campaign.systems.exists()
+            and not campaign.systems.filter(completed_at__isnull=True).exists()
+        )
+        campaign.finished_at = (campaign.finished_at or now()) if complete else None
+        campaign.save(update_fields=["finished_at"])
+
+    @admin.action(description="Retry failed campaign imports", permissions=["change"])
+    def retry_failed_imports(self, request, queryset):
+        from .campaign_jobs import enqueue_campaign_job
+
+        count = 0
+        for pk in queryset.values_list("pk", flat=True):
+            with transaction.atomic():
+                campaign = ReconCampaign.objects.select_for_update().get(pk=pk)
+                if campaign.import_status == "failed":
+                    campaign.import_status = campaign.gates_status = "pending"
+                    kind = "systems"
+                elif (
+                    campaign.import_status == "ready"
+                    and campaign.gates_status == "failed"
+                ):
+                    campaign.gates_status = "pending"
+                    kind = "gates"
+                else:
+                    continue
+                campaign.save(update_fields=["import_status", "gates_status"])
+                transaction.on_commit(
+                    lambda pk=pk, kind=kind: enqueue_campaign_job(pk, kind)
+                )
+                count += 1
+        self.message_user(request, f"Queued retries for {count} campaigns.")

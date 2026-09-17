@@ -1132,6 +1132,9 @@ class ReconCampaign(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def __str__(self):
+        return self.name
+
     def get_absolute_url(self):
         return reverse("structuretimers:campaign_detail", args=[self.pk])
 

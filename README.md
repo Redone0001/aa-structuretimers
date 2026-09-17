@@ -315,3 +315,18 @@ visibility restrictions are bypassed or shared between users.
 This update requires `python manage.py migrate` and restarting Celery workers so
 they discover the campaign import task. The regular Alliance Auth Celery worker
 and broker must be running for region imports and gate refreshes to finish.
+
+
+#### Campaign administration
+
+Django admin lists campaigns under **Structure Timers → Recon campaigns**.
+Administrators can search by name or creator, filter import/completion status,
+rename campaigns, and delete individual or multiple campaigns. Deletion removes
+the campaign's reservations and progress, while keeping recon timers and universe
+systems. System rows allow adding/removing systems, changing reservations, and
+toggling completion; campaign completion is recalculated automatically.
+
+Import metadata is read-only. System editing is disabled during pending/failed
+system imports, and the **Retry failed campaign imports** action queues retries.
+Create new campaigns through the regular campaign creation page. Non-superuser
+staff need the appropriate Django campaign and campaign-system model permissions.
