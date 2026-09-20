@@ -2,10 +2,10 @@
 {% load django_bootstrap5 %}
 {% load i18n %}
 
-{% block content %}
+{% block structuretimers_content %}
     <div class="row">
     <div class="col col-lg-8">
-        <div class="card card-default">
+        <div class="card">
             <div class="card-body">
                 <h5 class="card-title">{% translate "Delete Structure Timer" %}</h5>
                 <form action="" method="post" id="confirm-delete-form">
@@ -23,4 +23,4 @@
             </div>
         </div>
     </div>
-{% endblock content %}
+{% endblock structuretimers_content %}

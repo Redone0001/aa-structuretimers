@@ -3,7 +3,7 @@
 {% load i18n %}
 {% load evelinks %}
 
-{% block content %}
+{% block structuretimers_content %}
     <!-- Nav tabs -->
     <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -54,7 +54,7 @@
         </li>
     </ul>
 
-    <div class="card card-default">
+    <div class="card">
         <div class="card-body">
             <div class="tab-content">
                 <div role="tabpanel" class="tab-pane" id="manage-recon">
@@ -101,11 +101,7 @@
                 </div>
                 <div class="modal-body">
                     <div id="modal_div_spinner">
-                        {% if NIGHT_MODE %}
-                            <img src="{% static 'structuretimers/img/Spinner-1s-64px-dark.gif' %}" alt="Spinner"/>
-                        {% else %}
-                            <img src="{% static 'structuretimers/img/Spinner-1s-64px-light.gif' %}" alt="Spinner"/>
-                        {% endif %}
+                        <div class="spinner-border text-secondary" role="status"><span class="visually-hidden">{% translate 'Loading' %}</span></div>
                     </div>
                     <div id="modalContent" style="display: none"></div>
                     <div id="modalLoadError"></div>
@@ -132,8 +128,11 @@
         data-titleObjective="{% translate 'Objective' %}"
         data-titleVisibility="{% translate 'Visibility' %}"
         data-titleFilterBy="{% translate 'Filter by' %}"
+        data-filter-search-label="{% translate 'Search options' %}"
+        data-filter-clear-label="{% translate 'Clear selection' %}"
+        data-filter-empty-label="{% translate 'No matching options' %}"
+        data-filter-selected-label="{% translate '%(count)s selected' %}"
         data-titleAll="{% translate 'All' %}"
-        data-isNightMode="{{ NIGHT_MODE|yesno:'true,false' }}"
         data-hasPermOPSEC="{{ perms.structuretimers.opsec_access }}"
         data-dataTablesPageLength="{{ data_tables_page_length }}"
         data-dataTablesPaging="{{ data_tables_paging }}"
@@ -141,20 +140,17 @@
     >
     </div>
 
-{% endblock content %}
+{% endblock structuretimers_content %}
 
-{% block extra_css %}
+{% block structuretimers_extra_css %}
     {% include 'bundles/datatables-css-bs5.html' %}
-    <link href="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.css' %}" rel="stylesheet">
-    <link href="{% static 'structuretimers/vendor/select2-bootstrap-theme-0.1.0-beta.10/select2-bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'structuretimers/css/global.css' %}" type="text/css" media="screen">
     <link rel="stylesheet" href="{% static 'structuretimers/css/timer_list.css' %}" type="text/css" media="screen">
-{% endblock extra_css%}
+{% endblock structuretimers_extra_css %}
 
 {% block extra_javascript %}
     {% include 'bundles/moment-js.html' with locale=True %}
     {% include 'bundles/datatables-js-bs5.html' %}
-    <script type="application/javascript" src="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>
     <script type="application/javascript" src="{% static 'structuretimers/js/timer_list.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/recon_distribution.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/manage_recon.js' %}"></script>

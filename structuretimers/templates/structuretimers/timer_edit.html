@@ -3,10 +3,10 @@
 {% load static %}
 {% load i18n %}
 
-{% block content %}
+{% block structuretimers_content %}
     <div class="row">
         <div class="col col-lg-8">
-            <div class="card card-default">
+            <div class="card">
                 <div class="card-body">
                     {% block form_intro %}{% endblock %}
                     {% if form.errors %}
@@ -15,7 +15,7 @@
                             <strong> {% translate "Please correct the input errors below" %}</strong>
                         </p>
                     {% endif %}
-                    <form id="add-timer-form" class="form-signin" role="form" action="" method="POST">
+                    <form id="add-timer-form" role="form" action="" method="POST">
                         {% csrf_token %}
                         {% bootstrap_form form %}
                         <br/>
@@ -39,16 +39,15 @@
         data-select2StructureTypesUrl="{% url 'structuretimers:select2_structure_types' %}">
     </div>
 
-    {{ NIGHT_MODE|json_script:"night-mode-data" }}
     {{ LANGUAGE_CODE|json_script:"language-code-data" }}
-{% endblock content %}
+{% endblock structuretimers_content %}
 
-{% block extra_css %}
+{% block structuretimers_extra_css %}
     <link href="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.css' %}" rel="stylesheet">
     <link href="{% static 'structuretimers/vendor/select2-bootstrap-theme-0.1.0-beta.10/select2-bootstrap.min.css' %}" rel="stylesheet">
     {% include "bundles/jquery-datetimepicker-css.html" %}
     <link href="{% static 'structuretimers/css/timer_edit.css' %}" rel="stylesheet">
-{% endblock extra_css %}
+{% endblock structuretimers_extra_css %}
 
 {% block extra_javascript %}
     <script type="application/javascript" src="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>

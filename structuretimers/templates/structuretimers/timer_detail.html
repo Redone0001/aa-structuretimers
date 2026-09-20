@@ -12,7 +12,7 @@
 <p>
     {% if object.details_image_url %}
     <a href="{{ object.details_image_url }}" target="_blank">
-        <img id="timerboardImgScreenshot" class="img-responsive" alt="details image" src="{{ object.details_image_url }}"/>
+        <img id="timerboardImgScreenshot" class="img-fluid" alt="details image" src="{{ object.details_image_url }}"/>
     </a>
     {% else %}
     <span class="text-muted">-</span>

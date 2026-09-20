@@ -3,16 +3,19 @@
 .campaign-map-svg { display: block; }
 .campaign-map-scroll { cursor: grab; user-select: none; }
 .campaign-map-scroll.is-panning, .campaign-map-scroll.is-panning * { cursor: grabbing; }
-.campaign-map-link { stroke: #8995a5; stroke-width: 1.5; }
+.campaign-map-link { stroke: var(--bs-secondary-color); stroke-width: 1.5; }
 .campaign-map-node { cursor: pointer; }
-.campaign-map-node rect { fill: #e9ecef; stroke: #687582; stroke-width: 1.5; }
-.campaign-map-node[data-status="reserved"] rect { fill: #ffe69c; stroke: #997404; }
-.campaign-map-node[data-status="completed"] rect { fill: #a3cfbb; stroke: #146c43; }
-.campaign-map-node text { fill: #17212b; font: 13px sans-serif; pointer-events: none; }
+.campaign-map-node rect { fill: var(--bs-secondary-bg); stroke: var(--bs-border-color); stroke-width: 1.5; }
+.campaign-map-node[data-status="reserved"] rect { fill: var(--bs-warning-bg-subtle); stroke: var(--bs-warning-border-subtle); }
+.campaign-map-node[data-status="completed"] rect { fill: var(--bs-success-bg-subtle); stroke: var(--bs-success-border-subtle); }
+.campaign-map-node text { fill: var(--bs-body-color); font: 13px var(--bs-body-font-family); pointer-events: none; }
 .campaign-map-node .map-name { font-weight: 700; }
 .campaign-map-node .map-count { font-size: 12px; }
-.campaign-map-node .map-check { visibility: hidden; fill: #084298; font-weight: 700; }
-.campaign-map-node[aria-checked="true"] rect { stroke: #0d6efd; stroke-width: 4; }
+.campaign-map-node .map-check { visibility: hidden; fill: var(--bs-link-color); font-weight: 700; }
+.campaign-map-node[aria-checked="true"] rect { stroke: var(--bs-link-color); stroke-width: 4; }
 .campaign-map-node[aria-checked="true"] .map-check { visibility: visible; }
 .campaign-map-node:focus { outline: none; }
-.campaign-map-node:focus rect { stroke: #0d6efd; stroke-width: 4; stroke-dasharray: 5 3; }
+.campaign-map-node:focus rect { stroke: var(--bs-link-color); stroke-width: 4; stroke-dasharray: 5 3; }
+
+.campaign-map-node[data-status="reserved"] text { fill: var(--bs-warning-text-emphasis); }
+.campaign-map-node[data-status="completed"] text { fill: var(--bs-success-text-emphasis); }

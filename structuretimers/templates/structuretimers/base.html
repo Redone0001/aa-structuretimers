@@ -1,11 +1,15 @@
 {% extends 'allianceauth/base-bs5.html' %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block header_nav_brand %}{% translate "Structure Timers" %}{% endblock %}
 
 {% block page_title %}{% translate title %}{% endblock %}
 
-{% block content %}{% endblock %}
+{% block content %}<div class="st-page">{% block structuretimers_content %}{% endblock %}</div>{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'structuretimers/css/theme.css' %}">
+{% block structuretimers_extra_css %}{% endblock %}
+{% endblock %}
 
 {% block header_nav_collapse_right %}
     {% if perms.structuretimers.create_timer %}

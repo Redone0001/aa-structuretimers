@@ -1,0 +1,21 @@
+/* Shared app controls inherit the active Alliance Auth theme. */
+.st-page, .st-page .col, .st-page .card, .st-page .card-body { min-width: 0; }
+.st-page .form-control, .st-page .form-select, .st-page .dataTables_filter input, .st-page .dataTables_length select {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+    max-width: 100%;
+}
+.st-page .form-control::placeholder { color: var(--bs-secondary-color); opacity: 1; }
+.st-page .form-control:disabled, .st-page .form-select:disabled { background-color: var(--bs-secondary-bg); }
+.st-page .form-control:focus, .st-page .form-select:focus { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .2); }
+.st-page .form-check-input { background-color: var(--bs-body-bg); border: 1px solid var(--bs-secondary-color); }
+.st-page .form-check-input:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+.st-page a, .st-page h1 { overflow-wrap: anywhere; }
+.st-page .table-responsive { max-width: 100%; }
+
+.st-page .form-control.is-invalid, .st-page .form-select.is-invalid { border-color: var(--bs-danger); }
+.st-page .form-control.is-valid, .st-page .form-select.is-valid { border-color: var(--bs-success); }
+
+/* Native arrows follow the control text color, including Bootswatch dark themes. */
+.st-page .form-select { appearance: auto; background-image: none; }

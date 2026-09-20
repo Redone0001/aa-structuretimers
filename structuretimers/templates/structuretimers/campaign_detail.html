@@ -1,6 +1,6 @@
 {% extends 'structuretimers/base.html' %}
 {% load i18n static %}
-{% block content %}
+{% block structuretimers_content %}
 <a href="{% url 'structuretimers:campaign_list' %}">{% translate 'All campaigns' %}</a>
 <h1>{{ campaign.name }}</h1>
 <div id="campaign-import-status" data-url="{% url 'structuretimers:campaign_status' campaign.pk %}" data-import="{{ campaign.import_status }}" data-gates="{{ campaign.gates_status }}">
@@ -93,7 +93,7 @@
 </div>
 <div id="campaign-map-data" data-url="{% url 'structuretimers:campaign_map_data' campaign.pk %}" hidden></div>
 {% endblock %}
-{% block extra_css %}
+{% block structuretimers_extra_css %}
 <link rel="stylesheet" href="{% static 'structuretimers/css/campaign_map.css' %}">
 {% endblock %}
 {% block extra_javascript %}

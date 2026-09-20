@@ -36,7 +36,7 @@ $(document).ready(function () {
         bins.forEach((count, i) => {
             const label = formatMessage(messages.overlap, {start: timeLabel(i * 30), end: timeLabel((i + 1) * 30), count: number(count)});
             $('<div>', {class: 'recon-heat-cell', tabindex: 0, role: 'img', title: label, 'aria-label': label})
-                .css('background-color', count ? `hsl(210, 80%, ${86 - 56 * count / peak}%)` : 'var(--bs-secondary-bg, #e9ecef)')
+                .css('background-color', count ? `rgba(var(--bs-info-rgb), ${0.15 + 0.85 * count / peak})` : 'var(--bs-secondary-bg)')
                 .appendTo(heatmap);
         });
         $('#recon-peak').text(formatMessage(messages.peak, {count: number(peak)}));

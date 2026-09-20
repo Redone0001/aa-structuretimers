@@ -1,9 +1,40 @@
-.fa-asterisk {
-    color: salmon;
-    font-size: 0.75rem;
-    vertical-align: top;
-  }
-
-.my_select2_dropdown {
-  color: rgb(44, 62, 80)
+.fa-asterisk { color: var(--bs-danger); font-size: .75rem; vertical-align: top; }
+#add-timer-form .select2-container { width: 100% !important; max-width: 100%; min-width: 0; }
+#add-timer-form .select2-container--bootstrap .select2-selection {
+    background: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius); min-height: 2.5rem; box-shadow: none; font: inherit;
 }
+#add-timer-form .select2-container--bootstrap .select2-selection--single { height: 2.5rem; padding: .5rem .75rem; }
+#add-timer-form .select2-container--bootstrap .select2-selection__rendered { color: var(--bs-body-color); padding-right: 1rem; }
+#add-timer-form .select2-container--bootstrap .select2-selection__placeholder { color: var(--bs-secondary-color); }
+#add-timer-form .select2-container--bootstrap.select2-container--focus .select2-selection,
+#add-timer-form .select2-container--bootstrap.select2-container--open .select2-selection { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .2); }
+#add-timer-form .select2-container--disabled .select2-selection { background: var(--bs-secondary-bg); }
+#add-timer-form .select2-selection__arrow b { border-top-color: var(--bs-body-color); }
+.select2-container--bootstrap .my_select2_dropdown { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); font: inherit; max-width: calc(100vw - 2rem); }
+.select2-container--bootstrap .my_select2_dropdown .select2-search__field { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); box-shadow: none; }
+.select2-container--bootstrap .my_select2_dropdown .select2-results__option[aria-selected=true] { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+.select2-container--bootstrap .my_select2_dropdown .select2-results__option--highlighted[aria-selected] { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+.select2-container--bootstrap .my_select2_dropdown .select2-results__option[aria-disabled=true] { color: var(--bs-secondary-color); }
+/* Datepicker is rendered outside the form; style every surface from theme tokens. */
+.xdsoft_datetimepicker, .xdsoft_datetimepicker .xdsoft_label, .xdsoft_datetimepicker .xdsoft_select,
+.xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box > div > div,
+.xdsoft_datetimepicker .xdsoft_calendar td, .xdsoft_datetimepicker .xdsoft_calendar th {
+    background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); font-family: var(--bs-body-font-family);
+}
+.xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box { border-color: var(--bs-border-color); }
+.xdsoft_datetimepicker .xdsoft_calendar td.xdsoft_current,
+.xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box > div > div.xdsoft_current,
+.xdsoft_datetimepicker .xdsoft_label > .xdsoft_select > div > .xdsoft_option.xdsoft_current {
+    background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); box-shadow: none;
+}
+.xdsoft_datetimepicker .xdsoft_calendar td:hover,
+.xdsoft_datetimepicker .xdsoft_timepicker .xdsoft_time_box > div > div:hover,
+.xdsoft_datetimepicker .xdsoft_label > .xdsoft_select > div > .xdsoft_option:hover {
+    background: var(--bs-secondary-bg) !important; color: var(--bs-body-color) !important;
+}
+.xdsoft_datetimepicker .xdsoft_calendar td.xdsoft_today { color: var(--bs-link-color); }
+.xdsoft_datetimepicker .xdsoft_prev, .xdsoft_datetimepicker .xdsoft_next,
+.xdsoft_datetimepicker .xdsoft_today_button, .xdsoft_datetimepicker .xdsoft_label i { filter: contrast(0); opacity: 1; }
+.xdsoft_datetimepicker .xdsoft_scrollbar > .xdsoft_scroller { background: var(--bs-secondary-color) !important; }
+@media (max-width: 400px) { .xdsoft_datetimepicker { max-width: calc(100vw - 1rem); } }

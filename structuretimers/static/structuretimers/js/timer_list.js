@@ -130,90 +130,70 @@ function buildMultiValueSearchRegex(values) {
     return "^(?:" + escapedValues.join("|") + ")$";
 }
 
-function initializeMultiSelectFilters(
-    table,
-    filterDefinition,
-    titleFilterBy,
-    titleAll,
-    isNightMode
-) {
+function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, titleAll) {
     const tableId = table.table().node().id;
-    const filterWrapperId = tableId + "_filterWrapper";
-    const filterWrapper = $("<div>", {
-        id: filterWrapperId,
-        class: "timer-filter-wrapper align-items-start d-flex flex-wrap gap-3 mb-3",
-    });
-    const filterRow = $("<div>", {
-        class: "row justify-content-between timer-filter-row",
-    });
-    filterRow.append(
-        $("<p>", { class: "mb-1 fw-bold" }).text(titleFilterBy + ":")
+    const exportData = document.getElementById("dataExport").dataset;
+    const wrapper = $("<div>", {class: "timer-filter-wrapper mb-3"});
+    const row = $("<div>", {class: "timer-filter-row"}).append(
+        $("<p>", {class: "mb-1 fw-bold"}).text(titleFilterBy + ":"), wrapper
     );
-    filterRow.append(filterWrapper);
-    $(table.table().container()).prepend(filterRow);
-
-    filterDefinition.columns.forEach(function (filterColumn) {
-        const column = table.column(filterColumn.idx);
-        const selectId = tableId + "_filterSelect" + filterColumn.idx;
-        const filterGroup = $("<div>", { class: "timer-filter-group" });
-        if (isNightMode) {
-            filterGroup.addClass("timer-filter-group--dark");
+    $(table.table().container()).prepend(row);
+    filterDefinition.columns.forEach(function (definition) {
+        const column = table.column(definition.idx);
+        const id = tableId + "_filterSelect" + definition.idx;
+        const group = $("<div>", {class: "timer-filter-group dropdown"});
+        const title = $("<span>", {id: id + "_label", class: "form-label mb-1 d-block"}).text(definition.title);
+        const summary = $("<span>", {class: "timer-filter-summary"}).text(titleAll);
+        const toggle = $("<button>", {
+            id: id, type: "button", class: "btn timer-filter-toggle dropdown-toggle",
+            "data-bs-toggle": "dropdown", "data-bs-auto-close": "outside",
+            "aria-expanded": "false", "aria-labelledby": id + "_label " + id + "_value",
+            "aria-controls": id + "_menu",
+        }).append(summary.attr("id", id + "_value"));
+        const menu = $("<div>", {id: id + "_menu", class: "dropdown-menu timer-filter-menu p-2"});
+        const search = $("<input>", {type: "search", class: "form-control form-control-sm mb-2",
+            placeholder: exportData.filterSearchLabel, "aria-label": exportData.filterSearchLabel + ": " + definition.title});
+        const clear = $("<button>", {type: "button", class: "btn btn-sm btn-outline-secondary w-100 mt-2"}).text(exportData.filterClearLabel);
+        const options = $("<div>", {class: "timer-filter-options", role: "group", "aria-labelledby": id + "_label"});
+        const empty = $("<p>", {class: "small text-muted mb-0", hidden: true}).text(exportData.filterEmptyLabel);
+        const selected = new Set();
+        const checks = [];
+        function update() {
+            const values = Array.from(selected);
+            summary.text(values.length === 0 ? titleAll : values.length === 1 ? values[0] : exportData.filterSelectedLabel.replace("%(count)s", values.length));
+            toggle.attr("title", values.length ? values.join(", ") : titleAll);
+            clear.prop("disabled", !values.length);
+            column.search(buildMultiValueSearchRegex(values), true, false).draw();
         }
-        if (filterColumn.maxWidth) {
-            filterGroup.css("max-width", filterColumn.maxWidth);
-        }
-
-        const label = $("<label>", {
-            for: selectId,
-            class: "form-label mb-1",
-        }).text(filterColumn.title);
-        const select = $("<select>", {
-            id: selectId,
-            class: "form-select timer-filter-select",
-            multiple: "multiple",
-            "aria-label": filterColumn.title,
-        });
-
-        column
-            .data()
-            .unique()
-            .sort()
-            .each(function (value) {
-                if (value !== null && value !== undefined && value !== "") {
-                    const textValue = String(value);
-                    select.append(
-                        $("<option>", {
-                            value: textValue,
-                            text: textValue,
-                        })
-                    );
-                }
+        column.data().unique().sort().each(function (value) {
+            if (value === null || value === undefined || value === "") return;
+            const text = String(value);
+            const checkbox = $("<input>", {type: "checkbox", class: "form-check-input", value: text});
+            const label = $("<label>", {class: "timer-filter-option"}).append(checkbox, $("<span>").text(text));
+            checkbox.on("change", function () {
+                if (this.checked) selected.add(text); else selected.delete(text);
+                update();
             });
-
-        select.on("change", function () {
-            const selectedValues = $(this).val() || [];
-            column
-                .search(
-                    buildMultiValueSearchRegex(selectedValues),
-                    true,
-                    false
-                )
-                .draw();
+            checks.push({checkbox, label, text});
+            options.append(label);
         });
-
-        filterGroup.append(label, select);
-        filterWrapper.append(filterGroup);
-        const dropdownCssClass = isNightMode
-            ? "timer-filter-dropdown timer-filter-dropdown--dark"
-            : "timer-filter-dropdown";
-        select.select2({
-            allowClear: true,
-            closeOnSelect: false,
-            dropdownCssClass: dropdownCssClass,
-            placeholder: titleAll,
-            theme: "bootstrap",
-            width: "100%",
+        search.on("input", function () {
+            const query = this.value.toLocaleLowerCase().trim();
+            let visible = 0;
+            checks.forEach(function (item) {
+                const match = item.text.toLocaleLowerCase().includes(query);
+                item.label.prop("hidden", !match);
+                if (match) visible += 1;
+            });
+            empty.prop("hidden", visible !== 0);
         });
+        clear.prop("disabled", true).on("click", function () {
+            selected.clear(); checks.forEach(item => item.checkbox.prop("checked", false)); update();
+        });
+        group.on("shown.bs.dropdown", function () { search.trigger("focus"); });
+        group.on("hidden.bs.dropdown", function () { search.val("").trigger("input"); });
+        menu.append(search, options, empty, clear);
+        wrapper.append(group.append(title, toggle, menu));
     });
 }
 
@@ -233,7 +213,6 @@ $(document).ready(function () {
     const titleVisibility = elem.getAttribute("data-titleVisibility");
     const titleFilterBy = elem.getAttribute("data-titleFilterBy");
     const titleAll = elem.getAttribute("data-titleAll");
-    const isNightMode = elem.getAttribute("data-isNightMode") == "true";
     const hasPermOPSEC = elem.getAttribute("data-hasPermOPSEC") == "True";
     const dataTablesPageLength = Number(
         elem.getAttribute("data-dataTablesPageLength")
@@ -358,8 +337,7 @@ $(document).ready(function () {
                 this.api(),
                 standardFilterDefinition,
                 titleFilterBy,
-                titleAll,
-                isNightMode
+                titleAll
             );
         },
     });
@@ -408,8 +386,7 @@ $(document).ready(function () {
                 this.api(),
                 preliminaryFilterDefinition,
                 titleFilterBy,
-                titleAll,
-                isNightMode
+                titleAll
             );
         },
     });
@@ -430,8 +407,7 @@ $(document).ready(function () {
                 this.api(),
                 standardFilterDefinition,
                 titleFilterBy,
-                titleAll,
-                isNightMode
+                titleAll
             );
         },
         createdRow: function (row, data, dataIndex) {
