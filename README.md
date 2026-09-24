@@ -330,3 +330,26 @@ Import metadata is read-only. System editing is disabled during pending/failed
 system imports, and the **Retry failed campaign imports** action queues retries.
 Create new campaigns through the regular campaign creation page. Non-superuser
 staff need the appropriate Django campaign and campaign-system model permissions.
+
+### Discord timerboard bot
+
+Discord timerboards reuse bot messages, splitting rows across messages when needed.
+Rows use `EVE Time (HH:MM UTC) / Discord relative timestamp / location / structure type / timer type`, Upcoming rows are ordered by scheduled time ascending (next due first). Elapsed rows move below upcoming rows and remain until the timer is deleted, including by housekeeping. Changes to board filters or a timer's flag/type also update membership. Discord updates the relative timestamps itself; the bot only edits messages whose content changed.
+
+1. Apply migrations with `python manage.py migrate`. The data migration flags all existing non-preliminary timers.
+2. Set `STRUCTURETIMERS_DISCORD_BOT_TOKEN` in your Auth settings (preferably from an environment variable). Invite that bot with View Channel, Send Messages, and Read Message History permissions in the target channel.
+3. In Django admin, add a **Discord timerboard** with the channel ID. All scheduled timer types and **Include unflagged** are selected by default. Deselect Include unflagged to require the per-timer flag. Preliminary timers are always excluded, even if flagged.
+4. Add this periodic task and restart Celery workers/beat:
+
+```python
+CELERYBEAT_SCHEDULE['structuretimers_discord_timerboards'] = {
+    'task': 'structuretimers.tasks.refresh_discord_timerboards',
+    'schedule': 60.0,
+}
+```
+
+Quick Add sets the Discord timerboard flag automatically. Add Timer starts unchecked; editing a timer lets you change the flag. Recon does not expose the flag and always clears it for preliminary timers.
+
+Boards publish the selected timers to everyone who can read the configured Discord channel, including any timers with restricted Auth visibility or OPSEC. Choose channel permissions accordingly. No mentions are sent. Disable a board to remove its messages on the next refresh; wait for that refresh before deleting its configuration. Changing its channel removes the old messages before posting in the new channel.
+
+Existing housekeeping retention is controlled by `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` (currently 30 days by default, minimum one day). The timerboard does not impose an additional expiry cutoff.

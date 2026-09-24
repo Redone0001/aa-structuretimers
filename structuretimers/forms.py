@@ -194,6 +194,7 @@ class TimerForm(forms.ModelForm):
             "visibility",
             "is_opsec",
             "is_important",
+            "discord_timerboard",
         )
 
     def __init__(self, *args, **kwargs):
@@ -406,6 +407,9 @@ class TimerForm(forms.ModelForm):
         else:
             timer.date = None
 
+        if timer.timer_type == Timer.Type.PRELIMINARY:
+            timer.discord_timerboard = False
+
         # structure type
         timer.structure_type_id = self.cleaned_data.get("structure_type_2") or None
         timer.eve_solar_system_id = self.cleaned_data.get("eve_solar_system_2")
@@ -495,6 +499,13 @@ class FastTimerForm(TimerForm):
         self.fields["owner_name"].required = True
         self.fields["owner_name"].label = _("Owner")
         self.order_fields(self.fast_fields + self.derived_fields)
+
+    def save(self, commit=True):
+        timer = super().save(commit=False)
+        timer.discord_timerboard = timer.timer_type != Timer.Type.PRELIMINARY
+        if commit:
+            timer.save()
+        return timer
 
     def clean_pasted_timer(self):
         value = self.cleaned_data["pasted_timer"]

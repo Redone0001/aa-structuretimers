@@ -20,6 +20,7 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from . import tasks
 from .models import (
     DiscordWebhook,
+    DiscordTimerboard,
     ReconCampaign,
     ReconCampaignSystem,
     NotificationRule,
@@ -578,3 +579,10 @@ class ReconCampaignAdmin(admin.ModelAdmin):
                 )
                 count += 1
         self.message_user(request, f"Queued retries for {count} campaigns.")
+
+
+@admin.register(DiscordTimerboard)
+class DiscordTimerboardAdmin(admin.ModelAdmin):
+    list_display = ("name", "channel_id", "is_enabled", "include_unflagged")
+    list_filter = ("is_enabled", "include_unflagged")
+    fields = ("name", "channel_id", "is_enabled", "include_unflagged", "timer_types")

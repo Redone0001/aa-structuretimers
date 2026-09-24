@@ -6,7 +6,7 @@ from requests.exceptions import HTTPError, Timeout
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
-from structuretimers.forms import FastTimerForm, TimerForm, parse_eve_timer_text
+from structuretimers.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
 from structuretimers.models import Timer
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -444,3 +444,43 @@ class TestTimerFormSave(NoSocketsTestCase):
         timer = Timer.objects.first()
         self.assertEqual(timer.timer_type, Timer.Type.NONE)
         self.assertIsNotNone(timer.date)
+
+    def test_normal_timer_requires_explicit_flag(self):
+        for selected in (False, True):
+            form = TimerForm(
+                user=self.user,
+                data=create_form_data(
+                    days_left=1,
+                    discord_timerboard=selected,
+                ),
+            )
+            self.assertTrue(form.is_valid(), form.errors)
+            self.assertEqual(form.save(commit=False).discord_timerboard, selected)
+
+    def test_quick_add_sets_flag(self):
+        form = FastTimerForm(
+            user=self.user,
+            data=create_fast_form_data(
+                pasted_timer="Abune - Test\n17 km\nReinforced until 2030.09.05 03:47:08",
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertTrue(form.save(commit=False).discord_timerboard)
+
+    def test_preliminary_clears_submitted_flag(self):
+        form = TimerForm(user=self.user, data=create_form_data(discord_timerboard=True))
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.save(commit=False).discord_timerboard)
+
+    def test_recon_does_not_accept_injected_flag(self):
+        form = ReconForm(
+            user=self.user,
+            data=create_form_data(
+                structure_name="Recon",
+                discord_timerboard=True,
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        timer = form.save(commit=False)
+        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
+        self.assertFalse(timer.discord_timerboard)

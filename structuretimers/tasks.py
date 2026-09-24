@@ -318,5 +318,42 @@ def calc_timer_distances_for_staging_system(
         timer=timer, staging_system=staging_system, force_update=force_update
     )
 
+
 # Celery autodiscovers tasks.py; campaign imports are implemented separately.
 from .campaign_jobs import prepare_campaign  # noqa: E402,F401
+
+
+@shared_task(base=QueueOnce, acks_late=True)
+def refresh_discord_timerboards():
+    """Poll database state; unchanged boards make no Discord requests."""
+    from django.db.models import Q
+    from .models import DiscordTimerboard
+
+    for pk in (
+        DiscordTimerboard.objects.filter(Q(is_enabled=True) | Q(messages__isnull=False))
+        .values_list("pk", flat=True)
+        .distinct()
+    ):
+        refresh_discord_timerboard.delay(pk)
+
+
+@shared_task(bind=True, max_retries=5, acks_late=True)
+def refresh_discord_timerboard(self, board_pk):
+    from requests import RequestException
+    from .models import DiscordTimerboard
+    from .timerboard import DiscordRateLimited, sync_board
+
+    error = None
+    with transaction.atomic():
+        board = (
+            DiscordTimerboard.objects.select_for_update().filter(pk=board_pk).first()
+        )
+        if board is None:
+            return
+        try:
+            sync_board(board)
+        except (RequestException, DiscordRateLimited) as exc:
+            # Commit successful message operations before retrying the remainder.
+            error = exc
+    if error is not None:
+        raise self.retry(exc=error, countdown=getattr(error, "retry_after", 60))

@@ -13,6 +13,7 @@ from multiselectfield.utils import get_max_length
 from simple_mq import SimpleMQ
 
 from django.contrib.auth.models import User
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -416,6 +417,9 @@ class Timer(models.Model):
         default=None,
         null=True,
         related_name="+",
+    )
+    discord_timerboard = models.BooleanField(
+        default=False, help_text="Include this timer on flag-only Discord timerboards."
     )
     is_important = models.BooleanField(
         default=False,
@@ -1167,3 +1171,48 @@ class ReconCampaignSystem(models.Model):
             )
         ]
         ordering = ["solar_system__name"]
+
+
+def default_timerboard_types():
+    """All scheduled timer types are selected on a new board."""
+    return [value for value, _label in Timer.Type.choices_for_notification_rules()]
+
+
+class DiscordTimerboard(models.Model):
+    """A persistent Discord bot timerboard in one channel."""
+
+    name = models.CharField(max_length=100)
+    channel_id = models.CharField(
+        max_length=20,
+        unique=True,
+        validators=[RegexValidator(r"^[0-9]{1,20}$", "Enter a Discord channel ID.")],
+    )
+    is_enabled = models.BooleanField(default=True)
+    include_unflagged = models.BooleanField(
+        default=True, help_text="Also post timers without the Discord timerboard flag."
+    )
+    timer_types = MultiSelectField(
+        choices=Timer.Type.choices_for_notification_rules(),
+        default=default_timerboard_types,
+        max_length=23,
+        blank=True,
+        help_text="Only selected types are posted. Preliminary timers are always excluded.",
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class DiscordTimerboardMessage(models.Model):
+    """Saved message state; updated only after Discord accepts a change."""
+
+    board = models.ForeignKey(
+        DiscordTimerboard, on_delete=models.CASCADE, related_name="messages"
+    )
+    channel_id = models.CharField(max_length=20)
+    message_id = models.CharField(max_length=20)
+    position = models.PositiveIntegerField()
+    content = models.TextField()
+
+    class Meta:
+        ordering = ("position", "pk")
