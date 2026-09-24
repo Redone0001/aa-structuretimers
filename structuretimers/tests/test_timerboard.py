@@ -90,7 +90,7 @@ class TimerboardTests(TestCase):
         self.assertGreater(len(pages), 1)
         self.assertTrue(all(len(page) <= 2000 for page in pages))
         for i in range(50):
-            self.assertEqual("\n".join(pages).count(f"row{i:02d}"), 1)
+            self.assertEqual("\n".join(pages).count(f"[row{i:02d}]("), 1)
 
     def test_blank_rows_separate_rolling_windows_not_calendar_days(self):
         current = dt.datetime(2030, 1, 1, 23, 0, tzinfo=dt.timezone.utc)
@@ -141,7 +141,7 @@ class TimerboardTests(TestCase):
             self.assertTrue(data[0].strip())
             self.assertTrue(data[-1].strip())
         for index in range(30):
-            self.assertEqual("\n".join(pages).count(f"Day{index:02d}"), 1)
+            self.assertEqual("\n".join(pages).count(f"[Day{index:02d}]("), 1)
 
     def test_recently_elapsed_timers_are_separated_from_upcoming(self):
         current = now()
@@ -155,14 +155,14 @@ class TimerboardTests(TestCase):
         self.assertFalse(data[1].strip())
         self.assertIn("Elapsed", data[2])
 
-    def test_fifteen_short_rows_fit_in_one_message(self):
+    def test_fifteen_linked_rows_fit_within_message_limits(self):
         for number in range(15):
             self.timer(system_name=f"System{number:02d}")
         pages = render_board(self.board)
-        self.assertEqual(len(pages), 1)
+        self.assertTrue(all(len(page) <= 2000 for page in pages))
         self.assertLessEqual(len(pages[0]), 2000)
         for number in range(15):
-            self.assertEqual(pages[0].count(f"System{number:02d}"), 1)
+            self.assertEqual("\n".join(pages).count(f"[System{number:02d}]("), 1)
 
     def test_one_hour_cutoff_hides_rows_without_deleting_timers(self):
         current = now()
@@ -194,12 +194,28 @@ class TimerboardTests(TestCase):
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         self.assertIn(
-            f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • Jita 漢字 (? LY) • Unknown • Armor • Undefined",
+            f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • [Jita 漢字](https://evemaps.dotlan.net/map/",
             page,
+        )
+        self.assertIn(
+            "/Jita_%E6%BC%A2%E5%AD%97) (? LY) • Unknown • Armor • Undefined", page
         )
         self.assertNotIn("```", page)
         self.assertNotIn("Live countdowns", page)
         self.assertNotIn("Hidden location", page)
+
+    def test_system_links_include_region_and_encode_path(self):
+        timer = self.timer(system_name="I6-SYN")
+        region = timer.eve_solar_system.eve_constellation.eve_region
+        region.name = "Cache"
+        region.save(update_fields=["name"])
+        self.assertIn(
+            "[I6-SYN](https://evemaps.dotlan.net/map/Cache/I6-SYN) (? LY)",
+            render_board(self.board)[0],
+        )
+        region.name = "Outer Ring"
+        region.save(update_fields=["name"])
+        self.assertIn("/map/Outer_Ring/I6-SYN)", render_board(self.board)[0])
 
     def test_long_markup_fields_fit_and_do_not_break_timestamp(self):
         from structuretimers.tests.testdata.factory import CitadelTypeFactory

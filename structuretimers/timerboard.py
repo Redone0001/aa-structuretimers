@@ -4,6 +4,7 @@ import datetime as dt
 import math
 import re
 import unicodedata
+from urllib.parse import quote
 
 from discordproxy.client import DiscordClient
 from discordproxy.exceptions import DiscordProxyHttpError
@@ -92,7 +93,9 @@ def render_board(board):
     if not board.include_unflagged:
         timers = timers.filter(discord_timerboard=True)
     timers = (
-        timers.select_related("eve_solar_system", "structure_type")
+        timers.select_related(
+            "eve_solar_system__eve_constellation__eve_region", "structure_type"
+        )
         .annotate(
             distance_ly=distance_query,
             elapsed=Case(
@@ -109,9 +112,17 @@ def render_board(board):
     with override("en"):
         for timer in timers:
             date = timer.date.astimezone(dt.timezone.utc)
-            location = (
-                timer.eve_solar_system.name if timer.eve_solar_system else "Unknown"
-            )
+            system = timer.eve_solar_system
+            location = "Unknown"
+            if system:
+                region = system.eve_constellation.eve_region
+                region_path = quote(region.name.replace(" ", "_"), safe="")
+                system_path = quote(system.name.replace(" ", "_"), safe="")
+                url = f"https://evemaps.dotlan.net/map/{region_path}/{system_path}"
+                location = clean_cell(system.name)
+                # Malformed imported names must not overflow Discord's message limit.
+                if len(url) <= 512:
+                    location = f"[{location}]({url})"
             structure = structure_label(
                 timer.structure_type.name if timer.structure_type else None
             )
@@ -130,7 +141,7 @@ def render_board(board):
                 [
                     f"`{date:%Y-%m-%d %H:%M}`",
                     f"<t:{int(date.timestamp())}:R>",
-                    f"{clean_cell(location)} ({distance})",
+                    f"{location} ({distance})",
                     structure_text,
                     clean_cell(timer.get_timer_type_display()),
                     clean_cell(timer.get_objective_display()).capitalize(),
