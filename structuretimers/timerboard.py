@@ -115,6 +115,11 @@ def render_board(board):
             structure = structure_label(
                 timer.structure_type.name if timer.structure_type else None
             )
+            structure_text = clean_cell(structure)
+            if structure in {"Fortizar", "Tatara", "Sotiyo", "Keepstar"}:
+                structure_text = f"**{structure_text}**"
+                if structure == "Keepstar":
+                    structure_text += " 🏰"
             distance = distance_label(timer.distance_ly)
             distance = (
                 distance.replace(" ", " LY • ", 1)
@@ -126,7 +131,7 @@ def render_board(board):
                     f"`{date:%Y-%m-%d %H:%M}`",
                     f"<t:{int(date.timestamp())}:R>",
                     f"{clean_cell(location)} ({distance})",
-                    clean_cell(structure),
+                    structure_text,
                     clean_cell(timer.get_timer_type_display()),
                     clean_cell(timer.get_objective_display()).capitalize(),
                 ]

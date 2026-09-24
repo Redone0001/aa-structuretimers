@@ -257,6 +257,23 @@ class TimerboardTests(TestCase):
         structure.refresh_from_db()
         self.assertEqual(structure.name, "Caldari Control Tower Medium")
 
+    def test_emphasized_structures_render_without_changing_stored_names(self):
+        from structuretimers.tests.testdata.factory import CitadelTypeFactory
+
+        for name, expected in (
+            ("Fortizar", "**Fortizar**"),
+            ("Tatara", "**Tatara**"),
+            ("Sotiyo", "**Sotiyo**"),
+            ("Keepstar", "**Keepstar** 🏰"),
+            ("Astrahus", "Astrahus"),
+        ):
+            structure = CitadelTypeFactory(name=name)
+            self.timer(structure_type=structure)
+            page = "\n".join(render_board(self.board))
+            self.assertIn(f" • {expected} • ", page)
+            structure.refresh_from_db()
+            self.assertEqual(structure.name, name)
+
     def test_all_objectives_are_displayed(self):
         for objective in Timer.Objective:
             self.timer(objective=objective)
