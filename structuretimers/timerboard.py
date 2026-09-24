@@ -117,11 +117,11 @@ def render_board(board):
             )
             distance = distance_label(timer.distance_ly)
             distance = (
-                distance.replace(" ", " LY / ", 1)
+                distance.replace(" ", " LY • ", 1)
                 if " " in distance
                 else f"{distance} LY"
             )
-            row = " / ".join(
+            row = " • ".join(
                 [
                     f"`{date:%Y-%m-%d %H:%M}`",
                     f"<t:{int(date.timestamp())}:R>",

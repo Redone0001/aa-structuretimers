@@ -194,7 +194,7 @@ class TimerboardTests(TestCase):
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         self.assertIn(
-            f"`2030-01-01 12:00` / <t:{int(timer.date.timestamp())}:R> / Jita 漢字 (? LY) / Unknown / Armor / Undefined",
+            f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • Jita 漢字 (? LY) • Unknown • Armor • Undefined",
             page,
         )
         self.assertNotIn("```", page)
@@ -281,8 +281,8 @@ class TimerboardTests(TestCase):
         with self.assertNumQueries(2):
             page = "\n".join(render_board(self.board))
         self.assertIn("Distance from staging: Jita", page)
-        self.assertIn("6.3 LY / Cap", page)
-        self.assertNotIn("2.0 LY / Super", page)
+        self.assertIn("6.3 LY • Cap", page)
+        self.assertNotIn("2.0 LY • Super", page)
 
     def test_fallback_staging_and_unknown_distances(self):
         # Ignore the legacy nullable staging configuration.
@@ -297,7 +297,7 @@ class TimerboardTests(TestCase):
         )
         page = render_board(self.board)[0]
         self.assertIn("Distance from staging: Amarr", page)
-        self.assertIn("0.0 LY / Super", page)
+        self.assertIn("0.0 LY • Super", page)
 
     def test_no_staging_does_not_invent_distance_or_range(self):
         self.timer()
