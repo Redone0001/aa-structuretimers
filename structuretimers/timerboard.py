@@ -26,9 +26,6 @@ from .models import DistancesFromStaging, StagingSystem, Timer
 
 HEADER = "**Structure timerboard — EVE time (UTC)**"
 MESSAGE_LIMIT = 2000
-COLUMNS = ("EVE", "In / Ago", "System", "Structure", "Timer", "Objective", "LY / Range")
-# Previous table width was 74 display cells; allow at most 25% more.
-MAX_TABLE_WIDTH = 92
 
 
 def structure_label(name):
@@ -52,108 +49,22 @@ def distance_label(light_years):
     return f"{text} {badge[0]}" if badge else text
 
 
-def column_widths(rows):
-    """Fit each page's contents, sharing spare width between longer columns."""
-    widths = [
-        max(cell_width(label), 5 if index == 0 else 0)
-        for index, label in enumerate(COLUMNS)
-    ]
-    desired = [
-        max([width] + [cell_width(row[index]) for row in rows])
-        for index, width in enumerate(widths)
-    ]
-    remaining = MAX_TABLE_WIDTH - (3 * len(COLUMNS) + 1) - sum(widths)
-    while remaining > 0:
-        expanded = False
-        for index in (2, 3, 6, 1, 4, 5, 0):
-            if remaining and widths[index] < desired[index]:
-                widths[index] += 1
-                remaining -= 1
-                expanded = True
-        if not expanded:
-            break
-    return widths
-
-
 def clean_cell(value):
-    """Keep user text inside the table, including pasted backticks/control codes."""
+    """Normalize and bound text, escaping Discord markup outside code blocks."""
     value = " ".join(str(value or "Unknown").split()).replace("`", "'")
-    return "".join(
+    value = "".join(
         char for char in value if not unicodedata.category(char).startswith("C")
-    )[:400]
+    )[:160]
+    return re.sub(r"([\\*_~|<>\[\]])", r"\\\1", value)
 
 
-def cell_width(value):
-    return sum(
-        (
-            0
-            if unicodedata.combining(c)
-            else 2 if unicodedata.east_asian_width(c) in ("W", "F") else 1
-        )
-        for c in value
-    )
-
-
-def wrap_cell(value, width):
-    lines, line = [], ""
-    for char in value:
-        if cell_width(line + char) > width:
-            lines.append(line)
-            line = ""
-        line += char
-    lines.append(line)
-    if len(lines) > 8:
-        lines = lines[:8]
-        while cell_width(lines[-1]) >= width:
-            lines[-1] = lines[-1][:-1]
-        lines[-1] += "…"
-    return lines
-
-
-def table_border(left, middle, right, widths):
-    return left + middle.join("─" * (width + 2) for width in widths) + right
-
-
-def table_row(values, widths):
-    cells = [wrap_cell(value, width) for value, width in zip(values, widths)]
-    lines = []
-    for index in range(max(map(len, cells))):
-        parts = []
-        for cell, width in zip(cells, widths):
-            value = cell[index] if index < len(cell) else ""
-            parts.append(" " + value + " " * (width - cell_width(value)) + " ")
-        lines.append("│" + "│".join(parts) + "│")
-    return "\n".join(lines)
-
-
-def relative_time(date, current_time):
-    seconds = (date - current_time).total_seconds()
-    minutes = math.ceil(abs(seconds) / 60)
-    if minutes >= 1440:
-        duration = f"{minutes // 1440}d {(minutes % 1440) // 60}h"
-    elif minutes >= 60:
-        duration = f"{minutes // 60}h {minutes % 60}m"
-    else:
-        duration = f"{minutes}m"
-    return f"in {duration}" if seconds >= 0 else f"{duration} ago"
-
-
-def table_page(rows, staging_name=None):
-    rows = rows or [["", "", "No timers", "", "", "", ""]]
-    widths = column_widths(rows)
-    lines = [
-        table_border("┌", "┬", "┐", widths),
-        table_row(COLUMNS, widths),
-        table_border("├", "┼", "┤", widths),
-    ]
-    lines.extend(table_row(row, widths) for row in rows)
-    lines.append(table_border("└", "┴", "┘", widths))
+def board_page(rows, staging_name=None):
     staging = (
-        f"Distance from staging: `{clean_cell(staging_name)[:100]}`"
+        f"Distance from staging: {clean_cell(staging_name)}"
         if staging_name
         else "Distance: no staging configured"
     )
-    return HEADER + "\n" + staging + "\n```text\n" + "\n".join(lines) + "\n```"
+    return HEADER + "\n" + staging + "\n\n" + "\n".join(rows or ["No timers"])
 
 
 def render_board(board):
@@ -201,33 +112,39 @@ def render_board(board):
             location = (
                 timer.eve_solar_system.name if timer.eve_solar_system else "Unknown"
             )
-            row = [
-                date.strftime("%H:%M"),
-                relative_time(date, current_time),
-                clean_cell(location),
-                clean_cell(
-                    structure_label(
-                        timer.structure_type.name if timer.structure_type else None
-                    )
-                ),
-                clean_cell(timer.get_timer_type_display()),
-                clean_cell(timer.get_objective_display()).capitalize(),
-                distance_label(timer.distance_ly),
-            ]
+            structure = structure_label(
+                timer.structure_type.name if timer.structure_type else None
+            )
+            distance = distance_label(timer.distance_ly)
+            distance = (
+                distance.replace(" ", " LY / ", 1)
+                if " " in distance
+                else f"{distance} LY"
+            )
+            row = " / ".join(
+                [
+                    f"`{date:%Y-%m-%d %H:%M}`",
+                    f"<t:{int(date.timestamp())}:R>",
+                    f"{clean_cell(location)} ({distance})",
+                    clean_cell(structure),
+                    clean_cell(timer.get_timer_type_display()),
+                    clean_cell(timer.get_objective_display()).capitalize(),
+                ]
+            )
             # Rolling 24-hour windows, measured from this refresh, not midnight.
             window = int((date - current_time).total_seconds() // 86400)
             additions = []
             if rows and window != previous_window:
-                additions.append([""] * len(COLUMNS))
+                additions.append("")
             additions.append(row)
-            if rows and len(table_page(rows + additions, staging_name)) > MESSAGE_LIMIT:
-                pages.append(table_page(rows, staging_name))
+            if rows and len(board_page(rows + additions, staging_name)) > MESSAGE_LIMIT:
+                pages.append(board_page(rows, staging_name))
                 # The message boundary already separates the groups; no edge spacer.
                 rows = [row]
             else:
                 rows.extend(additions)
             previous_window = window
-    pages.append(table_page(rows, staging_name))
+    pages.append(board_page(rows, staging_name))
     return pages
 
 

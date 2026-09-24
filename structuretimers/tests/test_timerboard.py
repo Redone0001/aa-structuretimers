@@ -66,7 +66,7 @@ class TimerboardTests(TestCase):
         page = render_board(self.board)[0]
         self.assertLess(page.index("Earlier"), page.index("Later"))
         self.assertNotIn("Hidden", page)
-        self.assertNotIn("<t:", page)
+        self.assertIn("<t:", page)
         self.assertIn(later.date.astimezone(dt.timezone.utc).strftime("%H:%M"), page)
         self.board.include_unflagged = False
         self.assertIn("No timers", render_board(self.board)[0])
@@ -106,10 +106,10 @@ class TimerboardTests(TestCase):
             self.timer(date=current + dt.timedelta(hours=hours), system_name=name)
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
-        data = [line for line in page.splitlines() if line.startswith("│")][1:]
+        data = page.split("\n\n", 1)[1].splitlines()
         groups = [[]]
         for line in data:
-            if not line.replace("│", "").strip():
+            if not line.strip():
                 groups.append([])
             else:
                 groups[-1].append(line)
@@ -137,9 +137,9 @@ class TimerboardTests(TestCase):
         self.assertGreater(len(pages), 1)
         for page in pages:
             self.assertLessEqual(len(page), 2000)
-            data = [line for line in page.splitlines() if line.startswith("│")][1:]
-            self.assertTrue(data[0].replace("│", "").strip())
-            self.assertTrue(data[-1].replace("│", "").strip())
+            data = page.split("\n\n", 1)[1].splitlines()
+            self.assertTrue(data[0].strip())
+            self.assertTrue(data[-1].strip())
         for index in range(30):
             self.assertEqual("\n".join(pages).count(f"Day{index:02d}"), 1)
 
@@ -149,19 +149,19 @@ class TimerboardTests(TestCase):
         self.timer(date=current - dt.timedelta(minutes=10), system_name="Elapsed")
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
-        data = [line for line in page.splitlines() if line.startswith("│")][1:]
+        data = page.split("\n\n", 1)[1].splitlines()
         self.assertEqual(len(data), 3)
         self.assertIn("Upcoming", data[0])
-        self.assertFalse(data[1].replace("│", "").strip())
+        self.assertFalse(data[1].strip())
         self.assertIn("Elapsed", data[2])
 
-    def test_twenty_short_rows_fit_in_one_message(self):
-        for number in range(20):
+    def test_fifteen_short_rows_fit_in_one_message(self):
+        for number in range(15):
             self.timer(system_name=f"System{number:02d}")
         pages = render_board(self.board)
         self.assertEqual(len(pages), 1)
         self.assertLessEqual(len(pages[0]), 2000)
-        for number in range(20):
+        for number in range(15):
             self.assertEqual(pages[0].count(f"System{number:02d}"), 1)
 
     def test_one_hour_cutoff_hides_rows_without_deleting_timers(self):
@@ -184,33 +184,46 @@ class TimerboardTests(TestCase):
             Timer.objects.filter(pk__in=[recent.pk, boundary.pk, expired.pk]).count(), 3
         )
 
-    def test_table_has_aligned_columns_and_no_countdown_footer(self):
-        from structuretimers.timerboard import cell_width
-
-        self.timer(
-            system_name="Jita 漢字", location_details="Hidden location ``` @everyone"
+    def test_lines_use_utc_date_live_timestamp_and_only_system(self):
+        current = dt.datetime(2030, 1, 1, 12, 0, tzinfo=dt.timezone.utc)
+        timer = self.timer(
+            date=current,
+            system_name="Jita 漢字",
+            location_details="Hidden location ``` @everyone",
         )
-        page = render_board(self.board)[0]
-        self.assertEqual(page.count("```"), 2)
-        grid = page.split("```text\n", 1)[1].split("\n```", 1)[0]
-        lines = grid.splitlines()
-        self.assertEqual(len({cell_width(line) for line in lines}), 1)
-        self.assertTrue(lines[0].startswith("┌"))
-        self.assertTrue(lines[-1].endswith("┘"))
-        self.assertIn("Structure", lines[1])
-        self.assertNotIn("<t:", grid)
-        self.assertEqual(page.rsplit("\n```", 1)[1], "")
+        with patch("structuretimers.timerboard.now", return_value=current):
+            page = render_board(self.board)[0]
+        self.assertIn(
+            f"`2030-01-01 12:00` / <t:{int(timer.date.timestamp())}:R> / Jita 漢字 (? LY) / Unknown / Armor / Undefined",
+            page,
+        )
+        self.assertNotIn("```", page)
         self.assertNotIn("Live countdowns", page)
         self.assertNotIn("Hidden location", page)
-        self.assertIn("Jita 漢字", page)
-        self.assertEqual(sum(line.startswith("├") for line in lines), 1)
 
-    def test_large_cells_still_fit_one_complete_message(self):
-        from structuretimers.timerboard import table_page
+    def test_long_markup_fields_fit_and_do_not_break_timestamp(self):
+        from structuretimers.tests.testdata.factory import CitadelTypeFactory
 
-        page = table_page([["X" * 400] * 7])
+        structure = CitadelTypeFactory(name="*_<>`" * 80)
+        self.timer(system_name="*_<>`" * 80, structure_type=structure)
+        page = render_board(self.board)[0]
         self.assertLessEqual(len(page), 2000)
-        self.assertIn("…", page)
+        self.assertEqual(page.count("`"), 2)
+        self.assertIn("\\*\\_\\<\\>", page)
+        self.assertEqual(page.count("<t:"), 1)
+
+    def test_live_timestamp_does_not_require_periodic_edits(self):
+        current = now()
+        self.timer(date=current + dt.timedelta(hours=2))
+        with patch("structuretimers.timerboard.now", return_value=current):
+            sync_board(self.board)
+        self.client.reset_mock()
+        with patch(
+            "structuretimers.timerboard.now",
+            return_value=current + dt.timedelta(minutes=5),
+        ):
+            sync_board(self.board)
+        self.assertEqual(self.client.mock_calls, [])
 
     def test_racial_tower_labels_preserve_sizes(self):
         from structuretimers.timerboard import structure_label
@@ -244,35 +257,6 @@ class TimerboardTests(TestCase):
         structure.refresh_from_db()
         self.assertEqual(structure.name, "Caldari Control Tower Medium")
 
-    def test_columns_shrink_and_expand_to_fit_each_page(self):
-        from structuretimers.timerboard import (
-            column_widths,
-            table_page,
-            cell_width,
-            MAX_TABLE_WIDTH,
-        )
-
-        short = [["12:30", "in 1h 0m", "Jita", "POS", "Armor", "Neutral", "6.0 Cap"]]
-        long = [
-            [
-                "12:30",
-                "in 1h 0m",
-                "Long Solar System",
-                "POS Medium",
-                "Armor",
-                "Friendly",
-                "4.0 Super",
-            ]
-        ]
-        self.assertEqual(column_widths(short)[2], len("System"))
-        self.assertEqual(column_widths(long)[2], len(long[0][2]))
-        self.assertIn(long[0][2], table_page(long))
-        for rows in (short, long, [["X" * 400] * 7]):
-            grid = table_page(rows).split("```text\n")[1].split("\n```")[0]
-            widths = {cell_width(line) for line in grid.splitlines()}
-            self.assertEqual(len(widths), 1)
-            self.assertLessEqual(widths.pop(), MAX_TABLE_WIDTH)
-
     def test_all_objectives_are_displayed(self):
         for objective in Timer.Objective:
             self.timer(objective=objective)
@@ -296,9 +280,9 @@ class TimerboardTests(TestCase):
             self.timer()
         with self.assertNumQueries(2):
             page = "\n".join(render_board(self.board))
-        self.assertIn("Distance from staging: `Jita`", page)
-        self.assertIn("6.3 Cap", page)
-        self.assertNotIn("2.0 Super", page)
+        self.assertIn("Distance from staging: Jita", page)
+        self.assertIn("6.3 LY / Cap", page)
+        self.assertNotIn("2.0 LY / Super", page)
 
     def test_fallback_staging_and_unknown_distances(self):
         # Ignore the legacy nullable staging configuration.
@@ -312,8 +296,8 @@ class TimerboardTests(TestCase):
             timer=timer, staging_system=staging, light_years=0
         )
         page = render_board(self.board)[0]
-        self.assertIn("Distance from staging: `Amarr`", page)
-        self.assertIn("0.0 Super", page)
+        self.assertIn("Distance from staging: Amarr", page)
+        self.assertIn("0.0 LY / Super", page)
 
     def test_no_staging_does_not_invent_distance_or_range(self):
         self.timer()
