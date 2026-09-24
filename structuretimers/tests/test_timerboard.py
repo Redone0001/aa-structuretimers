@@ -18,6 +18,7 @@ from django.utils.timezone import now
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
 from structuretimers.models import DiscordTimerboard, Timer
 from structuretimers.tasks import refresh_discord_timerboard
+from structuretimers.tests.testdata.factory import EveSolarSystemLowSecFactory
 from structuretimers.timerboard import (
     render_board,
     sync_board,
@@ -40,21 +41,24 @@ class TimerboardTests(TestCase):
 
     def timer(self, **kwargs):
         fields = dict(date=now() + dt.timedelta(hours=1), timer_type=Timer.Type.ARMOR)
+        system_name = kwargs.pop("system_name", None)
+        if system_name is not None:
+            fields["eve_solar_system"] = EveSolarSystemLowSecFactory(name=system_name)
         fields.update(kwargs)
         return Timer.objects.bulk_create([Timer(**fields)])[0]
 
     def test_selection_defaults_preliminary_exclusion_and_order(self):
-        later = self.timer(date=now() + dt.timedelta(hours=2), location_details="Later")
-        early = self.timer(location_details="Earlier")
+        later = self.timer(date=now() + dt.timedelta(hours=2), system_name="Later")
+        early = self.timer(system_name="Earlier")
         self.timer(
             timer_type=Timer.Type.PRELIMINARY,
             discord_timerboard=True,
-            location_details="Hidden",
+            system_name="Hidden",
         )
         page = render_board(self.board)[0]
         self.assertLess(page.index("Earlier"), page.index("Later"))
         self.assertNotIn("Hidden", page)
-        self.assertIn(f"<t:{int(early.date.timestamp())}:R>", page)
+        self.assertNotIn("<t:", page)
         self.assertIn(later.date.astimezone(dt.timezone.utc).strftime("%H:%M"), page)
         self.board.include_unflagged = False
         self.assertIn("No timers", render_board(self.board)[0])
@@ -64,10 +68,8 @@ class TimerboardTests(TestCase):
         self.assertIn("No timers", render_board(self.board)[0])
 
     def test_elapsed_rows_remain_until_deleted(self):
-        timer = self.timer(
-            date=now() - dt.timedelta(minutes=30), location_details="Elapsed"
-        )
-        self.timer(location_details="Upcoming")
+        timer = self.timer(date=now() - dt.timedelta(minutes=30), system_name="Elapsed")
+        self.timer(system_name="Upcoming")
         page = render_board(self.board)[0]
         self.assertLess(page.index("Upcoming"), page.index("Elapsed"))
         timer.delete()
@@ -75,23 +77,32 @@ class TimerboardTests(TestCase):
 
     def test_pagination_preserves_rows(self):
         for i in range(25):
-            self.timer(location_details=f"row{i:02d}-" + "X" * 240)
+            self.timer(system_name=f"row{i:02d}")
         pages = render_board(self.board)
         self.assertGreater(len(pages), 1)
         self.assertTrue(all(len(page) <= 2000 for page in pages))
         for i in range(25):
-            self.assertEqual("\n".join(pages).count(f"row{i:02d}-"), 1)
+            self.assertEqual("\n".join(pages).count(f"row{i:02d}"), 1)
+
+    def test_twenty_short_rows_fit_in_one_message(self):
+        for number in range(20):
+            self.timer(system_name=f"System{number:02d}")
+        pages = render_board(self.board)
+        self.assertEqual(len(pages), 1)
+        self.assertLessEqual(len(pages[0]), 2000)
+        for number in range(20):
+            self.assertEqual(pages[0].count(f"System{number:02d}"), 1)
 
     def test_one_hour_cutoff_hides_rows_without_deleting_timers(self):
         current = now()
         recent = self.timer(
-            date=current - dt.timedelta(minutes=59), location_details="Recent"
+            date=current - dt.timedelta(minutes=59), system_name="Recent"
         )
         boundary = self.timer(
-            date=current - dt.timedelta(hours=1), location_details="Boundary"
+            date=current - dt.timedelta(hours=1), system_name="Boundary"
         )
         expired = self.timer(
-            date=current - dt.timedelta(hours=1, seconds=1), location_details="Expired"
+            date=current - dt.timedelta(hours=1, seconds=1), system_name="Expired"
         )
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
@@ -102,10 +113,12 @@ class TimerboardTests(TestCase):
             Timer.objects.filter(pk__in=[recent.pk, boundary.pk, expired.pk]).count(), 3
         )
 
-    def test_table_has_aligned_columns_and_live_countdowns_outside_code(self):
+    def test_table_has_aligned_columns_and_no_countdown_footer(self):
         from structuretimers.timerboard import cell_width
 
-        timer = self.timer(location_details="Jita ``` @everyone 漢字")
+        self.timer(
+            system_name="Jita 漢字", location_details="Hidden location ``` @everyone"
+        )
         page = render_board(self.board)[0]
         self.assertEqual(page.count("```"), 2)
         grid = page.split("```text\n", 1)[1].split("\n```", 1)[0]
@@ -113,21 +126,25 @@ class TimerboardTests(TestCase):
         self.assertEqual(len({cell_width(line) for line in lines}), 1)
         self.assertTrue(lines[0].startswith("┌"))
         self.assertTrue(lines[-1].endswith("┘"))
-        self.assertIn("Structure type", lines[1])
+        self.assertIn("Structure", lines[1])
         self.assertNotIn("<t:", grid)
-        self.assertIn(f"<t:{int(timer.date.timestamp())}:R>", page.split("\n```", 1)[1])
+        self.assertEqual(page.rsplit("\n```", 1)[1], "")
+        self.assertNotIn("Live countdowns", page)
+        self.assertNotIn("Hidden location", page)
+        self.assertIn("Jita 漢字", page)
+        self.assertEqual(sum(line.startswith("├") for line in lines), 1)
 
     def test_large_cells_still_fit_one_complete_message(self):
         from structuretimers.timerboard import table_page, table_row
 
         row = table_row(["X" * 400] * 5)
-        page = table_page([(row, "**1** <t:1234567890:R>")])
+        page = table_page([row])
         self.assertLessEqual(len(page), 2000)
         self.assertIn("…", page)
 
     def test_expiry_refresh_updates_existing_message(self):
         current = now()
-        self.timer(date=current - dt.timedelta(minutes=59), location_details="Expiring")
+        self.timer(date=current - dt.timedelta(minutes=59), system_name="Expiring")
         with patch("structuretimers.timerboard.now", return_value=current):
             sync_board(self.board)
         message_id = self.board.messages.get().message_id
@@ -141,7 +158,9 @@ class TimerboardTests(TestCase):
         self.client.edit_channel_message.assert_called_once()
         self.assertEqual(self.board.messages.get().message_id, message_id)
         self.assertNotIn("Expiring", self.board.messages.get().content)
-        self.assertTrue(Timer.objects.filter(location_details="Expiring").exists())
+        self.assertTrue(
+            Timer.objects.filter(eve_solar_system__name="Expiring").exists()
+        )
 
     def test_reuses_edits_and_removes_surplus_messages(self):
         with patch(
@@ -301,15 +320,17 @@ class TimerboardTests(TestCase):
     def test_housekeeping_removes_expired_rows(self):
         from structuretimers.tasks import housekeeping
 
-        self.timer(date=now() - dt.timedelta(days=31), location_details="Expired")
+        self.timer(date=now() - dt.timedelta(days=31), system_name="Expired")
         self.assertNotIn("Expired", render_board(self.board)[0])
-        self.assertTrue(Timer.objects.filter(location_details="Expired").exists())
+        self.assertTrue(Timer.objects.filter(eve_solar_system__name="Expired").exists())
         with patch(
             "structuretimers.managers.STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS", 30
         ):
             housekeeping()
         self.assertIn("No timers", render_board(self.board)[0])
-        self.assertFalse(Timer.objects.filter(location_details="Expired").exists())
+        self.assertFalse(
+            Timer.objects.filter(eve_solar_system__name="Expired").exists()
+        )
 
     def test_channel_and_permission_errors_do_not_create_replacements(self):
         self.board.messages.create(

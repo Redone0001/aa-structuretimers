@@ -17,11 +17,11 @@ from .models import Timer
 HEADER = "**Structure timerboard — EVE time (UTC)**"
 MESSAGE_LIMIT = 2000
 COLUMNS = (
-    ("# EVE UTC", 11),
+    ("EVE", 5),
     ("In / Ago", 14),
-    ("Location", 26),
-    ("Structure type", 18),
-    ("Timer type", 12),
+    ("System", 14),
+    ("Structure", 14),
+    ("Timer", 11),
 )
 
 
@@ -94,18 +94,11 @@ def table_page(rows):
         table_row([label for label, _ in COLUMNS]),
         table_border("├", "┼", "┤"),
     ]
-    for index, (row, _countdown) in enumerate(rows):
-        if index:
-            lines.append(table_border("├", "┼", "┤"))
-        lines.append(row)
+    lines.extend(rows)
     if not rows:
         lines.append(table_row(["", "", "No timers", "", ""]))
     lines.append(table_border("└", "┴", "┘"))
     content = HEADER + "\n```text\n" + "\n".join(lines) + "\n```"
-    if rows:
-        content += "\nLive countdowns: " + " · ".join(
-            countdown for _row, countdown in rows
-        )
     return content
 
 
@@ -131,24 +124,14 @@ def render_board(board):
     pages = []
     rows = []
     with override("en"):
-        for number, timer in enumerate(timers, start=1):
+        for timer in timers:
             date = timer.date.astimezone(dt.timezone.utc)
-            location = " - ".join(
-                filter(
-                    None,
-                    [
-                        (
-                            timer.eve_solar_system.name
-                            if timer.eve_solar_system
-                            else "Unknown"
-                        ),
-                        timer.location_details,
-                    ],
-                )
+            location = (
+                timer.eve_solar_system.name if timer.eve_solar_system else "Unknown"
             )
             row = table_row(
                 [
-                    f"{number} {date:%H:%M}",
+                    date.strftime("%H:%M"),
                     relative_time(date, current_time),
                     clean_cell(location),
                     clean_cell(
@@ -157,11 +140,10 @@ def render_board(board):
                     clean_cell(timer.get_timer_type_display()),
                 ]
             )
-            entry = (row, f"**{number}** <t:{int(date.timestamp())}:R>")
-            if rows and len(table_page(rows + [entry])) > MESSAGE_LIMIT:
+            if rows and len(table_page(rows + [row])) > MESSAGE_LIMIT:
                 pages.append(table_page(rows))
                 rows = []
-            rows.append(entry)
+            rows.append(row)
     pages.append(table_page(rows))
     return pages
 
