@@ -339,9 +339,10 @@ def refresh_discord_timerboards():
 
 @shared_task(bind=True, max_retries=5, acks_late=True)
 def refresh_discord_timerboard(self, board_pk):
-    from requests import RequestException
+    from discordproxy.exceptions import DiscordProxyException
+
     from .models import DiscordTimerboard
-    from .timerboard import DiscordRateLimited, sync_board
+    from .timerboard import sync_board
 
     error = None
     with transaction.atomic():
@@ -352,8 +353,8 @@ def refresh_discord_timerboard(self, board_pk):
             return
         try:
             sync_board(board)
-        except (RequestException, DiscordRateLimited) as exc:
+        except DiscordProxyException as exc:
             # Commit successful message operations before retrying the remainder.
             error = exc
     if error is not None:
-        raise self.retry(exc=error, countdown=getattr(error, "retry_after", 60))
+        raise self.retry(exc=error, countdown=60)

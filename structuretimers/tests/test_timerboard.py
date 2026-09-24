@@ -1,28 +1,42 @@
 import datetime as dt
 from importlib import import_module
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+from discordproxy.discord_api_pb2 import Message
+from discordproxy.exceptions import (
+    DiscordProxyGrpcError,
+    DiscordProxyHttpError,
+    DiscordProxyTimeoutError,
+)
+from grpc import StatusCode
 
 from django.apps import apps
 from django.test import TestCase, override_settings
 from django.utils.timezone import now
-from requests import Timeout
 
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
 from structuretimers.models import DiscordTimerboard, Timer
 from structuretimers.tasks import refresh_discord_timerboard
 from structuretimers.timerboard import (
-    DiscordClient,
-    DiscordRateLimited,
     render_board,
     sync_board,
 )
 
 
-@override_settings(STRUCTURETIMERS_DISCORD_BOT_TOKEN="test-token")
 class TimerboardTests(TestCase):
     def setUp(self):
         self.board = DiscordTimerboard.objects.create(name="Timers", channel_id="123")
+        self.client_patch = patch(
+            "structuretimers.timerboard.DiscordClient", autospec=True
+        )
+        self.client_class = self.client_patch.start()
+        self.addCleanup(self.client_patch.stop)
+        self.client = self.client_class.return_value
+        self.client.create_channel_message.side_effect = lambda **kwargs: Message(
+            id=456 + self.client.create_channel_message.call_count,
+            content=kwargs["content"],
+        )
 
     def timer(self, **kwargs):
         fields = dict(date=now() + dt.timedelta(hours=1), timer_type=Timer.Type.ARMOR)
@@ -68,83 +82,141 @@ class TimerboardTests(TestCase):
         for i in range(25):
             self.assertEqual("\n".join(pages).count(f"row{i:02d}-"), 1)
 
-    @patch("structuretimers.timerboard.DiscordClient.request")
-    def test_reuses_edits_and_removes_surplus_messages(self, request):
-        request.return_value = {"id": "456"}
+    def test_reuses_edits_and_removes_surplus_messages(self):
         with patch(
             "structuretimers.timerboard.render_board", return_value=["first", "second"]
         ):
             sync_board(self.board)
-            self.assertEqual(request.call_count, 2)
-            request.reset_mock()
+            self.assertEqual(self.client.create_channel_message.call_count, 2)
+            self.client.reset_mock()
             sync_board(self.board)
-            request.assert_not_called()
+            self.assertEqual(self.client.mock_calls, [])
+        first_id = int(self.board.messages.first().message_id)
+        second_id = int(self.board.messages.last().message_id)
         with patch("structuretimers.timerboard.render_board", return_value=["updated"]):
             sync_board(self.board)
-        self.assertEqual(
-            [c.args[0] for c in request.call_args_list], ["PATCH", "DELETE"]
+        self.client.edit_channel_message.assert_called_once_with(
+            channel_id=123,
+            message_id=first_id,
+            content="updated",
+            suppress_mentions=True,
+        )
+        self.client.delete_channel_message.assert_called_once_with(
+            channel_id=123, message_id=second_id
         )
         self.assertEqual(self.board.messages.count(), 1)
         self.assertEqual(self.board.messages.get().content, "updated")
 
-    @patch("structuretimers.timerboard.DiscordClient.request")
-    def test_channel_change_and_disable_remove_messages(self, request):
-        request.return_value = {"id": "456"}
+    def test_channel_change_and_disable_remove_messages(self):
         sync_board(self.board)
-        request.reset_mock()
+        old_id = int(self.board.messages.get().message_id)
+        self.client.reset_mock()
         self.board.channel_id = "789"
         sync_board(self.board)
         self.assertEqual(
-            [c.args[0] for c in request.call_args_list], ["DELETE", "POST"]
+            [c[0] for c in self.client.mock_calls],
+            ["delete_channel_message", "create_channel_message"],
         )
-        self.assertEqual(request.call_args_list[0].args[1], "123")
+        self.client.delete_channel_message.assert_called_once_with(
+            channel_id=123, message_id=old_id
+        )
+        self.assertEqual(
+            self.client.create_channel_message.call_args.kwargs["channel_id"], 789
+        )
         self.board.is_enabled = False
         sync_board(self.board)
         self.assertFalse(self.board.messages.exists())
 
-    @patch("structuretimers.timerboard.DiscordClient.request")
-    def test_missing_changed_message_is_replaced(self, request):
+    def test_missing_changed_message_is_replaced(self):
         self.board.messages.create(
             channel_id="123", message_id="456", position=0, content="old"
         )
-        request.side_effect = [None, {"id": "789"}]
+        self.client.edit_channel_message.side_effect = DiscordProxyHttpError(
+            404, 10008, "Unknown Message"
+        )
         sync_board(self.board)
-        self.assertEqual(self.board.messages.get().message_id, "789")
+        self.assertNotEqual(self.board.messages.get().message_id, "456")
+        self.client.create_channel_message.assert_called_once()
 
-    @patch("structuretimers.timerboard.DiscordClient.request")
-    def test_partial_failure_preserves_success_and_pending_nonce(self, request):
-        request.side_effect = [{"id": "456"}, Timeout()]
+    def test_partial_failure_preserves_success_and_pending_nonce(self):
+        timeout = DiscordProxyTimeoutError(StatusCode.DEADLINE_EXCEEDED, "Timed out")
+        self.client.create_channel_message.side_effect = [
+            Message(id=456, content="one"),
+            timeout,
+        ]
         with patch(
             "structuretimers.timerboard.render_board", return_value=["one", "two"]
         ):
-            with patch.object(refresh_discord_timerboard, "retry", side_effect=Timeout):
-                with self.assertRaises(Timeout):
+            with patch.object(
+                refresh_discord_timerboard, "retry", side_effect=timeout
+            ) as retry:
+                with self.assertRaises(DiscordProxyTimeoutError):
                     refresh_discord_timerboard.run(self.board.pk)
+            retry.assert_called_once_with(exc=timeout, countdown=60)
             self.assertEqual(self.board.messages.count(), 2)
             self.assertEqual(self.board.messages.first().content, "one")
-            nonce = request.call_args.kwargs["nonce"]
-            request.side_effect = None
-            request.return_value = {"id": "789"}
-            request.reset_mock()
+            nonce = self.client.create_channel_message.call_args.kwargs["nonce"]
+            self.client.create_channel_message.side_effect = None
+            self.client.create_channel_message.return_value = Message(
+                id=789, content="two"
+            )
+            self.client.reset_mock()
             sync_board(self.board)
-            self.assertEqual(request.call_count, 1)
-            self.assertEqual(request.call_args.kwargs["nonce"], nonce)
+            self.client.create_channel_message.assert_called_once_with(
+                channel_id=123,
+                content="two",
+                suppress_mentions=True,
+                nonce=nonce,
+                enforce_nonce=True,
+            )
+            self.client.edit_channel_message.assert_not_called()
 
-    @patch("structuretimers.timerboard.requests.request")
-    def test_api_disables_mentions_and_handles_rate_limit(self, request):
-        request.return_value = Mock(
-            status_code=200, json=Mock(return_value={"id": "456"})
+    def test_deduplicated_response_preserves_actual_content_for_next_edit(self):
+        self.board.messages.create(
+            channel_id="123", message_id="", position=0, content=""
         )
-        DiscordClient().request("PATCH", "123", "456", "@everyone")
-        self.assertEqual(
-            request.call_args.kwargs["json"]["allowed_mentions"], {"parse": []}
+        self.client.create_channel_message.side_effect = None
+        self.client.create_channel_message.return_value = Message(
+            id=456, content="before lost reply"
         )
-        request.return_value = Mock(
-            status_code=429, json=Mock(return_value={"retry_after": 2.5})
+        with patch(
+            "structuretimers.timerboard.render_board", return_value=["current state"]
+        ):
+            sync_board(self.board)
+            self.assertEqual(self.board.messages.get().content, "before lost reply")
+            sync_board(self.board)
+        self.client.create_channel_message.assert_called_once()
+        self.client.edit_channel_message.assert_called_once_with(
+            channel_id=123,
+            message_id=456,
+            content="current state",
+            suppress_mentions=True,
         )
-        with self.assertRaises(DiscordRateLimited) as result:
-            DiscordClient().request("POST", "123", content="test")
-        self.assertEqual(result.exception.retry_after, 2.5)
+
+    @override_settings(
+        STRUCTURETIMERS_DISCORD_PROXY_TARGET="discordproxy:50051",
+        STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT=45,
+    )
+    def test_proxy_configuration_needs_no_bot_token(self):
+        sync_board(self.board)
+        self.client_class.assert_called_once_with(
+            target="discordproxy:50051", timeout=45
+        )
+        kwargs = self.client.create_channel_message.call_args.kwargs
+        self.assertTrue(kwargs["suppress_mentions"])
+        self.assertTrue(kwargs["enforce_nonce"])
+        self.assertTrue(kwargs["nonce"])
+
+    def test_proxy_transport_errors_are_retried(self):
+        failure = DiscordProxyGrpcError(StatusCode.UNAVAILABLE, "Proxy unavailable")
+        self.client.create_channel_message.side_effect = failure
+        with patch.object(
+            refresh_discord_timerboard, "retry", side_effect=failure
+        ) as retry:
+            with self.assertRaises(DiscordProxyGrpcError):
+                refresh_discord_timerboard.run(self.board.pk)
+        retry.assert_called_once_with(exc=failure, countdown=60)
+        self.assertEqual(self.board.messages.get().message_id, "")
 
     def test_form_defaults(self):
         self.assertFalse(TimerForm()["discord_timerboard"].value())
@@ -176,14 +248,81 @@ class TimerboardTests(TestCase):
             housekeeping()
         self.assertIn("No timers", render_board(self.board)[0])
 
-    @patch("structuretimers.timerboard.requests.request")
-    def test_only_unknown_message_is_treated_as_missing(self, request):
-        from requests import HTTPError
+    def test_channel_and_permission_errors_do_not_create_replacements(self):
+        self.board.messages.create(
+            channel_id="123", message_id="456", position=0, content="old"
+        )
+        for status, code in [(404, 10003), (403, 50001), (403, 50013)]:
+            with self.subTest(code=code):
+                self.client.edit_channel_message.side_effect = DiscordProxyHttpError(
+                    status, code, "Failure"
+                )
+                with self.assertRaises(DiscordProxyHttpError):
+                    sync_board(self.board)
+                self.assertEqual(self.board.messages.get().message_id, "456")
+                self.assertEqual(self.board.messages.get().content, "old")
+                self.client.create_channel_message.assert_not_called()
 
-        response = Mock(status_code=404, json=Mock(return_value={"code": 10003}))
-        response.raise_for_status.side_effect = HTTPError()
-        request.return_value = response
-        with self.assertRaises(HTTPError):
-            DiscordClient().request("PATCH", "123", "456", "test")
-        response.json.return_value = {"code": 10008}
-        self.assertIsNone(DiscordClient().request("PATCH", "123", "456", "test"))
+    def test_delete_ignores_only_unknown_message(self):
+        self.board.messages.create(
+            channel_id="123", message_id="456", position=0, content="old"
+        )
+        self.board.is_enabled = False
+        self.client.delete_channel_message.side_effect = DiscordProxyHttpError(
+            404, 10003, "Unknown channel"
+        )
+        with self.assertRaises(DiscordProxyHttpError):
+            sync_board(self.board)
+        self.assertTrue(self.board.messages.exists())
+        self.client.delete_channel_message.side_effect = DiscordProxyHttpError(
+            404, 10008, "Unknown message"
+        )
+        sync_board(self.board)
+        self.assertFalse(self.board.messages.exists())
+
+
+class ProxyWireTests(TestCase):
+    @patch("discordproxy.client.grpc.insecure_channel")
+    @patch("discordproxy.client.DiscordApiStub")
+    def test_real_proxy_client_serializes_lifecycle_requests(self, stub_class, channel):
+        from discordproxy.discord_api_pb2 import (
+            SendChannelMessageResponse,
+            EditChannelMessageResponse,
+            DeleteChannelMessageResponse,
+        )
+
+        stub = stub_class.return_value
+        # Snowflakes must remain exact integers, including above 2**53.
+        channel_id, message_id = 123456789012345678, 987654321098765432
+        board = DiscordTimerboard.objects.create(
+            name="Wire test", channel_id=str(channel_id)
+        )
+        stub.SendChannelMessage.return_value = SendChannelMessageResponse(
+            message=Message(id=message_id, content="first")
+        )
+        stub.EditChannelMessage.return_value = EditChannelMessageResponse(
+            message=Message(id=message_id, content="updated")
+        )
+        stub.DeleteChannelMessage.return_value = DeleteChannelMessageResponse()
+        with patch("structuretimers.timerboard.render_board", return_value=["first"]):
+            sync_board(board)
+        create = stub.SendChannelMessage.call_args.kwargs
+        self.assertEqual(create["timeout"], 30)
+        self.assertEqual(create["request"].channel_id, channel_id)
+        self.assertTrue(create["request"].suppress_mentions)
+        self.assertTrue(create["request"].enforce_nonce)
+        self.assertTrue(create["request"].nonce)
+        self.assertEqual(board.messages.get().message_id, str(message_id))
+        with patch("structuretimers.timerboard.render_board", return_value=["updated"]):
+            sync_board(board)
+        edit = stub.EditChannelMessage.call_args.kwargs["request"]
+        self.assertEqual(edit.channel_id, channel_id)
+        self.assertEqual(edit.message_id, message_id)
+        self.assertEqual(edit.content, "updated")
+        self.assertTrue(edit.suppress_mentions)
+        board.is_enabled = False
+        sync_board(board)
+        delete = stub.DeleteChannelMessage.call_args.kwargs["request"]
+        self.assertEqual(delete.channel_id, channel_id)
+        self.assertEqual(delete.message_id, message_id)
+        self.assertFalse(board.messages.exists())

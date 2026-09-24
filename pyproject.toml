@@ -27,6 +27,7 @@ dependencies = [
     "allianceauth-app-utils>=1.33.2",
     "allianceauth>=4,<6",
     "dhooks_lite>=1.1",
+    "discordproxy @ git+https://github.com/Redone0001/discordproxy.git@41b0bbd0377bcb426f11675d59e45ddf14f0827a",
     "django-eveuniverse>=2",
     "django-multiselectfield",
     "puremagic",
