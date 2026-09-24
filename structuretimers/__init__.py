@@ -5,5 +5,5 @@ with Alliance Auth and Discord.
 # pylint: disable = invalid-name
 default_app_config = "structuretimers.apps.StructureTimersConfig"
 
-__version__ = "3.4.3"
+__version__ = "3.4.4"
 __title__ = "Structure Timers"

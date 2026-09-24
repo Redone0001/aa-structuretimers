@@ -2,6 +2,7 @@
 
 import datetime as dt
 import math
+import re
 import unicodedata
 
 from discordproxy.client import DiscordClient
@@ -16,13 +17,44 @@ from .models import Timer
 
 HEADER = "**Structure timerboard — EVE time (UTC)**"
 MESSAGE_LIMIT = 2000
-COLUMNS = (
-    ("EVE", 5),
-    ("In / Ago", 14),
-    ("System", 14),
-    ("Structure", 14),
-    ("Timer", 11),
-)
+COLUMNS = ("EVE", "In / Ago", "System", "Structure", "Timer")
+# Previous table width was 74 display cells; allow at most 25% more.
+MAX_TABLE_WIDTH = 92
+
+
+def structure_label(name):
+    """Abbreviate standard racial towers for Discord, preserving their size."""
+    match = re.fullmatch(
+        r"(?:Amarr|Gallente|Minmatar|Caldari) Control Tower(?: (Small|Medium|Large))?",
+        name or "",
+    )
+    if match:
+        size = match.group(1)
+        return f"POS {size}" if size in ("Small", "Medium") else "POS"
+    return name or "Unknown"
+
+
+def column_widths(rows):
+    """Fit each page's contents, sharing spare width between longer columns."""
+    widths = [
+        max(cell_width(label), 5 if index == 0 else 0)
+        for index, label in enumerate(COLUMNS)
+    ]
+    desired = [
+        max([width] + [cell_width(row[index]) for row in rows])
+        for index, width in enumerate(widths)
+    ]
+    remaining = MAX_TABLE_WIDTH - (3 * len(COLUMNS) + 1) - sum(widths)
+    while remaining > 0:
+        expanded = False
+        for index in (2, 3, 1, 4, 0):
+            if remaining and widths[index] < desired[index]:
+                widths[index] += 1
+                remaining -= 1
+                expanded = True
+        if not expanded:
+            break
+    return widths
 
 
 def clean_cell(value):
@@ -60,16 +92,16 @@ def wrap_cell(value, width):
     return lines
 
 
-def table_border(left, middle, right):
-    return left + middle.join("─" * (width + 2) for _, width in COLUMNS) + right
+def table_border(left, middle, right, widths):
+    return left + middle.join("─" * (width + 2) for width in widths) + right
 
 
-def table_row(values):
-    cells = [wrap_cell(value, width) for value, (_, width) in zip(values, COLUMNS)]
+def table_row(values, widths):
+    cells = [wrap_cell(value, width) for value, width in zip(values, widths)]
     lines = []
     for index in range(max(map(len, cells))):
         parts = []
-        for cell, (_, width) in zip(cells, COLUMNS):
+        for cell, width in zip(cells, widths):
             value = cell[index] if index < len(cell) else ""
             parts.append(" " + value + " " * (width - cell_width(value)) + " ")
         lines.append("│" + "│".join(parts) + "│")
@@ -89,17 +121,16 @@ def relative_time(date, current_time):
 
 
 def table_page(rows):
+    rows = rows or [["", "", "No timers", "", ""]]
+    widths = column_widths(rows)
     lines = [
-        table_border("┌", "┬", "┐"),
-        table_row([label for label, _ in COLUMNS]),
-        table_border("├", "┼", "┤"),
+        table_border("┌", "┬", "┐", widths),
+        table_row(COLUMNS, widths),
+        table_border("├", "┼", "┤", widths),
     ]
-    lines.extend(rows)
-    if not rows:
-        lines.append(table_row(["", "", "No timers", "", ""]))
-    lines.append(table_border("└", "┴", "┘"))
-    content = HEADER + "\n```text\n" + "\n".join(lines) + "\n```"
-    return content
+    lines.extend(table_row(row, widths) for row in rows)
+    lines.append(table_border("└", "┴", "┘", widths))
+    return HEADER + "\n```text\n" + "\n".join(lines) + "\n```"
 
 
 def render_board(board):
@@ -129,17 +160,17 @@ def render_board(board):
             location = (
                 timer.eve_solar_system.name if timer.eve_solar_system else "Unknown"
             )
-            row = table_row(
-                [
-                    date.strftime("%H:%M"),
-                    relative_time(date, current_time),
-                    clean_cell(location),
-                    clean_cell(
+            row = [
+                date.strftime("%H:%M"),
+                relative_time(date, current_time),
+                clean_cell(location),
+                clean_cell(
+                    structure_label(
                         timer.structure_type.name if timer.structure_type else None
-                    ),
-                    clean_cell(timer.get_timer_type_display()),
-                ]
-            )
+                    )
+                ),
+                clean_cell(timer.get_timer_type_display()),
+            ]
             if rows and len(table_page(rows + [row])) > MESSAGE_LIMIT:
                 pages.append(table_page(rows))
                 rows = []

@@ -76,12 +76,12 @@ class TimerboardTests(TestCase):
         self.assertNotIn("Elapsed", render_board(self.board)[0])
 
     def test_pagination_preserves_rows(self):
-        for i in range(25):
+        for i in range(50):
             self.timer(system_name=f"row{i:02d}")
         pages = render_board(self.board)
         self.assertGreater(len(pages), 1)
         self.assertTrue(all(len(page) <= 2000 for page in pages))
-        for i in range(25):
+        for i in range(50):
             self.assertEqual("\n".join(pages).count(f"row{i:02d}"), 1)
 
     def test_twenty_short_rows_fit_in_one_message(self):
@@ -135,12 +135,70 @@ class TimerboardTests(TestCase):
         self.assertEqual(sum(line.startswith("├") for line in lines), 1)
 
     def test_large_cells_still_fit_one_complete_message(self):
-        from structuretimers.timerboard import table_page, table_row
+        from structuretimers.timerboard import table_page
 
-        row = table_row(["X" * 400] * 5)
-        page = table_page([row])
+        page = table_page([["X" * 400] * 5])
         self.assertLessEqual(len(page), 2000)
         self.assertIn("…", page)
+
+    def test_racial_tower_labels_preserve_sizes(self):
+        from structuretimers.timerboard import structure_label
+
+        for faction in ("Amarr", "Gallente", "Minmatar", "Caldari"):
+            for suffix, expected in (
+                ("", "POS"),
+                (" Small", "POS Small"),
+                (" Medium", "POS Medium"),
+                (" Large", "POS"),
+            ):
+                with self.subTest(faction=faction, suffix=suffix):
+                    self.assertEqual(
+                        structure_label(f"{faction} Control Tower{suffix}"), expected
+                    )
+        for name in (
+            "Fortizar",
+            "Amarr Control Tower Blueprint",
+            "Dread Guristas Control Tower",
+        ):
+            self.assertEqual(structure_label(name), name)
+
+    def test_tower_abbreviation_only_changes_discord_display(self):
+        from structuretimers.tests.testdata.factory import CitadelTypeFactory
+
+        structure = CitadelTypeFactory(name="Caldari Control Tower Medium")
+        self.timer(system_name="Jita", structure_type=structure)
+        page = render_board(self.board)[0]
+        self.assertIn("POS Medium", page)
+        self.assertNotIn("Caldari Control Tower", page)
+        structure.refresh_from_db()
+        self.assertEqual(structure.name, "Caldari Control Tower Medium")
+
+    def test_columns_shrink_and_expand_to_fit_each_page(self):
+        from structuretimers.timerboard import (
+            column_widths,
+            table_page,
+            cell_width,
+            MAX_TABLE_WIDTH,
+        )
+
+        short = [["12:30", "in 1h 0m", "Jita", "POS", "Armor"]]
+        long = [
+            [
+                "12:30",
+                "in 1h 0m",
+                "A Very Long Solar System Name",
+                "POS Medium",
+                "Armor",
+            ]
+        ]
+        self.assertEqual(column_widths(short)[2], len("System"))
+        self.assertEqual(column_widths(long)[2], len(long[0][2]))
+        self.assertIn(long[0][2], table_page(long))
+        for rows in (short, long, [["X" * 400] * 5]):
+            grid = table_page(rows).split("```text\n")[1].split("\n```")[0]
+            widths = {cell_width(line) for line in grid.splitlines()}
+            self.assertEqual(len(widths), 1)
+            self.assertLessEqual(widths.pop(), MAX_TABLE_WIDTH)
 
     def test_expiry_refresh_updates_existing_message(self):
         current = now()
