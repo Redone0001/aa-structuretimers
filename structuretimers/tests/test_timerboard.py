@@ -92,6 +92,69 @@ class TimerboardTests(TestCase):
         for i in range(50):
             self.assertEqual("\n".join(pages).count(f"row{i:02d}"), 1)
 
+    def test_blank_rows_separate_rolling_windows_not_calendar_days(self):
+        current = dt.datetime(2030, 1, 1, 23, 0, tzinfo=dt.timezone.utc)
+        for hours, name in [
+            (0, "Now"),
+            (2, "Tomorrow"),
+            (23.99, "Before24"),
+            (24, "At24"),
+            (47.99, "Before48"),
+            (48, "At48"),
+            (96, "At96"),
+        ]:
+            self.timer(date=current + dt.timedelta(hours=hours), system_name=name)
+        with patch("structuretimers.timerboard.now", return_value=current):
+            page = render_board(self.board)[0]
+        data = [line for line in page.splitlines() if line.startswith("│")][1:]
+        groups = [[]]
+        for line in data:
+            if not line.replace("│", "").strip():
+                groups.append([])
+            else:
+                groups[-1].append(line)
+        self.assertEqual(len(groups), 4)
+        for group, names in zip(
+            groups,
+            [
+                ("Now", "Tomorrow", "Before24"),
+                ("At24", "Before48"),
+                ("At48",),
+                ("At96",),
+            ],
+        ):
+            for name in names:
+                self.assertIn(name, "\n".join(group))
+
+    def test_window_spacers_fit_limits_without_empty_page_edges(self):
+        current = now()
+        for index in range(30):
+            self.timer(
+                date=current + dt.timedelta(days=index), system_name=f"Day{index:02d}"
+            )
+        with patch("structuretimers.timerboard.now", return_value=current):
+            pages = render_board(self.board)
+        self.assertGreater(len(pages), 1)
+        for page in pages:
+            self.assertLessEqual(len(page), 2000)
+            data = [line for line in page.splitlines() if line.startswith("│")][1:]
+            self.assertTrue(data[0].replace("│", "").strip())
+            self.assertTrue(data[-1].replace("│", "").strip())
+        for index in range(30):
+            self.assertEqual("\n".join(pages).count(f"Day{index:02d}"), 1)
+
+    def test_recently_elapsed_timers_are_separated_from_upcoming(self):
+        current = now()
+        self.timer(date=current + dt.timedelta(hours=1), system_name="Upcoming")
+        self.timer(date=current - dt.timedelta(minutes=10), system_name="Elapsed")
+        with patch("structuretimers.timerboard.now", return_value=current):
+            page = render_board(self.board)[0]
+        data = [line for line in page.splitlines() if line.startswith("│")][1:]
+        self.assertEqual(len(data), 3)
+        self.assertIn("Upcoming", data[0])
+        self.assertFalse(data[1].replace("│", "").strip())
+        self.assertIn("Elapsed", data[2])
+
     def test_twenty_short_rows_fit_in_one_message(self):
         for number in range(20):
             self.timer(system_name=f"System{number:02d}")

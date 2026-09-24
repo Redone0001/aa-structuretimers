@@ -194,6 +194,7 @@ def render_board(board):
     )
     pages = []
     rows = []
+    previous_window = None
     with override("en"):
         for timer in timers:
             date = timer.date.astimezone(dt.timezone.utc)
@@ -213,10 +214,19 @@ def render_board(board):
                 clean_cell(timer.get_objective_display()).capitalize(),
                 distance_label(timer.distance_ly),
             ]
-            if rows and len(table_page(rows + [row], staging_name)) > MESSAGE_LIMIT:
+            # Rolling 24-hour windows, measured from this refresh, not midnight.
+            window = int((date - current_time).total_seconds() // 86400)
+            additions = []
+            if rows and window != previous_window:
+                additions.append([""] * len(COLUMNS))
+            additions.append(row)
+            if rows and len(table_page(rows + additions, staging_name)) > MESSAGE_LIMIT:
                 pages.append(table_page(rows, staging_name))
-                rows = []
-            rows.append(row)
+                # The message boundary already separates the groups; no edge spacer.
+                rows = [row]
+            else:
+                rows.extend(additions)
+            previous_window = window
     pages.append(table_page(rows, staging_name))
     return pages
 
