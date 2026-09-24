@@ -16,9 +16,17 @@ from django.test import TestCase, override_settings
 from django.utils.timezone import now
 
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
-from structuretimers.models import DiscordTimerboard, Timer
+from structuretimers.models import (
+    DiscordTimerboard,
+    DistancesFromStaging,
+    StagingSystem,
+    Timer,
+)
 from structuretimers.tasks import refresh_discord_timerboard
-from structuretimers.tests.testdata.factory import EveSolarSystemLowSecFactory
+from structuretimers.tests.testdata.factory import (
+    EveSolarSystemLowSecFactory,
+    StagingSystemFactory,
+)
 from structuretimers.timerboard import (
     render_board,
     sync_board,
@@ -137,7 +145,7 @@ class TimerboardTests(TestCase):
     def test_large_cells_still_fit_one_complete_message(self):
         from structuretimers.timerboard import table_page
 
-        page = table_page([["X" * 400] * 5])
+        page = table_page([["X" * 400] * 7])
         self.assertLessEqual(len(page), 2000)
         self.assertIn("…", page)
 
@@ -181,24 +189,97 @@ class TimerboardTests(TestCase):
             MAX_TABLE_WIDTH,
         )
 
-        short = [["12:30", "in 1h 0m", "Jita", "POS", "Armor"]]
+        short = [["12:30", "in 1h 0m", "Jita", "POS", "Armor", "Neutral", "6.0 Cap"]]
         long = [
             [
                 "12:30",
                 "in 1h 0m",
-                "A Very Long Solar System Name",
+                "Long Solar System",
                 "POS Medium",
                 "Armor",
+                "Friendly",
+                "4.0 Super",
             ]
         ]
         self.assertEqual(column_widths(short)[2], len("System"))
         self.assertEqual(column_widths(long)[2], len(long[0][2]))
         self.assertIn(long[0][2], table_page(long))
-        for rows in (short, long, [["X" * 400] * 5]):
+        for rows in (short, long, [["X" * 400] * 7]):
             grid = table_page(rows).split("```text\n")[1].split("\n```")[0]
             widths = {cell_width(line) for line in grid.splitlines()}
             self.assertEqual(len(widths), 1)
             self.assertLessEqual(widths.pop(), MAX_TABLE_WIDTH)
+
+    def test_all_objectives_are_displayed(self):
+        for objective in Timer.Objective:
+            self.timer(objective=objective)
+        page = render_board(self.board)[0]
+        for label in ("Friendly", "Hostile", "Neutral", "Undefined"):
+            self.assertIn(label, page)
+
+    def test_distances_use_main_staging_and_do_not_query_per_timer(self):
+        fallback = StagingSystemFactory()
+        main = StagingSystemFactory(
+            is_main=True, eve_solar_system=EveSolarSystemLowSecFactory(name="Jita")
+        )
+        timer = self.timer()
+        DistancesFromStaging.objects.create(
+            timer=timer, staging_system=fallback, light_years=2.0
+        )
+        DistancesFromStaging.objects.create(
+            timer=timer, staging_system=main, light_years=6.23
+        )
+        for _ in range(5):
+            self.timer()
+        with self.assertNumQueries(2):
+            page = "\n".join(render_board(self.board))
+        self.assertIn("Distance from staging: `Jita`", page)
+        self.assertIn("6.3 Cap", page)
+        self.assertNotIn("2.0 Super", page)
+
+    def test_fallback_staging_and_unknown_distances(self):
+        # Ignore the legacy nullable staging configuration.
+        StagingSystem.objects.bulk_create([StagingSystem(is_main=True)])
+        staging = StagingSystemFactory(
+            eve_solar_system=EveSolarSystemLowSecFactory(name="Amarr")
+        )
+        timer = self.timer()
+        self.assertIn("?", render_board(self.board)[0])
+        DistancesFromStaging.objects.create(
+            timer=timer, staging_system=staging, light_years=0
+        )
+        page = render_board(self.board)[0]
+        self.assertIn("Distance from staging: `Amarr`", page)
+        self.assertIn("0.0 Super", page)
+
+    def test_no_staging_does_not_invent_distance_or_range(self):
+        self.timer()
+        page = render_board(self.board)[0]
+        self.assertIn("Distance: no staging configured", page)
+        self.assertIn("?", page)
+        for label in ("Super", "Cap", "Command carrier"):
+            self.assertNotIn(label, page)
+
+    def test_range_thresholds_match_web_badges(self):
+        from structuretimers.timerboard import distance_label
+        from structuretimers.views import distance_range_badge_html
+
+        cases = [
+            (None, "?", ""),
+            (0, "0.0 Super", "Super"),
+            (5.999, "6.0 Super", "Super"),
+            (6, "6.0 Cap", "Cap"),
+            (6.999, "7.0 Cap", "Cap"),
+            (7, "7.0 Command carrier", "Command carrier"),
+            (7.499, "7.5 Command carrier", "Command carrier"),
+            (7.5, "7.5", ""),
+            (12, "12.0", ""),
+        ]
+        for distance, expected, label in cases:
+            with self.subTest(distance=distance):
+                self.assertEqual(distance_label(distance), expected)
+                badge = distance_range_badge_html(distance)
+                self.assertIn(label, badge) if label else self.assertEqual(badge, "")
 
     def test_expiry_refresh_updates_existing_message(self):
         current = now()

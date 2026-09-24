@@ -9,15 +9,24 @@ from discordproxy.client import DiscordClient
 from discordproxy.exceptions import DiscordProxyHttpError
 
 from django.conf import settings
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import (
+    Case,
+    FloatField,
+    IntegerField,
+    OuterRef,
+    Subquery,
+    Value,
+    When,
+)
 from django.utils.timezone import now
 from django.utils.translation import override
 
-from .models import Timer
+from .distance_ranges import distance_range
+from .models import DistancesFromStaging, StagingSystem, Timer
 
 HEADER = "**Structure timerboard — EVE time (UTC)**"
 MESSAGE_LIMIT = 2000
-COLUMNS = ("EVE", "In / Ago", "System", "Structure", "Timer")
+COLUMNS = ("EVE", "In / Ago", "System", "Structure", "Timer", "Objective", "LY / Range")
 # Previous table width was 74 display cells; allow at most 25% more.
 MAX_TABLE_WIDTH = 92
 
@@ -34,6 +43,15 @@ def structure_label(name):
     return name or "Unknown"
 
 
+def distance_label(light_years):
+    """Match the web board's rounding and use the raw distance for range tags."""
+    if light_years is None:
+        return "?"
+    text = f"{math.ceil(light_years * 10) / 10:.1f}"
+    badge = distance_range(light_years)
+    return f"{text} {badge[0]}" if badge else text
+
+
 def column_widths(rows):
     """Fit each page's contents, sharing spare width between longer columns."""
     widths = [
@@ -47,7 +65,7 @@ def column_widths(rows):
     remaining = MAX_TABLE_WIDTH - (3 * len(COLUMNS) + 1) - sum(widths)
     while remaining > 0:
         expanded = False
-        for index in (2, 3, 1, 4, 0):
+        for index in (2, 3, 6, 1, 4, 5, 0):
             if remaining and widths[index] < desired[index]:
                 widths[index] += 1
                 remaining -= 1
@@ -120,8 +138,8 @@ def relative_time(date, current_time):
     return f"in {duration}" if seconds >= 0 else f"{duration} ago"
 
 
-def table_page(rows):
-    rows = rows or [["", "", "No timers", "", ""]]
+def table_page(rows, staging_name=None):
+    rows = rows or [["", "", "No timers", "", "", "", ""]]
     widths = column_widths(rows)
     lines = [
         table_border("┌", "┬", "┐", widths),
@@ -130,12 +148,33 @@ def table_page(rows):
     ]
     lines.extend(table_row(row, widths) for row in rows)
     lines.append(table_border("└", "┴", "┘", widths))
-    return HEADER + "\n```text\n" + "\n".join(lines) + "\n```"
+    staging = (
+        f"Distance from staging: `{clean_cell(staging_name)[:100]}`"
+        if staging_name
+        else "Distance: no staging configured"
+    )
+    return HEADER + "\n" + staging + "\n```text\n" + "\n".join(lines) + "\n```"
 
 
 def render_board(board):
     """Show upcoming timers and a one-hour grace period for elapsed timers."""
     current_time = now()
+    staging = (
+        StagingSystem.objects.filter(eve_solar_system__isnull=False)
+        .select_related("eve_solar_system")
+        .order_by("-is_main", "pk")
+        .first()
+    )
+    staging_name = staging.eve_solar_system.name if staging else None
+    distance_query = (
+        Subquery(
+            DistancesFromStaging.objects.filter(
+                timer_id=OuterRef("pk"), staging_system_id=staging.pk
+            ).values("light_years")[:1]
+        )
+        if staging
+        else Value(None, output_field=FloatField())
+    )
     timers = Timer.objects.filter(
         date__gte=current_time - dt.timedelta(hours=1), timer_type__in=board.timer_types
     ).exclude(timer_type=Timer.Type.PRELIMINARY)
@@ -144,11 +183,12 @@ def render_board(board):
     timers = (
         timers.select_related("eve_solar_system", "structure_type")
         .annotate(
+            distance_ly=distance_query,
             elapsed=Case(
                 When(date__lt=current_time, then=Value(1)),
                 default=Value(0),
                 output_field=IntegerField(),
-            )
+            ),
         )
         .order_by("elapsed", "date", "pk")
     )
@@ -170,12 +210,14 @@ def render_board(board):
                     )
                 ),
                 clean_cell(timer.get_timer_type_display()),
+                clean_cell(timer.get_objective_display()).capitalize(),
+                distance_label(timer.distance_ly),
             ]
-            if rows and len(table_page(rows + [row])) > MESSAGE_LIMIT:
-                pages.append(table_page(rows))
+            if rows and len(table_page(rows + [row], staging_name)) > MESSAGE_LIMIT:
+                pages.append(table_page(rows, staging_name))
                 rows = []
             rows.append(row)
-    pages.append(table_page(rows))
+    pages.append(table_page(rows, staging_name))
     return pages
 
 

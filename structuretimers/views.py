@@ -43,6 +43,7 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_PAGING_ENABLED,
 )
 from structuretimers.constants import EveTypeId
+from structuretimers.distance_ranges import distance_range
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
 from structuretimers.models import DistancesFromStaging, ReconCampaign, StagingSystem, Timer
 from structuretimers.selectors import supported_eve_types
@@ -50,11 +51,6 @@ from structuretimers.selectors import supported_eve_types
 logger = get_extension_logger(__name__)
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 MAX_HOURS_PASSED = 2
-DISTANCE_RANGE_BADGES = (
-    (6.0, _("Super"), "success"),
-    (7.0, _("Cap"), "primary"),
-    (7.5, _("Command carrier"), "danger"),
-)
 
 
 def bootstrap5_label_html(text: str, label: str = "secondary") -> str:
@@ -64,12 +60,8 @@ def bootstrap5_label_html(text: str, label: str = "secondary") -> str:
 
 def distance_range_badge_html(light_years: float | None) -> str:
     """Return the most restrictive jump-range badge for a distance."""
-    if light_years is None:
-        return ""
-    for maximum_distance, label, style in DISTANCE_RANGE_BADGES:
-        if light_years < maximum_distance:
-            return bootstrap5_label_html(label, style)
-    return ""
+    badge = distance_range(light_years)
+    return bootstrap5_label_html(*badge) if badge else ""
 
 
 class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
