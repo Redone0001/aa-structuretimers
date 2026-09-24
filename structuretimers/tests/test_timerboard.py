@@ -194,11 +194,11 @@ class TimerboardTests(TestCase):
         with patch("structuretimers.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         self.assertIn(
-            f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • [Jita 漢字](https://evemaps.dotlan.net/map/",
+            f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • [Jita 漢字](<https://evemaps.dotlan.net/map/",
             page,
         )
         self.assertIn(
-            "/Jita_%E6%BC%A2%E5%AD%97) (? LY) • Unknown • Armor • Undefined", page
+            "/Jita_%E6%BC%A2%E5%AD%97>) (? LY) • Unknown • Armor • Undefined", page
         )
         self.assertNotIn("```", page)
         self.assertNotIn("Live countdowns", page)
@@ -210,12 +210,12 @@ class TimerboardTests(TestCase):
         region.name = "Cache"
         region.save(update_fields=["name"])
         self.assertIn(
-            "[I6-SYN](https://evemaps.dotlan.net/map/Cache/I6-SYN) (? LY)",
+            "[I6-SYN](<https://evemaps.dotlan.net/map/Cache/I6-SYN>) (? LY)",
             render_board(self.board)[0],
         )
         region.name = "Outer Ring"
         region.save(update_fields=["name"])
-        self.assertIn("/map/Outer_Ring/I6-SYN)", render_board(self.board)[0])
+        self.assertIn("/map/Outer_Ring/I6-SYN>)", render_board(self.board)[0])
 
     def test_long_markup_fields_fit_and_do_not_break_timestamp(self):
         from structuretimers.tests.testdata.factory import CitadelTypeFactory

@@ -122,7 +122,7 @@ def render_board(board):
                 location = clean_cell(system.name)
                 # Malformed imported names must not overflow Discord's message limit.
                 if len(url) <= 512:
-                    location = f"[{location}]({url})"
+                    location = f"[{location}](<{url}>)"
             structure = structure_label(
                 timer.structure_type.name if timer.structure_type else None
             )
