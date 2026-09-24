@@ -334,7 +334,9 @@ staff need the appropriate Django campaign and campaign-system model permissions
 ### Discord timerboard bot
 
 Discord timerboards reuse bot messages, splitting rows across messages when needed.
-Rows use `EVE Time (HH:MM UTC) / Discord relative timestamp / location / structure type / timer type`. Upcoming rows are ordered by scheduled time ascending (next due first). Elapsed rows move below upcoming rows and remain until the timer is deleted, including by housekeeping. Changes to board filters or a timer's flag/type also update membership. Discord updates the relative timestamps itself; the bot only edits messages whose content changed.
+Rows appear in a bordered monospace table with EVE time (HH:MM UTC), relative time, location, structure type, and timer type columns. Upcoming rows are ordered by scheduled time ascending (next due first). Elapsed rows move below upcoming rows and disappear from Discord after one hour; this does not delete them from the app. Changes to board filters or a timer's flag/type also update membership. Long cells wrap, with an ellipsis after eight lines. Each message repeats the column headings and stays within Discord's character limit.
+
+Discord does not render live timestamps inside code blocks. The table therefore shows a relative-time snapshot, refreshed by the task, with native live Discord countdowns immediately underneath keyed to the table's row numbers. The bot edits existing messages only when their content changes.
 
 1. Apply migrations with `python manage.py migrate`. The data migration flags all existing non-preliminary timers.
 2. Run [Redone0001/discordproxy 1.6.0](https://github.com/Redone0001/discordproxy) on the proxy server. This app pins the compatible client commit as a dependency; installing the app installs that client automatically. Upgrade and restart the proxy server first if it runs in a separate environment. Only the proxy server needs the bot token. Give its bot View Channel, Send Messages, and Read Message History permissions in the target channel. Configure `STRUCTURETIMERS_DISCORD_PROXY_TARGET` in Auth settings if the proxy is not at `localhost:50051` (for Docker, use the proxy service hostname). `STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT` defaults to 30 seconds.
@@ -344,7 +346,7 @@ Rows use `EVE Time (HH:MM UTC) / Discord relative timestamp / location / structu
 ```python
 CELERYBEAT_SCHEDULE['structuretimers_discord_timerboards'] = {
     'task': 'structuretimers.tasks.refresh_discord_timerboards',
-    'schedule': 60.0,
+    'schedule': 300.0, # Every five minutes (seconds)
 }
 ```
 
@@ -352,7 +354,7 @@ Quick Add sets the Discord timerboard flag automatically. Add Timer starts unche
 
 Boards publish the selected timers to everyone who can read the configured Discord channel, including any timers with restricted Auth visibility or OPSEC. Choose channel permissions accordingly. No mentions are sent. Disable a board to remove its messages on the next refresh; wait for that refresh before deleting its configuration. Changing its channel removes the old messages before posting in the new channel.
 
-Existing housekeeping retention is controlled by `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` (currently 30 days by default, minimum one day). The timerboard does not impose an additional expiry cutoff.
+Existing app housekeeping retention is controlled by `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` (currently 30 days by default, minimum one day). Discord independently hides timers more than one hour past due on the next refresh, without changing app retention. If you already configured this Celery Beat task, update its interval to 300 seconds; if it is managed in Django admin, update that periodic task there too.
 
 #### Upgrading from the direct Discord transport (3.4.0)
 

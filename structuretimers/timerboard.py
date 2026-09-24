@@ -1,7 +1,8 @@
 """Render and synchronize persistent Discord timerboard messages."""
 
 import datetime as dt
-import re
+import math
+import unicodedata
 
 from discordproxy.client import DiscordClient
 from discordproxy.exceptions import DiscordProxyHttpError
@@ -13,20 +14,106 @@ from django.utils.translation import override
 
 from .models import Timer
 
-HEADER = "**EVE Time (UTC) / Relative time / Location / Structure type / Timer type**"
+HEADER = "**Structure timerboard — EVE time (UTC)**"
 MESSAGE_LIMIT = 2000
+COLUMNS = (
+    ("# EVE UTC", 11),
+    ("In / Ago", 14),
+    ("Location", 26),
+    ("Structure type", 18),
+    ("Timer type", 12),
+)
 
 
 def clean_cell(value):
-    """Keep user text on one row and prevent injected Discord formatting."""
-    value = " ".join(str(value or "Unknown").split())
-    return re.sub(r"([\\`*_~|<>/@])", r"\\\1", value)[:400]
+    """Keep user text inside the table, including pasted backticks/control codes."""
+    value = " ".join(str(value or "Unknown").split()).replace("`", "'")
+    return "".join(
+        char for char in value if not unicodedata.category(char).startswith("C")
+    )[:400]
+
+
+def cell_width(value):
+    return sum(
+        (
+            0
+            if unicodedata.combining(c)
+            else 2 if unicodedata.east_asian_width(c) in ("W", "F") else 1
+        )
+        for c in value
+    )
+
+
+def wrap_cell(value, width):
+    lines, line = [], ""
+    for char in value:
+        if cell_width(line + char) > width:
+            lines.append(line)
+            line = ""
+        line += char
+    lines.append(line)
+    if len(lines) > 8:
+        lines = lines[:8]
+        while cell_width(lines[-1]) >= width:
+            lines[-1] = lines[-1][:-1]
+        lines[-1] += "…"
+    return lines
+
+
+def table_border(left, middle, right):
+    return left + middle.join("─" * (width + 2) for _, width in COLUMNS) + right
+
+
+def table_row(values):
+    cells = [wrap_cell(value, width) for value, (_, width) in zip(values, COLUMNS)]
+    lines = []
+    for index in range(max(map(len, cells))):
+        parts = []
+        for cell, (_, width) in zip(cells, COLUMNS):
+            value = cell[index] if index < len(cell) else ""
+            parts.append(" " + value + " " * (width - cell_width(value)) + " ")
+        lines.append("│" + "│".join(parts) + "│")
+    return "\n".join(lines)
+
+
+def relative_time(date, current_time):
+    seconds = (date - current_time).total_seconds()
+    minutes = math.ceil(abs(seconds) / 60)
+    if minutes >= 1440:
+        duration = f"{minutes // 1440}d {(minutes % 1440) // 60}h"
+    elif minutes >= 60:
+        duration = f"{minutes // 60}h {minutes % 60}m"
+    else:
+        duration = f"{minutes}m"
+    return f"in {duration}" if seconds >= 0 else f"{duration} ago"
+
+
+def table_page(rows):
+    lines = [
+        table_border("┌", "┬", "┐"),
+        table_row([label for label, _ in COLUMNS]),
+        table_border("├", "┼", "┤"),
+    ]
+    for index, (row, _countdown) in enumerate(rows):
+        if index:
+            lines.append(table_border("├", "┼", "┤"))
+        lines.append(row)
+    if not rows:
+        lines.append(table_row(["", "", "No timers", "", ""]))
+    lines.append(table_border("└", "┴", "┘"))
+    content = HEADER + "\n```text\n" + "\n".join(lines) + "\n```"
+    if rows:
+        content += "\nLive countdowns: " + " · ".join(
+            countdown for _row, countdown in rows
+        )
+    return content
 
 
 def render_board(board):
-    """Dates are deliberately not filtered against the clock."""
+    """Show upcoming timers and a one-hour grace period for elapsed timers."""
+    current_time = now()
     timers = Timer.objects.filter(
-        date__isnull=False, timer_type__in=board.timer_types
+        date__gte=current_time - dt.timedelta(hours=1), timer_type__in=board.timer_types
     ).exclude(timer_type=Timer.Type.PRELIMINARY)
     if not board.include_unflagged:
         timers = timers.filter(discord_timerboard=True)
@@ -34,7 +121,7 @@ def render_board(board):
         timers.select_related("eve_solar_system", "structure_type")
         .annotate(
             elapsed=Case(
-                When(date__lt=now(), then=Value(1)),
+                When(date__lt=current_time, then=Value(1)),
                 default=Value(0),
                 output_field=IntegerField(),
             )
@@ -42,9 +129,9 @@ def render_board(board):
         .order_by("elapsed", "date", "pk")
     )
     pages = []
-    content = HEADER
+    rows = []
     with override("en"):
-        for timer in timers:
+        for number, timer in enumerate(timers, start=1):
             date = timer.date.astimezone(dt.timezone.utc)
             location = " - ".join(
                 filter(
@@ -59,10 +146,10 @@ def render_board(board):
                     ],
                 )
             )
-            row = " / ".join(
+            row = table_row(
                 [
-                    date.strftime("%H:%M"),
-                    f"<t:{int(date.timestamp())}:R>",
+                    f"{number} {date:%H:%M}",
+                    relative_time(date, current_time),
                     clean_cell(location),
                     clean_cell(
                         timer.structure_type.name if timer.structure_type else None
@@ -70,11 +157,12 @@ def render_board(board):
                     clean_cell(timer.get_timer_type_display()),
                 ]
             )
-            if len(content) + len(row) + 1 > MESSAGE_LIMIT:
-                pages.append(content)
-                content = HEADER
-            content += "\n" + row
-    pages.append(content if content != HEADER else content + "\nNo timers.")
+            entry = (row, f"**{number}** <t:{int(date.timestamp())}:R>")
+            if rows and len(table_page(rows + [entry])) > MESSAGE_LIMIT:
+                pages.append(table_page(rows))
+                rows = []
+            rows.append(entry)
+    pages.append(table_page(rows))
     return pages
 
 

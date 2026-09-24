@@ -65,7 +65,7 @@ class TimerboardTests(TestCase):
 
     def test_elapsed_rows_remain_until_deleted(self):
         timer = self.timer(
-            date=now() - dt.timedelta(hours=2), location_details="Elapsed"
+            date=now() - dt.timedelta(minutes=30), location_details="Elapsed"
         )
         self.timer(location_details="Upcoming")
         page = render_board(self.board)[0]
@@ -81,6 +81,67 @@ class TimerboardTests(TestCase):
         self.assertTrue(all(len(page) <= 2000 for page in pages))
         for i in range(25):
             self.assertEqual("\n".join(pages).count(f"row{i:02d}-"), 1)
+
+    def test_one_hour_cutoff_hides_rows_without_deleting_timers(self):
+        current = now()
+        recent = self.timer(
+            date=current - dt.timedelta(minutes=59), location_details="Recent"
+        )
+        boundary = self.timer(
+            date=current - dt.timedelta(hours=1), location_details="Boundary"
+        )
+        expired = self.timer(
+            date=current - dt.timedelta(hours=1, seconds=1), location_details="Expired"
+        )
+        with patch("structuretimers.timerboard.now", return_value=current):
+            page = render_board(self.board)[0]
+        self.assertIn("Recent", page)
+        self.assertIn("Boundary", page)
+        self.assertNotIn("Expired", page)
+        self.assertEqual(
+            Timer.objects.filter(pk__in=[recent.pk, boundary.pk, expired.pk]).count(), 3
+        )
+
+    def test_table_has_aligned_columns_and_live_countdowns_outside_code(self):
+        from structuretimers.timerboard import cell_width
+
+        timer = self.timer(location_details="Jita ``` @everyone 漢字")
+        page = render_board(self.board)[0]
+        self.assertEqual(page.count("```"), 2)
+        grid = page.split("```text\n", 1)[1].split("\n```", 1)[0]
+        lines = grid.splitlines()
+        self.assertEqual(len({cell_width(line) for line in lines}), 1)
+        self.assertTrue(lines[0].startswith("┌"))
+        self.assertTrue(lines[-1].endswith("┘"))
+        self.assertIn("Structure type", lines[1])
+        self.assertNotIn("<t:", grid)
+        self.assertIn(f"<t:{int(timer.date.timestamp())}:R>", page.split("\n```", 1)[1])
+
+    def test_large_cells_still_fit_one_complete_message(self):
+        from structuretimers.timerboard import table_page, table_row
+
+        row = table_row(["X" * 400] * 5)
+        page = table_page([(row, "**1** <t:1234567890:R>")])
+        self.assertLessEqual(len(page), 2000)
+        self.assertIn("…", page)
+
+    def test_expiry_refresh_updates_existing_message(self):
+        current = now()
+        self.timer(date=current - dt.timedelta(minutes=59), location_details="Expiring")
+        with patch("structuretimers.timerboard.now", return_value=current):
+            sync_board(self.board)
+        message_id = self.board.messages.get().message_id
+        self.client.reset_mock()
+        with patch(
+            "structuretimers.timerboard.now",
+            return_value=current + dt.timedelta(minutes=5),
+        ):
+            sync_board(self.board)
+        self.client.create_channel_message.assert_not_called()
+        self.client.edit_channel_message.assert_called_once()
+        self.assertEqual(self.board.messages.get().message_id, message_id)
+        self.assertNotIn("Expiring", self.board.messages.get().content)
+        self.assertTrue(Timer.objects.filter(location_details="Expiring").exists())
 
     def test_reuses_edits_and_removes_surplus_messages(self):
         with patch(
@@ -241,12 +302,14 @@ class TimerboardTests(TestCase):
         from structuretimers.tasks import housekeeping
 
         self.timer(date=now() - dt.timedelta(days=31), location_details="Expired")
-        self.assertIn("Expired", render_board(self.board)[0])
+        self.assertNotIn("Expired", render_board(self.board)[0])
+        self.assertTrue(Timer.objects.filter(location_details="Expired").exists())
         with patch(
             "structuretimers.managers.STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS", 30
         ):
             housekeeping()
         self.assertIn("No timers", render_board(self.board)[0])
+        self.assertFalse(Timer.objects.filter(location_details="Expired").exists())
 
     def test_channel_and_permission_errors_do_not_create_replacements(self):
         self.board.messages.create(
