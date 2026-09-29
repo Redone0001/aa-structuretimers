@@ -61,3 +61,15 @@
 .st-page .st-timer-actions { min-width: 6rem; }
 
 .st-page .table_timers .table-warning a:not(.btn) { color: var(--bs-warning-text-emphasis); }
+
+/* Compact timer rows without shrinking the searchable assignment hit target. */
+.st-page .table_timers > :not(caption) > * > * { padding: .35rem .4rem; }
+.st-page .table_timers .st-assignment-cell { min-width: 11rem; width: 13rem; }
+.st-page .table_timers .timer-assignment { text-align: left; }
+.st-page .table_timers .assignment-status:empty { display: none; }
+.st-page .table_timers .assignment-status { display: block; }
+.st-page .table_timers .select2-selection--single { min-height: 2rem; padding: .25rem 1.75rem .25rem .5rem; }
+.st-page .table_timers tbody td:nth-child(3) { white-space: nowrap; }
+.st-page .table_timers tbody td:nth-child(7) { min-width: 14rem; overflow-wrap: anywhere; }
+.st-page .table_timers .st-timer-actions { min-width: 8.5rem; flex-wrap: nowrap !important; }
+.st-page .table_timers .st-timer-actions .btn { padding: .25rem .5rem; font-size: .875rem; }

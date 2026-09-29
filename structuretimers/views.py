@@ -230,6 +230,7 @@ class TimerListDataView(
                         else _("(unknown)")
                     ),
                     "owner_name": owner_name,
+                    "assignment": self._calc_assignment(timer),
                     "assigned_character_name": timer.assigned_character_name,
                     "visibility": visibility,
                     "opsec_str": yesno_str(timer.is_opsec),
@@ -266,21 +267,19 @@ class TimerListDataView(
 
         structure_name = timer.structure_name if timer.structure_name else "-"
         name = format_html("{}<br>{}", structure_name, owner)
-        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(self.request.user):
-            assignment = render_to_string(
-                "structuretimers/partials/timer_assignment.html",
-                {
-                    "timer": timer,
-
-                },
-            )
-            name = format_html("{}{}", name, mark_safe(assignment))
-        elif timer.assigned_to_id:
+        if self.kwargs.get("tab_name") not in ("current", "past") and timer.assigned_to_id:
             name = format_html(
                 '{}<br><span class="text-muted">{}: {}</span>',
                 name, _("Assigned to"), timer.assigned_character_name,
             )
         return owner_name, name
+
+    def _calc_assignment(self, timer):
+        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(self.request.user):
+            return render_to_string(
+                "structuretimers/partials/timer_assignment.html", {"timer": timer}
+            )
+        return format_html("{}", timer.assigned_character_name or _("Unassigned"))
 
     def _calc_objective(self, timer):
         tags = []

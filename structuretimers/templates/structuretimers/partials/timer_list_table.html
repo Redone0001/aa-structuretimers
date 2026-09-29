@@ -2,7 +2,7 @@
 {% load humanize %}
 
 <div class="table-responsive">
-    <table class="table table-striped table_timers" id="tbl_timers_{{ tab_name }}" style="width:100%;">
+    <table class="table table-sm table-striped align-middle table_timers" id="tbl_timers_{{ tab_name }}" style="width:100%;">
         <thead>
             <tr>
                 <th>{% translate "Eve Time" %}</th>
@@ -12,6 +12,7 @@
                 <th>{% translate "Structure" %} / {% translate "Timer Type" %}</th>
                 <th>{% translate "Objective" %} / {% translate "Tags" %}</th>
                 <th>{% translate "Name" %} / {% translate "Owner" %}</th>
+                <th>{% translate "Assigned to" %}</th>
                 <th></th>
             </tr>
         </thead>

@@ -339,6 +339,7 @@ $(document).ready(function () {
         { data: "structure_details" },
         { data: "owner" },
         { data: "name_objective" },
+        { data: "assignment", orderable: false, className: "st-assignment-cell" },
         { data: "actions" },
 
         /* hidden columns */
@@ -355,7 +356,7 @@ $(document).ready(function () {
         [10, 25, 50, 100, -1],
         [10, 25, 50, 100, "All"],
     ];
-    let idxStart = 8;
+    let idxStart = 9;
     let columnDefs = [
         { sortable: false, targets: [idxStart - 1] },
         createVisibleColumDef(idxStart),

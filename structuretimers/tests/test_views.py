@@ -657,7 +657,8 @@ class TestInlineAssignment(NoSocketsTestCase):
         response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
         self.assertEqual(response.status_code, 200)
         row = next(row for row in response.json() if row["id"] == self.timer.pk)
-        self.assertIn('class="form-select form-select-sm timer-assignee"', row["name_objective"])
+        self.assertIn('class="form-select form-select-sm timer-assignee"', row["assignment"])
+        self.assertNotIn("timer-assignee", row["name_objective"])
         self.assertNotIn(self.assignee.profile.main_character.character_name, row["name_objective"])
 
     def test_assignment_search_uses_main_character_names(self):

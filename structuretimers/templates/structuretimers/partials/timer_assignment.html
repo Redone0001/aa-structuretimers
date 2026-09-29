@@ -1,6 +1,6 @@
 {% load i18n %}
-<div class="mt-2 timer-assignment">
-    <label id="timer-assignee-{{ timer.pk }}-label" for="timer-assignee-{{ timer.pk }}" class="small">{% translate "Assigned to" %}</label>
+<div class="timer-assignment">
+    <label id="timer-assignee-{{ timer.pk }}-label" for="timer-assignee-{{ timer.pk }}" class="visually-hidden">{% translate "Assigned to" %}</label>
     <select id="timer-assignee-{{ timer.pk }}" class="form-select form-select-sm timer-assignee"
             data-placeholder="{% translate 'Unassigned' %}"
             data-url="{% url 'structuretimers:assign' timer.pk %}"

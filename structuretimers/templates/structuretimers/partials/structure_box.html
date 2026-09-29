@@ -1,12 +1,12 @@
 {% load i18n %}
-<div class="d-flex flex-row align-items-center">
-  {% if type_icon_url %}<div class="p-1 flex-shrink-0"><img alt="" class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>{% endif %}
-  <div class="p-1">
-      <div class="d-flex flex-column">
-        <div class="p-1"><span class="badge text-bg-info p-1">{{ type_name }}</span></div>
-        <div class="p-1"><span class="badge text-bg-{{ timer_style }} p-1">{{ timer_name }}</span></div>
+<div class="d-flex flex-row align-items-center gap-1">
+  {% if type_icon_url %}<div class="flex-shrink-0"><img alt="" class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>{% endif %}
+  <div class="st-structure-line">
+      <div class="d-flex flex-column gap-1">
+        <div class="st-structure-line"><span class="badge text-bg-info p-1">{{ type_name }}</span></div>
+        <div class="st-structure-line"><span class="badge text-bg-{{ timer_style }} p-1">{{ timer_name }}</span></div>
         {% if reinforcement_time != None %}
-            <div class="p-1" title="{% translate 'Reinforcement timer' %}">{{ reinforcement_time|time:"H:i" }} UTC</div>
+            <div class="st-structure-line" title="{% translate 'Reinforcement timer' %}">{{ reinforcement_time|time:"H:i" }} UTC</div>
         {% endif %}
     </div>
   </div>
