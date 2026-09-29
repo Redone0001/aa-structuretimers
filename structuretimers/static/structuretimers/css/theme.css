@@ -1,21 +1,47 @@
-/* Shared app controls inherit the active Alliance Auth theme. */
+/* Keep the host theme in charge of Bootstrap forms, tables and components. */
 .st-page, .st-page .col, .st-page .card, .st-page .card-body { min-width: 0; }
-.st-page .form-control, .st-page .form-select, .st-page .dataTables_filter input, .st-page .dataTables_length select {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    border-color: var(--bs-border-color);
-    max-width: 100%;
-}
-.st-page .form-control::placeholder { color: var(--bs-secondary-color); opacity: 1; }
-.st-page .form-control:disabled, .st-page .form-select:disabled { background-color: var(--bs-secondary-bg); }
-.st-page .form-control:focus, .st-page .form-select:focus { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .2); }
-.st-page .form-check-input { background-color: var(--bs-body-bg); border: 1px solid var(--bs-secondary-color); }
-.st-page .form-check-input:checked { background-color: var(--bs-primary); border-color: var(--bs-primary); }
-.st-page a, .st-page h1 { overflow-wrap: anywhere; }
+.st-page { overflow-wrap: anywhere; }
 .st-page .table-responsive { max-width: 100%; }
+.st-page .badge { white-space: normal; }
+.st-page .modal-body { overflow-wrap: anywhere; }
+.st-page .modal-body img { max-width: 100%; height: auto; }
+.st-page .nav-tabs { gap: .25rem; }
+.st-page .timer-assignment { min-width: 12rem; max-width: 22rem; text-align: left; }
+.st-page .form-control, .st-page .form-select { max-width: 100%; }
+/* Bootswatch Darkly's secondary/primary outlines can blend into its body. */
+.st-page .btn-outline-secondary {
+    --bs-btn-color: var(--bs-body-color);
+    --bs-btn-border-color: var(--bs-secondary-color);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-hover-bg: var(--bs-body-color);
+    --bs-btn-hover-border-color: var(--bs-body-color);
+    --bs-btn-disabled-color: var(--bs-secondary-color);
+}
+.st-page .btn-outline-primary {
+    --bs-btn-color: var(--bs-link-color);
+    --bs-btn-border-color: var(--bs-link-color);
+}
+/* Materia sets explicit outline text colors as well as Bootstrap button tokens. */
+.st-page .btn-outline-secondary:not(:hover):not(:active):not(.active) {
+    color: var(--bs-body-color); border-color: var(--bs-secondary-color);
+}
+.st-page .btn-outline-secondary:hover {
+    color: var(--bs-body-bg); background-color: var(--bs-body-color); border-color: var(--bs-body-color);
+}
+.st-page .btn-outline-primary:not(:hover):not(:active):not(.active) {
+    color: var(--bs-link-color); border-color: var(--bs-link-color);
+}
 
-.st-page .form-control.is-invalid, .st-page .form-select.is-invalid { border-color: var(--bs-danger); }
-.st-page .form-control.is-valid, .st-page .form-select.is-valid { border-color: var(--bs-success); }
+.st-page [data-campaign-view][aria-pressed="true"] {
+    background-color: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border-color: var(--bs-primary-border-subtle);
+}
 
-/* Native arrows follow the control text color, including Bootswatch dark themes. */
-.st-page .form-select { appearance: auto; background-image: none; }
+/* Paired Bootstrap status tokens keep small badge text readable in each theme. */
+.st-page .badge.text-bg-primary { background-color: var(--bs-primary-bg-subtle) !important; color: var(--bs-primary-text-emphasis) !important; border: 1px solid var(--bs-primary-border-subtle); }
+.st-page .badge.text-bg-secondary { background-color: var(--bs-secondary-bg-subtle) !important; color: var(--bs-secondary-text-emphasis) !important; border: 1px solid var(--bs-secondary-border-subtle); }
+.st-page .badge.text-bg-success { background-color: var(--bs-success-bg-subtle) !important; color: var(--bs-success-text-emphasis) !important; border: 1px solid var(--bs-success-border-subtle); }
+.st-page .badge.text-bg-danger { background-color: var(--bs-danger-bg-subtle) !important; color: var(--bs-danger-text-emphasis) !important; border: 1px solid var(--bs-danger-border-subtle); }
+.st-page .badge.text-bg-warning { background-color: var(--bs-warning-bg-subtle) !important; color: var(--bs-warning-text-emphasis) !important; border: 1px solid var(--bs-warning-border-subtle); }
+.st-page .badge.text-bg-info { background-color: var(--bs-info-bg-subtle) !important; color: var(--bs-info-text-emphasis) !important; border: 1px solid var(--bs-info-border-subtle); }

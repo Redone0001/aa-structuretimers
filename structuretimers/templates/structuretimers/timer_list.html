@@ -8,27 +8,27 @@
     <!-- Nav tabs -->
     <ul class="nav nav-tabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-target="#preliminary" aria-controls="preliminary" role="tab" data-bs-toggle="tab">
+            <button class="nav-link" id="tab-preliminary" type="button" aria-selected="false" data-bs-target="#preliminary" aria-controls="preliminary" role="tab" data-bs-toggle="tab">
                 {% translate "Preliminary" %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-target="#current" aria-controls="current" role="tab" data-bs-toggle="tab">
+            <button class="nav-link" id="tab-current" type="button" aria-selected="false" data-bs-target="#current" aria-controls="current" role="tab" data-bs-toggle="tab">
                 {% translate "Current" %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-target="#past" aria-controls="past" role="tab" data-bs-toggle="tab">
+            <button class="nav-link" id="tab-past" type="button" aria-selected="false" data-bs-target="#past" aria-controls="past" role="tab" data-bs-toggle="tab">
                 {% translate "Past" %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-target="#manage-recon" aria-controls="manage-recon" role="tab" data-bs-toggle="tab">
+            <button class="nav-link" id="tab-manage-recon" type="button" aria-selected="false" data-bs-target="#manage-recon" aria-controls="manage-recon" role="tab" data-bs-toggle="tab">
                 {% translate "Manage recon" %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
+            <button class="nav-link" id="tab-recon-campaigns" type="button" aria-selected="false" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
                 {% translate "Recon campaigns" %}
             </button>
         </li>
@@ -58,14 +58,14 @@
     <div class="card">
         <div class="card-body">
             <div class="tab-content">
-                <div role="tabpanel" class="tab-pane" id="manage-recon">
+                <div role="tabpanel" class="tab-pane" id="manage-recon" aria-labelledby="tab-manage-recon">
                     {% include 'structuretimers/partials/manage_recon.html' %}
                 </div>
-                <div role="tabpanel" class="tab-pane" id="recon-campaigns">
+                <div role="tabpanel" class="tab-pane" id="recon-campaigns" aria-labelledby="tab-recon-campaigns">
                     {% include 'structuretimers/partials/campaign_list.html' %}
                 </div>
                 <!-- targets tab -->
-                <div role="tabpanel" class="tab-pane" id="preliminary">
+                <div role="tabpanel" class="tab-pane" id="preliminary" aria-labelledby="tab-preliminary">
                     {% include 'structuretimers/partials/preliminary_list_table.html' %}
                     <p class="text-muted">
                         {% translate "This page contains potential future timers." %}
@@ -73,7 +73,7 @@
                 </div>
 
                 <!-- current structuretimers tab -->
-                <div role="tabpanel" class="tab-pane" id="current">
+                <div role="tabpanel" class="tab-pane" id="current" aria-labelledby="tab-current">
                     {% include 'structuretimers/partials/timer_list_table.html' with tab_name='current' %}
                     <p class="text-muted">
                         {% blocktranslate %}Timers remain on this page for {{ max_hours_expired }} hours after they expired{% endblocktranslate %}
@@ -81,7 +81,7 @@
                 </div>
 
                 <!-- past structuretimers tab -->
-                <div role="tabpanel" class="tab-pane" id="past">
+                <div role="tabpanel" class="tab-pane" id="past" aria-labelledby="tab-past">
                     {% include 'structuretimers/partials/timer_list_table.html' with tab_name='past' %}
                 </div>
             </div>
@@ -93,12 +93,12 @@
     </div>
 
     <!-- modal to show timer details -->
-    <div class="modal" id="modalTimerDetails" tabindex="-1" role="dialog" aria-labelledby="myModal">
-        <div class="modal-dialog modal-lg" role="document">
+    <div class="modal" id="modalTimerDetails" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h4 class="modal-title" id="gridSystemModalLabel">{% translate "Timer details" %}</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Close' %}"></button>
                 </div>
                 <div class="modal-body">
                     <div id="modal_div_spinner">
@@ -133,6 +133,7 @@
         data-filter-clear-label="{% translate 'Clear selection' %}"
         data-filter-empty-label="{% translate 'No matching options' %}"
         data-filter-selected-label="{% translate '%(count)s selected' %}"
+        data-assignment-search="{% translate 'Search main characters' %}"
         data-assignment-saving="{% translate 'Saving…' %}"
         data-assignment-saved="{% translate 'Saved' %}"
         data-assignment-error="{% translate 'Could not save assignment. Please try again.' %}"
@@ -150,6 +151,7 @@
     {% include 'bundles/datatables-css-bs5.html' %}
     <link href="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.css' %}" rel="stylesheet">
     <link href="{% static 'structuretimers/vendor/select2-bootstrap-theme-0.1.0-beta.10/select2-bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'structuretimers/css/select2.css' %}">
     <link rel="stylesheet" href="{% static 'structuretimers/css/global.css' %}" type="text/css" media="screen">
     <link rel="stylesheet" href="{% static 'structuretimers/css/timer_list.css' %}" type="text/css" media="screen">
 {% endblock structuretimers_extra_css %}

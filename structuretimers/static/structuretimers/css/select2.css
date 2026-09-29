@@ -1,0 +1,28 @@
+/* Select2 lives outside the form when open; scope the popup explicitly. */
+.st-page .select2-container { width: 100% !important; max-width: 100%; min-width: 0; }
+.st-page .select2-container--bootstrap .select2-selection {
+    background: var(--bs-body-bg); color: var(--bs-body-color);
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius); min-height: 2.5rem;
+    box-shadow: none; font: inherit;
+}
+.st-page .select2-container--bootstrap .select2-selection--single { height: auto; padding: .5rem 2rem .5rem .75rem; }
+.st-page .select2-container--bootstrap .select2-selection__rendered { color: var(--bs-body-color); padding: 0; }
+.st-page .select2-container--bootstrap .select2-selection__placeholder { color: var(--bs-secondary-color); }
+.st-page .select2-container--bootstrap.select2-container--focus .select2-selection,
+.st-page .select2-container--bootstrap.select2-container--open .select2-selection {
+    border-color: var(--bs-primary); outline: 2px solid var(--bs-primary); outline-offset: 2px;
+}
+.st-page .select2-container--disabled .select2-selection { background: var(--bs-secondary-bg); }
+.st-page .select2-container--bootstrap .select2-selection__arrow b { border-top-color: var(--bs-body-color); }
+.st-page .select2-container--bootstrap.select2-container--open .select2-selection__arrow b { border-bottom-color: var(--bs-body-color); }
+.st-page .select2-container--bootstrap .select2-selection__clear { color: var(--bs-body-color); margin-right: .5rem; }
+.select2-container--bootstrap .st-select2-dropdown,
+.select2-container--bootstrap .st-select2-dropdown .select2-search__field {
+    background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); font: inherit;
+}
+.select2-container--bootstrap .st-select2-dropdown { max-width: calc(100vw - 2rem); }
+.select2-container--bootstrap .st-select2-dropdown .select2-results__option { overflow-wrap: anywhere; }
+.select2-container--bootstrap .st-select2-dropdown .select2-results__option[aria-selected=true] { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+.select2-container--bootstrap .st-select2-dropdown .select2-results__option--highlighted[aria-selected] { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+.select2-container--bootstrap .st-select2-dropdown .select2-results__option[aria-disabled=true] { color: var(--bs-secondary-color); }

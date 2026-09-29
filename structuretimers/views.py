@@ -32,7 +32,6 @@ from allianceauth.eveonline.evelinks import dotlan
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.views import (
     JSONResponseMixin,
-    fontawesome_link_button_html,
     link_html,
     yesno_str,
 )
@@ -62,6 +61,14 @@ def distance_range_badge_html(light_years: float | None) -> str:
     """Return the most restrictive jump-range badge for a distance."""
     badge = distance_range(light_years)
     return bootstrap5_label_html(*badge) if badge else ""
+
+
+def timer_action_button_html(url, icon, style, label):
+    return format_html(
+        '<a href="{}" class="btn btn-{}" title="{}" aria-label="{}">'
+        '<i class="{}" aria-hidden="true"></i></a>',
+        url, style, _(label), _(label), icon,
+    )
 
 
 class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -380,13 +387,14 @@ class TimerListDataView(
             title = "No details available"
         actions += (
             format_html(
-                '<button type="button" id="timerboardBtnDetails" '
-                'class="btn btn-{}" title="{}"'
+                '<button type="button" '
+                'class="btn btn-{}" title="{}" aria-label="{}" '
                 "{}"
                 'data-timerpk="{}"{}>'
                 '<i class="fas fa-search-plus"></i>'
                 "</button>",
                 button_type,
+                title,
                 title,
                 mark_safe(data_toggle),
                 timer.pk,
@@ -396,14 +404,14 @@ class TimerListDataView(
         )
         if timer.user_can_edit(self.request.user):
             actions += (
-                fontawesome_link_button_html(
+                timer_action_button_html(
                     reverse("structuretimers:delete", args=(timer.pk,)),
                     "far fa-trash-alt",
                     "danger",
                     "Delete this timer",
                 )
                 + "&nbsp;"
-                + fontawesome_link_button_html(
+                + timer_action_button_html(
                     reverse("structuretimers:edit", args=(timer.pk,)),
                     "far fa-edit",
                     "warning",
@@ -411,13 +419,16 @@ class TimerListDataView(
                 )
             )
         if self.request.user.has_perm("structuretimers.create_timer"):
-            actions += "&nbsp;" + fontawesome_link_button_html(
+            actions += "&nbsp;" + timer_action_button_html(
                 reverse("structuretimers:copy", args=(timer.pk,)),
                 "far fa-copy",
                 "success",
                 "Copy this timer",
             )
-        return actions
+        return format_html(
+            '<div class="st-timer-actions d-flex flex-wrap justify-content-center gap-1">{}</div>',
+            mark_safe(actions.replace("&nbsp;", "")),
+        )
 
 
 class ManageReconDataView(TimerListDataView):
@@ -648,7 +659,9 @@ class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
 class CopyTimerView(CreateTimerView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        old_obj = get_object_or_404(Timer, pk=self.kwargs["pk"])
+        old_obj = get_object_or_404(
+            Timer.objects.visible_to_user(self.request.user), pk=self.kwargs["pk"]
+        )
         new_obj = deepcopy(old_obj)
         new_obj.pk = None
         new_obj.date = None

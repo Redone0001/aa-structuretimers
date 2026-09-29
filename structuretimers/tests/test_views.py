@@ -672,3 +672,48 @@ class TestInlineAssignment(NoSocketsTestCase):
 
     def test_empty_search_does_not_load_all_users(self):
         self.assertEqual(self.client.get(self.url).json()["results"], [])
+
+
+class TestFrontendPrivacy(NoSocketsTestCase):
+    def setUp(self):
+        self.user = UserWithCreateFactory()
+        self.owner = UserWithManageFactory()
+        self.hidden = TimerFactory(
+            user=self.owner, is_opsec=True,
+            structure_name="PRIVATE-PLANNING-MARKER",
+            details_notes="PRIVATE-NOTES-MARKER",
+        )
+        self.client.force_login(self.user)
+
+    def test_copy_does_not_reveal_hidden_timer_on_get_or_post(self):
+        url = reverse("structuretimers:copy", args=[self.hidden.pk])
+        for method in (self.client.get, self.client.post):
+            response = method(url)
+            self.assertEqual(response.status_code, 404)
+            self.assertNotIn(b"PRIVATE-PLANNING-MARKER", response.content)
+            self.assertNotIn(b"PRIVATE-NOTES-MARKER", response.content)
+
+    def test_hidden_timer_is_absent_from_json_and_detail(self):
+        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        self.assertNotIn(b"PRIVATE-PLANNING-MARKER", response.content)
+        response = self.client.get(reverse("structuretimers:detail", args=[self.hidden.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn(b"PRIVATE-NOTES-MARKER", response.content)
+
+    def test_read_only_current_list_does_not_include_assignment_editor(self):
+        self.client.force_login(UserWithAccessFactory())
+        TimerFactory(user=self.owner)
+        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"timer-assignee", response.content)
+
+    def test_base_uses_one_aa_jquery_and_bootstrap_and_accessible_modal(self):
+        response = self.client.get(reverse("structuretimers:timer_list"))
+        from bs4 import BeautifulSoup
+        page = BeautifulSoup(response.content, "html.parser")
+        scripts = [tag.get("src", "") for tag in page.find_all("script")]
+        self.assertEqual(sum("/jquery/" in src for src in scripts), 1)
+        self.assertEqual(sum("/bootstrap/" in src for src in scripts), 1)
+        modal = page.select_one("#modalTimerDetails")
+        self.assertIsNotNone(page.find(id=modal["aria-labelledby"]))
+        self.assertIsNotNone(modal.select_one(".modal-dialog-scrollable"))

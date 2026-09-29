@@ -11,8 +11,7 @@
 
 .table_timers tbody td:nth-child(1),
 .table_timers tbody td:nth-child(2),
-.table_timers tbody td:nth-child(4),
-.table_timers tbody td:nth-child(8) {
+.table_timers tbody td:nth-child(4) {
     white-space: nowrap;
 }
 
@@ -22,34 +21,8 @@
 }
 
 
-/*
-.nav-tabs > li {
-    font-weight: bold;
-}
-*/
-
-.flex-container {
-    display: flex;
-    margin: 0 auto;
-}
-
-.flex-container>div {
-    align-self: center;
-    padding-left: 3px;
-}
-
-.flex-container>div:first-child {
-    align-self: center;
-    padding-left: 20px;
-}
-
-
 #timerboardImgScreenshot {
     max-height: 450px;
-}
-
-.nowrap {
-    white-space: nowrap
 }
 
 /* Filters remain one height; labels and summaries truncate rather than grow. */
@@ -76,3 +49,15 @@
 #recon-status { margin-bottom: .75rem; }
 
 .timer-filter-menu .btn:disabled { color: var(--bs-secondary-color); border-color: var(--bs-border-color); }
+
+/* Use paired theme tokens instead of Bootswatch's saturated warning table surface. */
+.st-page .table_timers .table-warning {
+    --bs-table-bg: var(--bs-warning-bg-subtle);
+    --bs-table-color: var(--bs-warning-text-emphasis);
+    --bs-table-striped-bg: var(--bs-warning-bg-subtle);
+    --bs-table-striped-color: var(--bs-warning-text-emphasis);
+}
+
+.st-page .st-timer-actions { min-width: 6rem; }
+
+.st-page .table_timers .table-warning a:not(.btn) { color: var(--bs-warning-text-emphasis); }

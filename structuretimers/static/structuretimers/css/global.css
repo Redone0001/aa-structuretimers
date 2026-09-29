@@ -1,24 +1,7 @@
-/*
-Global styles shared by all Kalkoken apps - Version 0.2.1
-*/
-
-@media all {
-    .table > tbody > .table-group > td {
-        background-color: var(--bs-secondary-bg);
-        color: var(--bs-body-color);
-        font-weight: bold;
-    }
-
-    /* other */
-    .nowrap {
-        white-space: nowrap;
-    }
+/* Scoped utilities; modal sizing and surfaces come from Alliance Auth / Bootstrap. */
+.st-page .table > tbody > .table-group > td {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    font-weight: bold;
 }
-
-@media (min-width: 768px) {
-    /* Bootstrap modals */
-    .modal-xl {
-        width: 90%;
-        max-width: 1200px;
-    }
-}
+.st-page .nowrap { white-space: nowrap; }

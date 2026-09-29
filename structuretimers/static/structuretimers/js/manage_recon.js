@@ -73,7 +73,7 @@ $(document).ready(function () {
     $('#recon-reset').on('click', function () {
         $('#recon-age').val('all');
         $('#recon-from, #recon-to').val('');
-        $('#tbl_manage_recon_filterWrapper select').val(null).trigger('change');
+        $('#tbl_manage_recon_wrapper .timer-filter-clear:not(:disabled)').trigger('click');
         table.search('').columns().search('');
         $('#recon-age').trigger('change');
     });

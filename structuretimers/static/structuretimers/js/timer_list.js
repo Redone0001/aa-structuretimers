@@ -153,7 +153,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         const menu = $("<div>", {id: id + "_menu", class: "dropdown-menu timer-filter-menu p-2"});
         const search = $("<input>", {type: "search", class: "form-control form-control-sm mb-2",
             placeholder: exportData.filterSearchLabel, "aria-label": exportData.filterSearchLabel + ": " + definition.title});
-        const clear = $("<button>", {type: "button", class: "btn btn-sm btn-outline-secondary w-100 mt-2"}).text(exportData.filterClearLabel);
+        const clear = $("<button>", {type: "button", class: "btn btn-sm btn-outline-secondary timer-filter-clear w-100 mt-2"}).text(exportData.filterClearLabel);
         const options = $("<div>", {class: "timer-filter-options", role: "group", "aria-labelledby": id + "_label"});
         const empty = $("<p>", {class: "small text-muted mb-0", hidden: true}).text(exportData.filterEmptyLabel);
         const selected = new Set();
@@ -205,6 +205,7 @@ $(document).ready(function () {
             const select = $(this);
             select.select2({
                 theme: "bootstrap",
+                dropdownCssClass: "st-select2-dropdown",
                 width: "100%",
                 placeholder: select.attr("data-placeholder"),
                 allowClear: true,
@@ -216,12 +217,17 @@ $(document).ready(function () {
                     data: params => ({term: params.term, page: params.page || 1}),
                 },
             });
+            select.next(".select2").find(".select2-selection").attr("aria-labelledby",
+                select.attr("id") + "-label select2-" + select.attr("id") + "-container");
         });
     }
     $("#tbl_timers_current").on("draw.dt", initializeAssignees);
     $("#tbl_timers_current").on("select2:open", ".timer-assignee", function () {
         const search = document.querySelector(".select2-container--open .select2-search__field");
-        if (search) search.focus();
+        if (search) {
+            search.setAttribute("aria-label", elem.dataset.assignmentSearch);
+            search.focus();
+        }
     });
     $("#tbl_timers_current").on("change", ".timer-assignee", function () {
         const select = $(this);
@@ -247,6 +253,7 @@ $(document).ready(function () {
             const cell = select.closest("td");
             $("#tbl_timers_current").DataTable().cell(cell).data(cell.html());
             initializeAssignees();
+            cell.find(".select2-selection").trigger("focus");
         }).fail(function (xhr) {
             select.val(previous).trigger("change.select2");
             status.addClass("text-danger").text(
@@ -468,9 +475,9 @@ $(document).ready(function () {
         },
         createdRow: function (row, data, dataIndex) {
             if (data["is_passed"]) {
-                $(row).addClass("active");
+                $(row).addClass("table-active");
             } else if (data["is_important"]) {
-                $(row).addClass("warning");
+                $(row).addClass("table-warning");
             }
         },
     });

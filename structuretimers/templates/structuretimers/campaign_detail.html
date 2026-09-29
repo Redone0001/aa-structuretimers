@@ -4,13 +4,13 @@
 <a href="{% url 'structuretimers:campaign_list' %}">{% translate 'All campaigns' %}</a>
 <h1>{{ campaign.name }}</h1>
 <div id="campaign-import-status" data-url="{% url 'structuretimers:campaign_status' campaign.pk %}" data-import="{{ campaign.import_status }}" data-gates="{{ campaign.gates_status }}">
-{% if campaign.import_status == 'pending' %}<p class="alert alert-info" role="status">{% translate 'Preparing campaign systems in the background. This page will update when they are ready.' %}</p>{% endif %}
-{% if campaign.import_status == 'failed' %}<p class="alert alert-danger">{% translate 'System import failed. A coordinator can retry it.' %}</p>{% if perms.structuretimers.recon_coordinator %}<form method="post" class="mb-3">{% csrf_token %}<button class="btn btn-warning" name="action" value="retry_import">{% translate 'Retry system import' %}</button></form>{% endif %}{% endif %}
+{% if campaign.import_status == 'pending' %}<p class="alert alert-info" role="status">{% translate 'Preparing campaign systems in the background. A notice will appear when they are ready.' %}</p>{% endif %}
+{% if campaign.import_status == 'failed' %}<p class="alert alert-danger">{% translate 'System import failed. A coordinator can retry it.' %}</p>{% if perms.structuretimers.recon_coordinator %}<form data-campaign-action method="post" class="mb-3">{% csrf_token %}<button class="btn btn-warning" name="action" value="retry_import">{% translate 'Retry system import' %}</button></form>{% endif %}{% endif %}
 {% if campaign.gates_status == 'pending' and campaign.import_status == 'ready' %}<p class="alert alert-info" role="status">{% translate 'Gate connections are loading in the background. You can already work on this campaign.' %}</p>{% endif %}
 {% if campaign.gates_status == 'failed' and campaign.import_status == 'ready' %}<p class="alert alert-warning">{% translate 'Gate import failed. A coordinator can retry from Map view.' %}</p>{% endif %}
 <p id="campaign-import-changed" class="alert alert-info" hidden>{% translate 'Campaign import status changed.' %} <a href="{{ campaign.get_absolute_url }}">{% translate 'Refresh when ready' %}</a></p>
 </div>
-<p><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
+<p id="campaign-progress"><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
 <p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Refresh this page to see the latest reservations and progress.' %}</p>
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3" id="campaign-view-controls" hidden>
 <div class="btn-group" role="group" aria-label="{% translate 'Campaign view' %}">
@@ -19,7 +19,10 @@
 </div>
 <span aria-live="polite"><span id="campaign-selected-count">0</span> {% translate 'systems selected' %}</span>
 </div>
-<form id="campaign-bulk" method="post">{% csrf_token %}
+<p id="campaign-action-status" role="status" aria-live="polite"
+   data-saving="{% translate 'Saving…' %}" data-saved="{% translate 'Saved' %}"
+   data-error="{% translate 'Could not save. Refresh the campaign and try again.' %}"></p>
+<form data-campaign-action id="campaign-bulk" method="post">{% csrf_token %}
 <fieldset class="d-flex flex-wrap gap-2 mb-3" {% if campaign.import_status != 'ready' %}disabled{% endif %}>
 <button class="btn btn-primary" name="action" value="reserve">{% translate 'Reserve selected' %}</button>
 <button class="btn btn-secondary" name="action" value="release">{% translate 'Release selected' %}</button>
@@ -36,7 +39,7 @@
 <span class="small text-muted">({{ constellation.list|length }} {% translate 'systems' %})</span>
 </h2>
 {% for entry in constellation.list %}
-<section class="card mb-2"><div class="card-body py-2">
+<section class="card mb-2" data-system-entry="{{ entry.pk }}" data-status="{% if entry.completed_at %}completed{% elif entry.reserved_by_id %}reserved{% else %}available{% endif %}" data-timer-count="{{ entry.timers|length }}"><div class="card-body py-2">
 <div class="d-flex flex-wrap justify-content-between gap-2">
 <h3 class="h5 mb-0"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" {% if campaign.import_status != 'ready' %}disabled{% endif %} name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
 <div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
@@ -49,7 +52,7 @@
 <div class="small text-muted">{% translate 'Reinforcement' %}: {{ timer.reinforcement_time|time:'H:i'|default:'—' }} UTC · {% translate 'Last updated' %}: {{ timer.last_updated_at|date:'Y-m-d H:i' }} UTC</div>
 <details class="my-2"><summary class="text-info">{% translate 'View' %}</summary><p>{{ timer.location_details }}<br>{{ timer.details_notes|linebreaksbr }}</p></details>
 {% if entry.can_work %}
-<form class="d-flex gap-1" method="post" action="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% csrf_token %}
+<form data-campaign-action class="d-flex flex-wrap gap-1" method="post" action="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% csrf_token %}
 <button class="btn btn-sm btn-success" name="action" value="refresh">{% translate 'Still there' %}</button>
 <button class="btn btn-sm btn-danger" name="action" value="destroy" onclick="return confirm(this.dataset.confirm)" data-confirm="{% translate 'Mark this structure as destroyed and remove its recon timer?' %}">{% translate 'Destroyed' %}</button>
 <a class="btn btn-sm btn-warning" href="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% translate 'Edit' %}</a>
@@ -68,10 +71,10 @@
 <span><span class="badge text-bg-secondary">{% translate 'Available' %}</span></span>
 <span><span class="badge text-bg-warning">{% translate 'Reserved' %}</span></span>
 <span><span class="badge text-bg-success">{% translate 'Completed' %}</span></span>
-<span>{% translate 'Blue outline and check mark: selected' %}</span>
+<span>{% translate 'Outline and check mark: selected' %}</span>
 </div>
 {% if perms.structuretimers.recon_coordinator %}
-<form method="post" class="mb-3">{% csrf_token %}
+<form data-campaign-action method="post" class="mb-3">{% csrf_token %}
 <button class="btn btn-sm btn-outline-secondary" name="action" value="load_gates" {% if campaign.gates_status == 'pending' or campaign.import_status != 'ready' %}disabled{% endif %}>{% translate 'Load / refresh gate connections' %}</button>
 <span class="small text-muted">{% translate 'Loads gate connections in the background. You can keep using the campaign.' %}</span>
 </form>
@@ -98,6 +101,7 @@
 {% endblock %}
 {% block extra_javascript %}
 <script src="{% static 'structuretimers/js/campaign_status.js' %}" defer></script>
+<script src="{% static 'structuretimers/js/campaign_actions.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_selection.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_map.js' %}" defer></script>
 {% endblock %}

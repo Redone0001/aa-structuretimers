@@ -1,6 +1,6 @@
 {% load i18n %}
 <div class="d-flex flex-row align-items-center">
-  {% if type_icon_url %}<div class="p-1"><img class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>{% endif %}
+  {% if type_icon_url %}<div class="p-1 flex-shrink-0"><img alt="" class="rounded" src="{{ type_icon_url }}" style="width: 40px; height: 40px;"></div>{% endif %}
   <div class="p-1">
       <div class="d-flex flex-column">
         <div class="p-1"><span class="badge text-bg-info p-1">{{ type_name }}</span></div>

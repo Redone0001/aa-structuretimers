@@ -127,7 +127,7 @@
     const list = document.getElementById("campaign-list-view");
     const map = document.getElementById("campaign-map-view");
     const controls = document.getElementById("campaign-view-controls");
-    const inputs = Array.from(list.querySelectorAll('input[name="systems"]'));
+    const inputs = () => Array.from(list.querySelectorAll('input[name="systems"]'));
     const rendered = new Map();
     const storageKey = `campaign-view:${window.location.pathname}`;
     let initialized = false;
@@ -141,11 +141,23 @@
     }
 
     function sync() {
-        inputs.forEach(input => {
+        inputs().forEach(input => {
             const node = rendered.get(input.id);
-            if (node) node.setAttribute("aria-checked", String(input.checked));
+            if (node) {
+                node.setAttribute("aria-checked", String(input.checked));
+                node.setAttribute("aria-disabled", String(input.disabled));
+                const entry = input.closest("[data-system-entry]");
+                if (entry) {
+                    node.dataset.status = entry.dataset.status;
+                    node.querySelector(".map-count").textContent = entry.dataset.timerCount;
+                    const name = node.querySelector(".map-name").textContent;
+                    const label = `${name}, ${container.dataset.countLabel}: ${entry.dataset.timerCount}, ${container.dataset[`${entry.dataset.status}Label`]}`;
+                    node.setAttribute("aria-label", label);
+                    node.querySelector("title").textContent = label;
+                }
+            }
         });
-        document.getElementById("campaign-selected-count").textContent = inputs.filter(input => input.checked).length;
+        document.getElementById("campaign-selected-count").textContent = inputs().filter(input => input.checked).length;
     }
 
     function enableMapPanning(viewport) {
@@ -252,7 +264,7 @@
             node.appendChild(svgElement("text", {x: 0, y: -3, "text-anchor": "middle", class: "map-name"}, system.name));
             node.appendChild(svgElement("text", {x: 0, y: 16, "text-anchor": "middle", class: "map-count"}, String(system.count)));
             node.appendChild(svgElement("text", {x: 47, y: 16, class: "map-check", "aria-hidden": "true"}, "✓"));
-            function toggle() { if (input.disabled) return; input.checked = !input.checked; input.dispatchEvent(new Event("change", {bubbles: true})); }
+            function toggle() { const input = document.getElementById(`system-${system.entryId}`); if (!input || input.disabled) return; input.checked = !input.checked; input.dispatchEvent(new Event("change", {bubbles: true})); }
             node.addEventListener("click", toggle);
             node.addEventListener("keydown", event => {
                 if (event.key === " " || event.key === "Enter") { event.preventDefault(); toggle(); }
@@ -287,7 +299,8 @@
     controls.hidden = false;
     controls.querySelectorAll("[data-campaign-view]").forEach(button => button.addEventListener("click", () => show(button.dataset.campaignView)));
     // Constellation handlers run first and update all underlying checkboxes.
-    list.addEventListener("change", sync);
+    window.addEventListener("campaign:selection", sync);
+    window.addEventListener("campaign:updated", sync);
     window.addEventListener("pageshow", sync);
     let preferred = "list";
     try { preferred = sessionStorage.getItem(storageKey) || preferred; } catch (_) { /* Use list. */ }

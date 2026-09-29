@@ -29,13 +29,7 @@
             </a>
         </li>
     {% endif %}
-    <span class="navbar-text">
+    <li class="nav-item navbar-text">
         <span class="mx-2" id="current-time" title="Current EVE time">{{ current_time }}</span>
-    </span>
+    </li>
 {% endblock header_nav_collapse_right %}
-
-{% block header_nav_user_character_control %}
-    {% comment %}
-        This block is left empty intentionally to disable defaults.
-    {% endcomment %}
-{% endblock %}

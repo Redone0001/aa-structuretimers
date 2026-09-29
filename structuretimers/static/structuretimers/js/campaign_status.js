@@ -1,21 +1,28 @@
-/* Poll a tiny status endpoint, rather than reloading a page while a user works. */
+/* A status change never interrupts map work or an in-progress selection. */
 (function () {
     "use strict";
     const status = document.getElementById("campaign-import-status");
-    if (!status || (status.dataset.import !== "pending" && status.dataset.gates !== "pending")) return;
+    if (!status) return;
+    let timer = null;
+    function schedule() {
+        if (timer === null && (status.dataset.import === "pending" || status.dataset.gates === "pending")) {
+            timer = window.setTimeout(poll, 5000);
+        }
+    }
     async function poll() {
-        if (document.hidden) { window.setTimeout(poll, 5000); return; }
+        timer = null;
+        if (document.hidden) { schedule(); return; }
         try {
             const response = await fetch(status.dataset.url, {credentials: "same-origin"});
             if (!response.ok) throw new Error("Status request failed");
             const data = await response.json();
             if (data.import_status !== status.dataset.import || data.gates_status !== status.dataset.gates) {
-                if (!document.querySelector('input[name="systems"]:checked')) window.location.reload();
-                else document.getElementById("campaign-import-changed").hidden = false;
+                document.getElementById("campaign-import-changed").hidden = false;
                 return;
             }
-        } catch (_) { /* Transient errors must not interrupt work. */ }
-        window.setTimeout(poll, 5000);
+        } catch (_) { /* Retry without disrupting the current page. */ }
+        schedule();
     }
-    window.setTimeout(poll, 5000);
+    window.addEventListener("campaign:updated", schedule);
+    schedule();
 }());
