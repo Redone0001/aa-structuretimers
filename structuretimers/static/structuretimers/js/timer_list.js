@@ -454,8 +454,9 @@ $(document).ready(function () {
         table_current.rows().every(function () {
             var d = this.data();
             if (!d["is_passed"]) {
-                d["local_time"] = d["date"];
-                table_current.row(this).data(d);
+                // Refresh only the countdown cell. Replacing the whole row
+                // recreates the assignment select and closes its open menu.
+                table_current.cell(this.index(), 1).data(d["date"]);
             }
         });
     }
