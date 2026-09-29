@@ -148,6 +148,8 @@
 
 {% block structuretimers_extra_css %}
     {% include 'bundles/datatables-css-bs5.html' %}
+    <link href="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.css' %}" rel="stylesheet">
+    <link href="{% static 'structuretimers/vendor/select2-bootstrap-theme-0.1.0-beta.10/select2-bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'structuretimers/css/global.css' %}" type="text/css" media="screen">
     <link rel="stylesheet" href="{% static 'structuretimers/css/timer_list.css' %}" type="text/css" media="screen">
 {% endblock structuretimers_extra_css %}
@@ -155,6 +157,7 @@
 {% block extra_javascript %}
     {% include 'bundles/moment-js.html' with locale=True %}
     {% include 'bundles/datatables-js-bs5.html' %}
+    <script src="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>
     <script type="application/javascript" src="{% static 'structuretimers/js/timer_list.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/recon_distribution.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/manage_recon.js' %}"></script>

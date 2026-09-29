@@ -200,6 +200,29 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
 $(document).ready(function () {
     /* retrieve generated data from HTML page */
     const elem = document.getElementById("dataExport");
+    function initializeAssignees() {
+        $("#tbl_timers_current .timer-assignee").not(".select2-hidden-accessible").each(function () {
+            const select = $(this);
+            select.select2({
+                theme: "bootstrap",
+                width: "100%",
+                placeholder: select.attr("data-placeholder"),
+                allowClear: true,
+                minimumInputLength: 1,
+                ajax: {
+                    url: select.attr("data-url"),
+                    dataType: "json",
+                    delay: 250,
+                    data: params => ({term: params.term, page: params.page || 1}),
+                },
+            });
+        });
+    }
+    $("#tbl_timers_current").on("draw.dt", initializeAssignees);
+    $("#tbl_timers_current").on("select2:open", ".timer-assignee", function () {
+        const search = document.querySelector(".select2-container--open .select2-search__field");
+        if (search) search.focus();
+    });
     $("#tbl_timers_current").on("change", ".timer-assignee", function () {
         const select = $(this);
         const status = select.siblings(".assignment-status");
@@ -210,20 +233,22 @@ $(document).ready(function () {
             url: select.attr("data-url"),
             method: "POST",
             data: {
-                assigned_to: select.val(),
+                assigned_to: select.val() || "",
                 csrfmiddlewaretoken: $("#timer-assignment-csrf input").val(),
             },
         }).done(function () {
-            select.attr("data-saved-value", select.val());
+            select.attr("data-saved-value", select.val() || "");
             status.text(elem.dataset.assignmentSaved);
             select.prop("disabled", false);
             select.find("option").each(function () {
                 $(this).attr("selected", this.selected ? "selected" : null);
             });
+            select.select2("destroy");
             const cell = select.closest("td");
             $("#tbl_timers_current").DataTable().cell(cell).data(cell.html());
+            initializeAssignees();
         }).fail(function (xhr) {
-            select.val(previous);
+            select.val(previous).trigger("change.select2");
             status.addClass("text-danger").text(
                 (xhr.responseJSON && xhr.responseJSON.error) || elem.dataset.assignmentError
             );

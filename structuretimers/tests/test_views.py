@@ -91,7 +91,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         response = self.client.get("/structuretimers/")
 
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertNotContains(response, "select2.min.js")
+        self.assertContains(response, "select2.min.js")
         self.assertContains(response, 'data-titleAll="All"')
         self.assertContains(response, "structuretimers/css/theme.css")
         self.assertContains(response, 'data-filter-search-label="Search options"')
@@ -640,7 +640,9 @@ class TestInlineAssignment(NoSocketsTestCase):
             self.assertEqual(self.timer.assigned_to, self.assignee)
 
     def test_get_does_not_change_assignment(self):
-        self.assertEqual(self.client.get(self.url).status_code, 405)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.timer.refresh_from_db()
+        self.assertIsNone(self.timer.assigned_to_id)
 
     def test_assignment_requires_csrf(self):
         from django.test import Client
@@ -656,4 +658,17 @@ class TestInlineAssignment(NoSocketsTestCase):
         self.assertEqual(response.status_code, 200)
         row = next(row for row in response.json() if row["id"] == self.timer.pk)
         self.assertIn('class="form-select form-select-sm timer-assignee"', row["name_objective"])
-        self.assertIn(self.assignee.profile.main_character.character_name, row["name_objective"])
+        self.assertNotIn(self.assignee.profile.main_character.character_name, row["name_objective"])
+
+    def test_assignment_search_uses_main_character_names(self):
+        name = self.assignee.profile.main_character.character_name
+        response = self.client.get(self.url, {"term": name})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn({"id": self.assignee.pk, "text": name}, response.json()["results"])
+
+    def test_assignment_search_requires_edit_permission(self):
+        self.client.force_login(self.assignee)
+        self.assertEqual(self.client.get(self.url, {"term": "a"}).status_code, 403)
+
+    def test_empty_search_does_not_load_all_users(self):
+        self.assertEqual(self.client.get(self.url).json()["results"], [])

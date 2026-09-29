@@ -187,10 +187,6 @@ class TimerListDataView(
 
     def get_data(self, context):
         data = []
-        self.assignment_choices = (
-            list(TimerForm.base_fields["assigned_to"].choices)
-            if self.kwargs.get("tab_name") == "current" else []
-        )
         timers: Iterable[Timer] = self.object_list
         for timer in timers:
             location = self._calc_location_for_timer(timer)
@@ -268,11 +264,7 @@ class TimerListDataView(
                 "structuretimers/partials/timer_assignment.html",
                 {
                     "timer": timer,
-                    "assignment_choices": self.assignment_choices,
-                    "assignment_available": any(
-                        str(value) == str(timer.assigned_to_id)
-                        for value, label in self.assignment_choices
-                    ),
+
                 },
             )
             name = format_html("{}{}", name, mark_safe(assignment))
@@ -614,6 +606,28 @@ class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Update only the assignee, enforcing the usual timer edit permissions."""
 
     permission_required = "structuretimers.basic_access"
+
+    def get(self, request, pk):
+        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
+        if not timer.user_can_edit(request.user):
+            raise PermissionDenied()
+        query = request.GET.get("term", "").strip()
+        try:
+            page = max(1, int(request.GET.get("page", 1)))
+        except ValueError:
+            page = 1
+        users = TimerForm.base_fields["assigned_to"].queryset.filter(
+            profile__main_character__character_name__icontains=query
+        )
+        offset = (page - 1) * 20
+        matches = list(users[offset:offset + 21]) if query else []
+        return JsonResponse({
+            "results": [
+                {"id": user.pk, "text": user.profile.main_character.character_name}
+                for user in matches[:20]
+            ],
+            "pagination": {"more": len(matches) > 20},
+        })
 
     def post(self, request, pk):
         timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
