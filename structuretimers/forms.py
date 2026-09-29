@@ -9,6 +9,7 @@ import puremagic
 import requests
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.html import format_html
@@ -89,6 +90,13 @@ def parse_eve_timer_text(value: str) -> ParsedEveTimer:
     )
 
 
+class AssigneeChoiceField(forms.ModelChoiceField):
+    """Identify users by their main character rather than their login name."""
+
+    def label_from_instance(self, obj):
+        return obj.profile.main_character.character_name
+
+
 class TimerForm(forms.ModelForm):
     """Form for timers."""
 
@@ -109,6 +117,17 @@ class TimerForm(forms.ModelForm):
         required=True,
         label=format_html("{} {}", _("Structure Type"), ASTERISK_HTML),
         widget=forms.Select(attrs={"class": "select2-structure-types"}),
+    )
+    assigned_to = AssigneeChoiceField(
+        queryset=get_user_model().objects.filter(
+            is_active=True, profile__main_character__isnull=False
+        ).select_related("profile__main_character").order_by(
+            "profile__main_character__character_name", "pk"
+        ),
+        required=False,
+        label=_("Assigned to"),
+        empty_label=_("Unassigned"),
+        widget=forms.Select(attrs={"class": "select2-render"}),
     )
     objective = forms.ChoiceField(
         initial=Timer.Objective.UNDEFINED,
@@ -185,6 +204,7 @@ class TimerForm(forms.ModelForm):
             "structure_name",
             "owner_name",
             "objective",
+            "assigned_to",
             "date",
             "days_left",
             "hours_left",
@@ -448,6 +468,7 @@ class FastTimerForm(TimerForm):
 
     fast_fields = (
         "pasted_timer",
+        "assigned_to",
         "structure_type_2",
         "timer_type",
         "owner_name",

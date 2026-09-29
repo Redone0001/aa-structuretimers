@@ -1,0 +1,15 @@
+{% load i18n %}
+<div class="mt-2 timer-assignment">
+    <label for="timer-assignee-{{ timer.pk }}" class="small">{% translate "Assigned to" %}</label>
+    <select id="timer-assignee-{{ timer.pk }}" class="form-select form-select-sm timer-assignee"
+            data-url="{% url 'structuretimers:assign' timer.pk %}"
+            data-saved-value="{{ timer.assigned_to_id|default_if_none:'' }}">
+        {% if timer.assigned_to_id and not assignment_available %}
+            <option value="{{ timer.assigned_to_id }}" selected>{{ timer.assigned_character_name }}</option>
+        {% endif %}
+        {% for value, label in assignment_choices %}
+            <option value="{{ value }}"{% if value|stringformat:"s" == timer.assigned_to_id|stringformat:"s" %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <span class="small assignment-status" role="status" aria-live="polite"></span>
+</div>

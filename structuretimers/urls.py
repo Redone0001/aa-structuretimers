@@ -49,6 +49,7 @@ urlpatterns = [
     path("add/", views.CreateTimerView.as_view(), name="add"),
     path("add_fast/", views.FastCreateTimerView.as_view(), name="add_fast"),
     path("remove/<int:pk>", views.RemoveTimerView.as_view(), name="delete"),
+    path("assign/<int:pk>/", views.AssignTimerView.as_view(), name="assign"),
     path("edit/<int:pk>", views.EditTimerView.as_view(), name="edit"),
     path("copy/<int:pk>", views.CopyTimerView.as_view(), name="copy"),
     path(

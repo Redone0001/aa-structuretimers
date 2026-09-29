@@ -410,6 +410,67 @@ class TestTimerFormSave(NoSocketsTestCase):
         cls.type_athanor = RefineryTypeFactory(id=35835, name="Athanor")
         SkyhookTypeFactory()
 
+    def test_assignment_can_be_created_changed_and_cleared(self):
+        assignee = UserWithAccessFactory()
+        replacement = UserWithAccessFactory()
+        form = TimerForm(
+            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        timer = form.save()
+        timer.refresh_from_db()
+        self.assertEqual(timer.assigned_to, assignee)
+        self.assertEqual(timer.user, self.user)
+        self.assertEqual(
+            timer.assigned_character_name,
+            assignee.profile.main_character.character_name,
+        )
+        self.assertEqual(
+            form.fields["assigned_to"].label_from_instance(assignee),
+            assignee.profile.main_character.character_name,
+        )
+        for selected in (replacement.pk, ""):
+            form = TimerForm(
+                user=self.user, instance=timer,
+                data=create_form_data(assigned_to=selected),
+            )
+            self.assertTrue(form.is_valid(), form.errors)
+            form.save()
+            timer.refresh_from_db()
+            self.assertEqual(timer.assigned_to_id, selected or None)
+            self.assertEqual(timer.user, self.user)
+        self.assertEqual(timer.assigned_character_name, "")
+
+    def test_assignment_rejects_inactive_users(self):
+        assignee = UserWithAccessFactory(is_active=False)
+        form = TimerForm(
+            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("assigned_to", form.errors)
+
+    def test_deleted_assignee_does_not_delete_timer(self):
+        assignee = UserWithAccessFactory()
+        form = TimerForm(
+            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        timer = form.save()
+        assignee.delete()
+        timer.refresh_from_db()
+        self.assertIsNone(timer.assigned_to)
+
+    def test_quick_add_can_assign_user(self):
+        form = FastTimerForm(
+            user=self.user,
+            data=create_fast_form_data(
+                assigned_to=self.user.pk,
+                pasted_timer="Abune - Test\nReinforced until 2030.09.05 03:47:08",
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.save().assigned_to, self.user)
+
     def test_should_create_new_normal_timer(self):
         # given
         form_data = create_form_data(

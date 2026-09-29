@@ -8,7 +8,7 @@ from typing import Iterable
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -179,6 +179,7 @@ class TimerListDataView(
             "structure_type",
             "structure_type__eve_group",
             "eve_character",
+            "assigned_to__profile__main_character",
             "eve_corporation",
             "eve_alliance",
         )
@@ -186,6 +187,10 @@ class TimerListDataView(
 
     def get_data(self, context):
         data = []
+        self.assignment_choices = (
+            list(TimerForm.base_fields["assigned_to"].choices)
+            if self.kwargs.get("tab_name") == "current" else []
+        )
         timers: Iterable[Timer] = self.object_list
         for timer in timers:
             location = self._calc_location_for_timer(timer)
@@ -222,6 +227,7 @@ class TimerListDataView(
                         else _("(unknown)")
                     ),
                     "owner_name": owner_name,
+                    "assigned_character_name": timer.assigned_character_name,
                     "visibility": visibility,
                     "opsec_str": yesno_str(timer.is_opsec),
                     "is_opsec": timer.is_opsec,
@@ -257,6 +263,24 @@ class TimerListDataView(
 
         structure_name = timer.structure_name if timer.structure_name else "-"
         name = format_html("{}<br>{}", structure_name, owner)
+        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(self.request.user):
+            assignment = render_to_string(
+                "structuretimers/partials/timer_assignment.html",
+                {
+                    "timer": timer,
+                    "assignment_choices": self.assignment_choices,
+                    "assignment_available": any(
+                        str(value) == str(timer.assigned_to_id)
+                        for value, label in self.assignment_choices
+                    ),
+                },
+            )
+            name = format_html("{}{}", name, mark_safe(assignment))
+        elif timer.assigned_to_id:
+            name = format_html(
+                '{}<br><span class="text-muted">{}: {}</span>',
+                name, _("Assigned to"), timer.assigned_character_name,
+            )
         return owner_name, name
 
     def _calc_objective(self, timer):
@@ -352,7 +376,7 @@ class TimerListDataView(
 
     def _get_data_actions(self, timer: Timer):
         actions = ""
-        if timer.details_image_url or timer.details_notes:
+        if timer.details_image_url or timer.details_notes or timer.assigned_to_id:
             disabled_html = ""
             button_type = "primary"
             data_toggle = 'data-bs-toggle="modal" data-bs-target="#modalTimerDetails" '
@@ -470,7 +494,7 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.visible_to_user(self.request.user).select_related(
-            "structure_type", "eve_solar_system"
+            "structure_type", "eve_solar_system", "assigned_to__profile__main_character"
         )
 
 
@@ -584,6 +608,27 @@ class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateV
         result = super().form_valid(form)
         self.send_success_message(_("Updated"))
         return result
+
+
+class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Update only the assignee, enforcing the usual timer edit permissions."""
+
+    permission_required = "structuretimers.basic_access"
+
+    def post(self, request, pk):
+        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
+        if not timer.user_can_edit(request.user):
+            raise PermissionDenied()
+        if "assigned_to" not in request.POST:
+            return JsonResponse({"error": _("Choose an assignee or Unassigned.")}, status=400)
+        try:
+            assignee = TimerForm.base_fields["assigned_to"].clean(request.POST["assigned_to"])
+        except ValidationError as ex:
+            return JsonResponse({"error": " ".join(ex.messages)}, status=400)
+        timer.assigned_to = assignee
+        timer.save(update_fields=["assigned_to", "last_updated_at"])
+        return JsonResponse({"assigned_to": timer.assigned_to_id,
+                             "assigned_character_name": timer.assigned_character_name})
 
 
 class CopyTimerView(CreateTimerView):

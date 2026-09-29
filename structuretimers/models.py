@@ -470,6 +470,24 @@ class Timer(models.Model):
         blank=True,
         related_name="+",
     )
+    assigned_to = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name=_("Assigned to"),
+    )
+
+    @property
+    def assigned_character_name(self):
+        """Display the assignee's current main character, with a safe fallback."""
+        if not self.assigned_to_id:
+            return ""
+        profile = getattr(self.assigned_to, "profile", None)
+        character = getattr(profile, "main_character", None)
+        return character.character_name if character else self.assigned_to.get_username()
+
     visibility = models.CharField(
         max_length=2,
         choices=Visibility.choices,

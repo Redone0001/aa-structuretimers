@@ -200,6 +200,37 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
 $(document).ready(function () {
     /* retrieve generated data from HTML page */
     const elem = document.getElementById("dataExport");
+    $("#tbl_timers_current").on("change", ".timer-assignee", function () {
+        const select = $(this);
+        const status = select.siblings(".assignment-status");
+        const previous = select.attr("data-saved-value");
+        select.prop("disabled", true);
+        status.removeClass("text-danger").text(elem.dataset.assignmentSaving);
+        $.ajax({
+            url: select.attr("data-url"),
+            method: "POST",
+            data: {
+                assigned_to: select.val(),
+                csrfmiddlewaretoken: $("#timer-assignment-csrf input").val(),
+            },
+        }).done(function () {
+            select.attr("data-saved-value", select.val());
+            status.text(elem.dataset.assignmentSaved);
+            select.prop("disabled", false);
+            select.find("option").each(function () {
+                $(this).attr("selected", this.selected ? "selected" : null);
+            });
+            const cell = select.closest("td");
+            $("#tbl_timers_current").DataTable().cell(cell).data(cell.html());
+        }).fail(function (xhr) {
+            select.val(previous);
+            status.addClass("text-danger").text(
+                (xhr.responseJSON && xhr.responseJSON.error) || elem.dataset.assignmentError
+            );
+        }).always(function () {
+            select.prop("disabled", false);
+        });
+    });
     const listDataCurrentUrl = elem.getAttribute("data-listDataCurrentUrl");
     const listDataPastUrl = elem.getAttribute("data-listDataPastUrl");
     const listDataTargetUrl = elem.getAttribute("data-listDataTargetUrl");

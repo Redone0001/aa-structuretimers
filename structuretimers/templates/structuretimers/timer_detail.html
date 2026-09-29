@@ -3,6 +3,9 @@
 <h5 for="timerboardTimer">{% translate "Timer" %}</h5>
 <p>{{ object }}</p>
 
+<h5>{% translate "Assigned to" %}</h5>
+<p>{{ object.assigned_character_name|default:_("Unassigned") }}</p>
+
 {% if object.reinforcement_time != None %}
     <h5>{% translate "Reinforcement timer" %}</h5>
     <p>{{ object.reinforcement_time|time:"H:i" }} UTC</p>

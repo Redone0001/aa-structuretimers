@@ -598,3 +598,62 @@ class TestSelect2Views_StructureTypes(NoSocketsTestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         data = json_response_to_python(response)
         self.assertEqual(data, {"results": None})
+
+
+class TestInlineAssignment(NoSocketsTestCase):
+    def setUp(self):
+        self.editor = UserWithCreateFactory()
+        self.assignee = UserWithAccessFactory()
+        self.timer = TimerFactory(user=self.editor, date=now() + dt.timedelta(hours=4))
+        self.url = reverse("structuretimers:assign", args=[self.timer.pk])
+        self.client.force_login(self.editor)
+
+    def test_assign_and_clear_preserves_timer_details(self):
+        original_date = self.timer.date
+        for value in (str(self.assignee.pk), ""):
+            response = self.client.post(self.url, {"assigned_to": value})
+            self.assertEqual(response.status_code, 200)
+            self.timer.refresh_from_db()
+            self.assertEqual(self.timer.assigned_to_id, int(value) if value else None)
+            self.assertEqual(self.timer.date, original_date)
+            self.assertEqual(self.timer.user, self.editor)
+
+    def test_other_user_cannot_assign(self):
+        self.client.force_login(self.assignee)
+        response = self.client.post(self.url, {"assigned_to": self.assignee.pk})
+        self.assertEqual(response.status_code, 403)
+        self.timer.refresh_from_db()
+        self.assertIsNone(self.timer.assigned_to_id)
+
+    def test_hidden_timer_cannot_be_assigned(self):
+        self.timer.is_opsec = True
+        self.timer.save()
+        response = self.client.post(self.url, {"assigned_to": self.assignee.pk})
+        self.assertEqual(response.status_code, 404)
+
+    def test_invalid_or_missing_assignee_does_not_change_assignment(self):
+        self.timer.assigned_to = self.assignee
+        self.timer.save()
+        for data in ({}, {"assigned_to": "invalid"}):
+            self.assertEqual(self.client.post(self.url, data).status_code, 400)
+            self.timer.refresh_from_db()
+            self.assertEqual(self.timer.assigned_to, self.assignee)
+
+    def test_get_does_not_change_assignment(self):
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_assignment_requires_csrf(self):
+        from django.test import Client
+
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.editor)
+        self.assertEqual(
+            client.post(self.url, {"assigned_to": self.assignee.pk}).status_code, 403
+        )
+
+    def test_current_list_has_assignment_dropdown(self):
+        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        self.assertEqual(response.status_code, 200)
+        row = next(row for row in response.json() if row["id"] == self.timer.pk)
+        self.assertIn('class="form-select form-select-sm timer-assignee"', row["name_objective"])
+        self.assertIn(self.assignee.profile.main_character.character_name, row["name_objective"])
