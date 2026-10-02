@@ -373,7 +373,7 @@ $(document).ready(function () {
         titleOwner
     );
     const preliminaryFilterDefinition = createFilterDefinition(
-        7,
+        8,
         hasPermOPSEC,
         titleSolarSystem,
         titleRegion,
@@ -424,6 +424,16 @@ $(document).ready(function () {
             { data: "owner" },
             { data: "name_objective" },
             {
+                data: "reinforcement_time",
+                className: "text-nowrap",
+                render: function (data, type) {
+                    if (type === "sort" || type === "type") {
+                        return data ? Number(data.slice(0, 2)) * 60 + Number(data.slice(3, 5)) : 1440;
+                    }
+                    return data || "—";
+                },
+            },
+            {
                 data: "last_updated_at",
                 render: function (data, type, row) {
                     return moment(data).utc().format("YYYY-MM-DD HH:mm");
@@ -440,11 +450,11 @@ $(document).ready(function () {
             { data: "owner_name" },
             { data: "opsec_str" },
         ],
-        order: [[5, "desc"]],
+        order: [[6, "desc"]],
         lengthMenu: lengthMenu,
         paging: dataTablesPaging,
         pageLength: dataTablesPageLength,
-        columnDefs: [createVisibleColumDef(7)],
+        columnDefs: [createVisibleColumDef(8), { orderable: false, targets: 7 }],
         initComplete: function () {
             initializeMultiSelectFilters(
                 this.api(),

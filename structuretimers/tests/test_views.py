@@ -209,6 +209,19 @@ class TestTimerListData(NoSocketsTestCase):
     #     response = views.timer_list(request)
     #     self.assertEqual(response.status_code, HTTPStatus.OK)
 
+    def test_preliminary_reinforcement_column_midnight_and_unknown(self):
+        timers = [
+            TimerFactory(timer_type=Timer.Type.PRELIMINARY, reinforcement_time=value)
+            for value in [dt.time(0, 0), dt.time(18, 45), None]
+        ]
+        response = self._get_timer_list_data("preliminary", UserWithAccessFactory())
+        self.assertEqual(response.status_code, 200)
+        rows = {row["id"]: row for row in response.json()}
+        for timer, expected in zip(timers, ["00:00", "18:45", None]):
+            self.assertEqual(rows[timer.pk]["reinforcement_time"], expected)
+            if expected:
+                self.assertNotIn(expected + " UTC", rows[timer.pk]["structure_details"])
+
     def test_should_return_current_timers(self):
         # given
         timer = TimerFactory()

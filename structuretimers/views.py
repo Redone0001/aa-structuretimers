@@ -210,6 +210,11 @@ class TimerListDataView(
                     "date": timer.date.isoformat() if timer.date else "",
                     "location": location,
                     "structure_details": structure,
+                    "reinforcement_time": (
+                        timer.reinforcement_time.strftime("%H:%M")
+                        if timer.reinforcement_time is not None
+                        else None
+                    ),
                     "name_objective": name,
                     "owner": objective,
                     # "creator": creator,
@@ -320,7 +325,11 @@ class TimerListDataView(
             "type_name": structure_type_name,
             "timer_name": timer.get_timer_type_display(),
             "timer_style": timer.label_type_for_timer_type(),
-            "reinforcement_time": timer.reinforcement_time,
+            "reinforcement_time": (
+                None
+                if self.kwargs.get("tab_name") == "preliminary"
+                else timer.reinforcement_time
+            ),
         }
         return render_to_string("structuretimers/partials/structure_box.html", context)
 

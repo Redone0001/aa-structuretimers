@@ -16,7 +16,8 @@
 }
 
 #tbl_preliminary tbody td:nth-child(6),
-#tbl_preliminary tbody td:nth-child(7) {
+#tbl_preliminary tbody td:nth-child(7),
+#tbl_preliminary tbody td:nth-child(8) {
     white-space: nowrap;
 }
 
