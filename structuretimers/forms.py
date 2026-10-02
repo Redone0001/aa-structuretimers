@@ -177,7 +177,7 @@ class TimerForm(forms.ModelForm):
     )
     reinforcement_time = forms.TimeField(
         required=False,
-        label=_("Reinforcement timer"),
+        label=_("Vulnerability windows"),
         input_formats=["%H:%M"],
         widget=forms.TimeInput(
             format="%H:%M",
@@ -568,7 +568,7 @@ class ReconForm(TimerForm):
         self.fields["structure_type_2"].required = False
         self.fields["structure_type_2"].label = _("Structure type")
         self.fields["structure_type_2"].help_text = _(
-            "Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; "
+            "Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; "
             "other or unknown types use ±3 hours."
         )
         self.fields["timer_type"].widget = forms.HiddenInput()

@@ -115,7 +115,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                     ),
                     "peak": _("Peak overlap: %(count)s"),
                     "missing": _(
-                        "Without reinforcement time: %(count)s · excluded from scale"
+                        "Without vulnerability windows: %(count)s · excluded from scale"
                     ),
                     "loadError": _(
                         "Could not load recon. Reload the page to try again."

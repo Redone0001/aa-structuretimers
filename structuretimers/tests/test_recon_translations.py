@@ -51,7 +51,7 @@ class TestReconTranslations(NoSocketsTestCase):
                 self.assertIn("_TOTAL_", messages["table"]["info"])
                 form = ReconForm(user=self.request.user)
                 self.assertNotEqual(
-                    str(form.fields["reinforcement_time"].label), "Reinforcement timer"
+                    str(form.fields["reinforcement_time"].label), "Vulnerability windows"
                 )
                 self.assertNotEqual(
                     str(form.fields["details_notes"].label), "Details / notes"

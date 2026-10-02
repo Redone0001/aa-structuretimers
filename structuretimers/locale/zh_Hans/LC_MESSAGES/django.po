@@ -76,8 +76,8 @@ msgstr ""
 
 #: forms.py:161 templates/structuretimers/partials/structure_box.html:9
 #: templates/structuretimers/timer_detail.html:7
-msgid "Reinforcement timer"
-msgstr "增强模式时间"
+msgid "Vulnerability windows"
+msgstr "易损时段"
 
 #: forms.py:170
 msgid "24-hour EVE time (UTC), HH:MM."
@@ -144,9 +144,9 @@ msgstr "建筑类型"
 
 #: forms.py:539
 msgid ""
-"Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
+"Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; other "
 "or unknown types use ±3 hours."
-msgstr "选填。Ansiblex 和 Metenox 的增强时间窗口为 ±30 分钟；其他或未知类型为 ±3 小时。"
+msgstr "选填。Ansiblex 和 Metenox 的易损时间窗口为 ±30 分钟；其他或未知类型为 ±3 小时。"
 
 #: forms.py:547
 msgid "Structure name"
@@ -377,21 +377,21 @@ msgid "Across all table pages"
 msgstr "涵盖表格所有页面"
 
 #: templates/structuretimers/partials/manage_recon.html:18
-msgid "Reinforcement distribution · EVE time (UTC)"
-msgstr "增强时间分布 · EVE 时间（UTC）"
+msgid "Vulnerability window distribution · EVE time (UTC)"
+msgstr "易损时间分布 · EVE 时间（UTC）"
 
 #: templates/structuretimers/partials/manage_recon.html:19
 msgid ""
-"Darker cells mean more overlapping reinforcement windows. Each cell covers "
+"Darker cells mean more overlapping vulnerability windows. Each cell covers "
 "30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
 "structure types use ±3 hours."
 msgstr ""
-"颜色越深，重叠的增强时间窗口越多。每格代表 30 分钟。标准：±3 小时。Ansiblex／Metenox：±30 分钟。未知建筑类型按 ±3 "
+"颜色越深，重叠的易损时间窗口越多。每格代表 30 分钟。标准：±3 小时。Ansiblex／Metenox：±30 分钟。未知建筑类型按 ±3 "
 "小时计算。"
 
 #: templates/structuretimers/partials/manage_recon.html:21
-msgid "Reinforcement distribution in 30-minute intervals"
-msgstr "以 30 分钟为间隔的增强时间分布"
+msgid "Vulnerability window distribution in 30-minute intervals"
+msgstr "以 30 分钟为间隔的易损时间分布"
 
 #: templates/structuretimers/partials/manage_recon.html:25
 msgid "Low"
@@ -441,8 +441,8 @@ msgid "Location"
 msgstr "位置"
 
 #: templates/structuretimers/partials/manage_recon.html:46
-msgid "Structure / reinforcement"
-msgstr "建筑／增强"
+msgid "Structure / vulnerability windows"
+msgstr "建筑／易损"
 
 #: templates/structuretimers/partials/manage_recon.html:47
 msgid "Name / Owner"
@@ -648,8 +648,8 @@ msgstr "最大重叠数：%(count)s"
 
 #: views.py:118
 #, python-format
-msgid "Without reinforcement time: %(count)s · excluded from scale"
-msgstr "未设置增强时间：%(count)s · 不计入分布"
+msgid "Without vulnerability windows: %(count)s · excluded from scale"
+msgstr "未设置易损时间：%(count)s · 不计入分布"
 
 #: views.py:121
 msgid "Could not load recon. Reload the page to try again."

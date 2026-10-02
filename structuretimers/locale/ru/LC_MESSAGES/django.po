@@ -76,8 +76,8 @@ msgstr ""
 
 #: forms.py:161 templates/structuretimers/partials/structure_box.html:9
 #: templates/structuretimers/timer_detail.html:7
-msgid "Reinforcement timer"
-msgstr "Время выхода из усиления"
+msgid "Vulnerability windows"
+msgstr "Окна уязвимости"
 
 #: forms.py:170
 msgid "24-hour EVE time (UTC), HH:MM."
@@ -144,10 +144,10 @@ msgstr "Тип сооружения"
 
 #: forms.py:539
 msgid ""
-"Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
+"Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; other "
 "or unknown types use ±3 hours."
 msgstr ""
-"Необязательно. Окно усиления для Ansiblex и Metenox — ±30 минут, для "
+"Необязательно. Окно уязвимости для Ansiblex и Metenox — ±30 минут, для "
 "остальных или неизвестных типов — ±3 часа."
 
 #: forms.py:547
@@ -379,22 +379,22 @@ msgid "Across all table pages"
 msgstr "На всех страницах таблицы"
 
 #: templates/structuretimers/partials/manage_recon.html:18
-msgid "Reinforcement distribution · EVE time (UTC)"
-msgstr "Распределение времени усиления · время EVE (UTC)"
+msgid "Vulnerability window distribution · EVE time (UTC)"
+msgstr "Распределение окон уязвимости · время EVE (UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:19
 msgid ""
-"Darker cells mean more overlapping reinforcement windows. Each cell covers "
+"Darker cells mean more overlapping vulnerability windows. Each cell covers "
 "30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
 "structure types use ±3 hours."
 msgstr ""
-"Чем темнее ячейка, тем больше пересекающихся окон усиления. Каждая ячейка "
+"Чем темнее ячейка, тем больше пересекающихся окон уязвимости. Каждая ячейка "
 "охватывает 30 минут. Стандарт: ±3 часа. Ansiblex / Metenox: ±30 минут. Для "
 "неизвестных типов сооружений используется ±3 часа."
 
 #: templates/structuretimers/partials/manage_recon.html:21
-msgid "Reinforcement distribution in 30-minute intervals"
-msgstr "Распределение времени усиления с шагом 30 минут"
+msgid "Vulnerability window distribution in 30-minute intervals"
+msgstr "Распределение окон уязвимости с шагом 30 минут"
 
 #: templates/structuretimers/partials/manage_recon.html:25
 msgid "Low"
@@ -444,8 +444,8 @@ msgid "Location"
 msgstr "Местоположение"
 
 #: templates/structuretimers/partials/manage_recon.html:46
-msgid "Structure / reinforcement"
-msgstr "Сооружение / усиление"
+msgid "Structure / vulnerability windows"
+msgstr "Сооружение / окна уязвимости"
 
 #: templates/structuretimers/partials/manage_recon.html:47
 msgid "Name / Owner"
@@ -651,8 +651,8 @@ msgstr "Максимальное пересечение: %(count)s"
 
 #: views.py:118
 #, python-format
-msgid "Without reinforcement time: %(count)s · excluded from scale"
-msgstr "Без времени усиления: %(count)s · исключены из шкалы"
+msgid "Without vulnerability windows: %(count)s · excluded from scale"
+msgstr "Без окон уязвимости: %(count)s · исключены из шкалы"
 
 #: views.py:121
 msgid "Could not load recon. Reload the page to try again."

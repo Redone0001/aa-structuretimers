@@ -67,7 +67,7 @@ msgstr ""
 
 #: forms.py:161 templates/structuretimers/partials/structure_box.html:9
 #: templates/structuretimers/timer_detail.html:7
-msgid "Reinforcement timer"
+msgid "Vulnerability windows"
 msgstr ""
 
 #: forms.py:170
@@ -131,7 +131,7 @@ msgid "Structure type"
 msgstr ""
 
 #: forms.py:539
-msgid "Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other or unknown types use ±3 hours."
+msgid "Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; other or unknown types use ±3 hours."
 msgstr ""
 
 #: forms.py:547
@@ -363,15 +363,15 @@ msgid "Across all table pages"
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:18
-msgid "Reinforcement distribution · EVE time (UTC)"
+msgid "Vulnerability window distribution · EVE time (UTC)"
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:19
-msgid "Darker cells mean more overlapping reinforcement windows. Each cell covers 30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown structure types use ±3 hours."
+msgid "Darker cells mean more overlapping vulnerability windows. Each cell covers 30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown structure types use ±3 hours."
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:21
-msgid "Reinforcement distribution in 30-minute intervals"
+msgid "Vulnerability window distribution in 30-minute intervals"
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:25
@@ -422,7 +422,7 @@ msgid "Location"
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:46
-msgid "Structure / reinforcement"
+msgid "Structure / vulnerability windows"
 msgstr ""
 
 #: templates/structuretimers/partials/manage_recon.html:47
@@ -625,7 +625,7 @@ msgstr ""
 
 #: views.py:118
 #, python-format
-msgid "Without reinforcement time: %(count)s · excluded from scale"
+msgid "Without vulnerability windows: %(count)s · excluded from scale"
 msgstr ""
 
 #: views.py:121

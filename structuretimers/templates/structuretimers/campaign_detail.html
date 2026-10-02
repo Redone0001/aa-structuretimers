@@ -47,7 +47,7 @@
 {% for timer in entry.timers %}
 <div class="border-top py-3">
 <strong>{{ timer.structure_name }}</strong> · {{ timer.structure_type|default:'—' }} · {{ timer.owner_name }}
-<div class="small text-muted">{% translate 'Reinforcement' %}: {{ timer.reinforcement_time|time:'H:i'|default:'—' }} UTC · {% translate 'Last updated' %}: {{ timer.last_updated_at|date:'Y-m-d H:i' }} UTC</div>
+<div class="small text-muted">{% translate 'Vulnerability windows' %}: {{ timer.reinforcement_time|time:'H:i'|default:'—' }} UTC · {% translate 'Last updated' %}: {{ timer.last_updated_at|date:'Y-m-d H:i' }} UTC</div>
 <details class="my-2"><summary class="text-info">{% translate 'View' %}</summary><p>{{ timer.location_details }}<br>{{ timer.details_notes|linebreaksbr }}</p></details>
 {% if entry.can_work %}
 <form data-campaign-action class="d-flex flex-wrap gap-1" method="post" action="{% url 'structuretimers:campaign_recon_edit' campaign.pk entry.pk timer.pk %}">{% csrf_token %}

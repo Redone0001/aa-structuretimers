@@ -76,8 +76,8 @@ msgstr ""
 
 #: forms.py:161 templates/structuretimers/partials/structure_box.html:9
 #: templates/structuretimers/timer_detail.html:7
-msgid "Reinforcement timer"
-msgstr "강화 시간"
+msgid "Vulnerability windows"
+msgstr "취약 시간"
 
 #: forms.py:170
 msgid "24-hour EVE time (UTC), HH:MM."
@@ -144,10 +144,10 @@ msgstr "구조물 유형"
 
 #: forms.py:539
 msgid ""
-"Optional. Ansiblex and Metenox use a ±30 minute reinforcement window; other "
+"Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; other "
 "or unknown types use ±3 hours."
 msgstr ""
-"선택 사항입니다. Ansiblex와 Metenox의 강화 시간 범위는 ±30분이며, 나머지 또는 알 수 없는 유형은 ±3시간입니다."
+"선택 사항입니다. Ansiblex와 Metenox의 취약 시간 범위는 ±30분이며, 나머지 또는 알 수 없는 유형은 ±3시간입니다."
 
 #: forms.py:547
 msgid "Structure name"
@@ -378,21 +378,21 @@ msgid "Across all table pages"
 msgstr "표의 모든 페이지 기준"
 
 #: templates/structuretimers/partials/manage_recon.html:18
-msgid "Reinforcement distribution · EVE time (UTC)"
-msgstr "강화 시간 분포 · EVE 시간(UTC)"
+msgid "Vulnerability window distribution · EVE time (UTC)"
+msgstr "취약 시간 분포 · EVE 시간(UTC)"
 
 #: templates/structuretimers/partials/manage_recon.html:19
 msgid ""
-"Darker cells mean more overlapping reinforcement windows. Each cell covers "
+"Darker cells mean more overlapping vulnerability windows. Each cell covers "
 "30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
 "structure types use ±3 hours."
 msgstr ""
-"색이 진할수록 겹치는 강화 시간 범위가 많습니다. 각 칸은 30분입니다. 기본: ±3시간. Ansiblex / Metenox: ±30분."
+"색이 진할수록 겹치는 취약 시간 범위가 많습니다. 각 칸은 30분입니다. 기본: ±3시간. Ansiblex / Metenox: ±30분."
 " 알 수 없는 구조물 유형은 ±3시간을 적용합니다."
 
 #: templates/structuretimers/partials/manage_recon.html:21
-msgid "Reinforcement distribution in 30-minute intervals"
-msgstr "30분 간격의 강화 시간 분포"
+msgid "Vulnerability window distribution in 30-minute intervals"
+msgstr "30분 간격의 취약 시간 분포"
 
 #: templates/structuretimers/partials/manage_recon.html:25
 msgid "Low"
@@ -442,8 +442,8 @@ msgid "Location"
 msgstr "위치"
 
 #: templates/structuretimers/partials/manage_recon.html:46
-msgid "Structure / reinforcement"
-msgstr "구조물 / 강화"
+msgid "Structure / vulnerability windows"
+msgstr "구조물 / 취약"
 
 #: templates/structuretimers/partials/manage_recon.html:47
 msgid "Name / Owner"
@@ -649,8 +649,8 @@ msgstr "최대 중첩 수: %(count)s"
 
 #: views.py:118
 #, python-format
-msgid "Without reinforcement time: %(count)s · excluded from scale"
-msgstr "강화 시간 없음: %(count)s · 분포에서 제외"
+msgid "Without vulnerability windows: %(count)s · excluded from scale"
+msgstr "취약 시간 없음: %(count)s · 분포에서 제외"
 
 #: views.py:121
 msgid "Could not load recon. Reload the page to try again."

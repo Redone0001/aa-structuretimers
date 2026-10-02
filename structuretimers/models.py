@@ -368,7 +368,9 @@ class Timer(models.Model):
         null=True,
         help_text="Date when this timer happens",
     )
-    reinforcement_time = models.TimeField(null=True, blank=True)
+    reinforcement_time = models.TimeField(
+        verbose_name=_("Vulnerability windows"), null=True, blank=True
+    )
     details_image_url = models.CharField(
         max_length=1024,
         default=None,

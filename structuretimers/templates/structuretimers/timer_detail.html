@@ -7,7 +7,7 @@
 <p>{{ object.assigned_character_name|default:_("Unassigned") }}</p>
 
 {% if object.reinforcement_time != None %}
-    <h5>{% translate "Reinforcement timer" %}</h5>
+    <h5>{% translate "Vulnerability windows" %}</h5>
     <p>{{ object.reinforcement_time|time:"H:i" }} UTC</p>
 {% endif %}
 
