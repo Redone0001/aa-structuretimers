@@ -5,11 +5,12 @@ from unittest.mock import Mock, patch
 from django.contrib.auth.models import Permission
 from django.test import Client
 from django.urls import reverse
-from app_utils.testing import NoSocketsTestCase
 from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
+from app_utils.testing import NoSocketsTestCase
+
 from structuretimers.models import ReconCampaign, ReconCampaignSystem, Timer
-from structuretimers.tests.testdata.factory import UserWithAccessFactory, TimerFactory
+from structuretimers.tests.testdata.factory import TimerFactory, UserWithAccessFactory
 
 
 @patch(
@@ -167,7 +168,7 @@ class TestCampaigns(NoSocketsTestCase):
         )
 
     def test_map_groups_regions_and_counts_only_visible_preliminary_timers(self):
-        from eveuniverse.tests.testdata.factories_2 import EveStargateFactory
+        from eve_sde.models import Constellation, Region, SolarSystem, Stargate
 
         same_region = ReconCampaignSystem.objects.create(
             campaign=self.campaign,
@@ -189,42 +190,74 @@ class TestCampaigns(NoSocketsTestCase):
         TimerFactory(
             eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.HULL
         )
-        EveStargateFactory(
-            eve_solar_system=self.entry.solar_system,
-            destination_eve_solar_system=same_region.solar_system,
+        for entry in [self.entry, same_region, other_region]:
+            system = entry.solar_system
+            old_region = system.eve_constellation.eve_region
+            region, _ = Region.objects.get_or_create(
+                id=old_region.pk, defaults={"name": old_region.name}
+            )
+            constellation, _ = Constellation.objects.get_or_create(
+                id=system.eve_constellation_id,
+                defaults={"name": "SDE constellation", "region": region},
+            )
+            SolarSystem.objects.create(
+                id=system.pk,
+                name=system.name,
+                constellation=constellation,
+                x_2d=system.pk,
+                y_2d=system.pk,
+            )
+        Stargate.objects.create(
+            id=1,
+            name="Gate",
+            solar_system_id=self.entry.solar_system_id,
+            destination_id=same_region.solar_system_id,
         )
-        EveStargateFactory(
-            eve_solar_system=same_region.solar_system,
-            destination_eve_solar_system=self.entry.solar_system,
+        Stargate.objects.create(
+            id=2,
+            name="Reverse gate",
+            solar_system_id=same_region.solar_system_id,
+            destination_id=self.entry.solar_system_id,
         )
-        EveStargateFactory(
-            eve_solar_system=self.entry.solar_system,
-            destination_eve_solar_system=other_region.solar_system,
+        Stargate.objects.create(
+            id=3,
+            name="Cross-region",
+            solar_system_id=self.entry.solar_system_id,
+            destination_id=other_region.solar_system_id,
         )
         response = self.client.get(
             reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
         )
         regions = response.json()
         self.assertEqual(len(regions), 2)
-        region = next(r for r in regions if len(r["systems"]) == 2)
-        node = next(s for s in region["systems"] if s["entryId"] == self.entry.pk)
+        region = next(r for r in regions if len(r["nodes"]) == 2)
+        node = next(s for s in region["nodes"] if s["entryId"] == self.entry.pk)
+        self.assertIsNotNone(node["position"])
+        geography = self.client.get(
+            reverse("structuretimers:regional_map_data", args=["geography"]),
+            {"region": region["id"]},
+        ).json()
+        self.assertEqual(
+            node["position"],
+            next(n["position"] for n in geography["nodes"] if n["id"] == node["id"]),
+        )
+        self.assertEqual(sum(i["count"] for i in node["indicators"]), 1)
+        self.assertNotIn("layout", region)
         self.assertEqual(node["count"], 1)
         self.assertEqual(node["status"], "available")
         self.assertNotIn("timers", node)
         self.assertEqual(
-            region["links"],
+            [[edge["source"], edge["target"]] for edge in region["edges"]],
             [sorted([self.entry.solar_system_id, same_region.solar_system_id])],
         )
-        self.assertEqual(
-            next(r for r in regions if len(r["systems"]) == 1)["links"], []
-        )
+        self.assertEqual(next(r for r in regions if len(r["nodes"]) == 1)["edges"], [])
         self.act("reserve")
         node = next(
             s
             for r in self.client.get(
                 reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
             ).json()
-            for s in r["systems"]
+            for s in r["nodes"]
             if s["entryId"] == self.entry.pk
         )
         self.assertEqual(node["status"], "reserved")
@@ -234,7 +267,7 @@ class TestCampaigns(NoSocketsTestCase):
             for r in self.client.get(
                 reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
             ).json()
-            for s in r["systems"]
+            for s in r["nodes"]
             if s["entryId"] == self.entry.pk
         )
         self.assertEqual(node["status"], "completed")
@@ -265,3 +298,12 @@ class TestCampaigns(NoSocketsTestCase):
         self.entry.refresh_from_db()
         self.assertIsNone(self.entry.reserved_by)
         self.assertIsNone(self.entry.completed_at)
+
+    def test_campaign_map_keeps_systems_missing_from_sde_accessible(self):
+        response = self.client.get(
+            reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+        )
+        node = response.json()[0]["nodes"][0]
+        self.assertIsNone(node["position"])
+        self.assertEqual(node["entryId"], self.entry.pk)
+        self.assertNotIn("reserved_by", node)

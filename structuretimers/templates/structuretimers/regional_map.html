@@ -27,6 +27,7 @@
         <p class="small text-muted mt-2 mb-0">{% translate 'Filters combine with AND. Highlighted systems contain matching visible timers and satisfy the selected range. Counts represent timer records, not a verified structure inventory. Range is geometric distance, not a guarantee that a ship can jump there.' %}</p>
     </div></div>
     <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <label><input id="st-map-test-regions" class="form-check-input me-1" type="checkbox"> {% translate 'Show CCP test regions' %}</label>
         <label><input id="st-map-structures" class="form-check-input me-1" type="checkbox" checked> {% translate 'Structure indicators' %}</label>
         <label><input id="st-map-gates" class="form-check-input me-1" type="checkbox" checked> {% translate 'Stargates' %}</label>
         <label><input id="st-map-labels" class="form-check-input me-1" type="checkbox"> {% translate 'Indicator labels' %}</label>
@@ -51,4 +52,4 @@
 </section>
 {% endblock %}
 {% block structuretimers_extra_css %}<link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">{% endblock %}
-{% block extra_javascript %}<script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}
+{% block extra_javascript %}<script src="{% static 'structuretimers/js/map_preferences.js' %}"></script><script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}

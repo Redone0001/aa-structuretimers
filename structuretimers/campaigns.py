@@ -7,7 +7,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count
 from django.db.models.functions import Lower
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,11 +14,11 @@ from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from eveuniverse.models import EveRegion, EveSolarSystem, EveStargate
+from eveuniverse.models import EveRegion, EveSolarSystem
 
-from .map_layouts import get_region_layout
 from .forms import ReconForm
 from .models import ReconCampaign, ReconCampaignSystem, Timer
+from .regional_map import geography_payload, sde_models, structure_payload
 
 
 class CampaignForm(forms.Form):
@@ -99,7 +98,7 @@ class CampaignCreateView(CampaignAccess, View):
                     created_by=request.user,
                     region_ids=region_ids,
                     import_status="pending" if region_ids else "ready",
-                    gates_status="pending",
+                    gates_status="ready",
                 )
                 ReconCampaignSystem.objects.bulk_create(
                     [
@@ -109,11 +108,10 @@ class CampaignCreateView(CampaignAccess, View):
                 )
                 from .campaign_jobs import enqueue_campaign_job
 
-                transaction.on_commit(
-                    lambda: enqueue_campaign_job(
-                        campaign.pk, "systems" if region_ids else "gates"
+                if region_ids:
+                    transaction.on_commit(
+                        lambda: enqueue_campaign_job(campaign.pk, "systems")
                     )
-                )
             return redirect(campaign)
         return self.render_form(request, form)
 
@@ -130,48 +128,77 @@ def can_work(user, entry):
 
 
 def campaign_map_data(entries):
-    """Use the same visibility-filtered recon as the list, without timer details."""
-    regions = {}
-    system_regions = {}
+    """Campaign membership/status on the same full-region SDE normalization."""
+    region_model, system_model, gate_model = sde_models()
+    regions = defaultdict(list)
+    sde_regions = dict(
+        system_model.objects.filter(
+            pk__in=[entry.solar_system_id for entry in entries],
+            constellation__region__isnull=False,
+        ).values_list("pk", "constellation__region_id")
+    )
     for entry in entries:
-        system = entry.solar_system
-        region = system.eve_constellation.eve_region
-        group = regions.setdefault(
-            region.pk,
-            {"id": region.pk, "name": region.name, "systems": [], "links": []},
-        )
-        system_regions[system.pk] = region.pk
-        group["systems"].append(
+        regions[
+            sde_regions.get(
+                entry.solar_system_id,
+                entry.solar_system.eve_constellation.eve_region_id,
+            )
+        ].append(entry)
+    result = []
+    for region_id, members in regions.items():
+        sde_region = region_model.objects.filter(pk=region_id).first()
+        if sde_region:
+            systems = list(
+                system_model.objects.filter(constellation__region=sde_region)
+                .select_related("constellation")
+                .order_by("id")
+            )
+            data = geography_payload(sde_region, systems, gate_model)
+        else:
+            data = {"nodes": [], "edges": []}
+        by_id = {node["id"]: node for node in data["nodes"]}
+        nodes = []
+        for entry in members:
+            node = by_id.get(
+                entry.solar_system_id,
+                {
+                    "id": entry.solar_system_id,
+                    "name": entry.solar_system.name,
+                    "position": None,
+                },
+            )
+            node.update(
+                {
+                    "entryId": entry.pk,
+                    "count": entry.timer_count,
+                    "indicators": entry.indicators,
+                    "status": (
+                        "completed"
+                        if entry.completed_at
+                        else "reserved" if entry.reserved_by_id else "available"
+                    ),
+                }
+            )
+            nodes.append(node)
+        ids = {node["id"] for node in nodes}
+        data.update(
             {
-                "id": system.pk,
-                "entryId": entry.pk,
-                "name": system.name,
-                "x": system.position_x,
-                "z": system.position_z,
-                "count": (
-                    entry.timer_count
-                    if hasattr(entry, "timer_count")
-                    else len(entry.timers)
+                "id": region_id,
+                "name": (
+                    sde_region.name
+                    if sde_region
+                    else members[0].solar_system.eve_constellation.eve_region.name
                 ),
-                "status": (
-                    "completed"
-                    if entry.completed_at
-                    else "reserved" if entry.reserved_by_id else "available"
-                ),
+                "nodes": nodes,
+                "edges": [
+                    edge
+                    for edge in data["edges"]
+                    if edge["source"] in ids and edge["target"] in ids
+                ],
             }
         )
-    links = set()
-    for source, target in EveStargate.objects.filter(
-        eve_solar_system_id__in=system_regions,
-        destination_eve_solar_system_id__in=system_regions,
-    ).values_list("eve_solar_system_id", "destination_eve_solar_system_id"):
-        if source != target and system_regions[source] == system_regions[target]:
-            links.add(tuple(sorted((source, target))))
-    for source, target in sorted(links):
-        regions[system_regions[source]]["links"].append([source, target])
-    for region in regions.values():
-        region["layout"] = get_region_layout(region["name"])
-    return sorted(regions.values(), key=lambda region: region["name"])
+        result.append(data)
+    return sorted(result, key=lambda region: region["name"])
 
 
 class CampaignDetailView(CampaignAccess, View):
@@ -319,20 +346,28 @@ class CampaignMapDataView(CampaignAccess, View):
                 "solar_system__eve_constellation__eve_region"
             )
         )
-        counts = dict(
-            Timer.objects.visible_to_user(request.user)
-            .filter(
-                timer_type=Timer.Type.PRELIMINARY,
-                eve_solar_system_id__in=[entry.solar_system_id for entry in entries],
-            )
-            .order_by()
-            .values("eve_solar_system_id")
-            .annotate(count=Count("pk"))
-            .values_list("eve_solar_system_id", "count")
-        )
+        overlays = {
+            row["id"]: row["indicators"]
+            for row in structure_payload(
+                request.user,
+                [entry.solar_system_id for entry in entries],
+                {"window": "preliminary"},
+            )["systems"]
+        }
         for entry in entries:
-            entry.timer_count = counts.get(entry.solar_system_id, 0)
-        response = JsonResponse(campaign_map_data(entries), safe=False)
+            entry.indicators = overlays.get(entry.solar_system_id, [])
+            entry.timer_count = sum(
+                indicator["count"] for indicator in entry.indicators
+            )
+        try:
+            response = JsonResponse(campaign_map_data(entries), safe=False)
+        except LookupError:
+            response = JsonResponse(
+                {
+                    "error": "Enable eve_sde and import SDE geography. Campaign list view remains available."
+                },
+                status=503,
+            )
         response["Cache-Control"] = "private, no-store"
         return response
 

@@ -67,6 +67,112 @@ def validate(params):
         raise ValueError("Unknown range preset.")
 
 
+def geography_payload(region, systems, gate_model):
+    """Normalize the complete SDE region identically for every map consumer."""
+    ids = {s.id for s in systems}
+    positioned = [s for s in systems if finite(s.x_2d, s.y_2d)]
+    # Determined from the full region, never from filters or the selected system.
+    ox = min((s.x_2d for s in positioned), default=0)
+    oy = max((s.y_2d for s in positioned), default=0)
+    nearest = []
+    for s in positioned:
+        distances = [
+            math.hypot(s.x_2d - t.x_2d, s.y_2d - t.y_2d)
+            for t in positioned
+            if t.pk != s.pk
+        ]
+        positive = [d for d in distances if d > 0]
+        if positive:
+            nearest.append(min(positive))
+    scale = sorted(nearest)[len(nearest) // 2] / 150 if nearest else 1
+    pairs = sorted(
+        {
+            tuple(sorted((a, b)))
+            for a, b in gate_model.objects.filter(
+                solar_system_id__in=ids, destination_id__in=ids
+            ).values_list("solar_system_id", "destination_id")
+            if a != b
+        }
+    )
+    return {
+        "region": {"id": region.pk, "name": region.name},
+        "origin": [ox, oy],
+        "scale": scale,
+        "nodes": [
+            {
+                "id": s.pk,
+                "name": s.name,
+                "constellation": (s.constellation.name if s.constellation else ""),
+                "position": (
+                    [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale]
+                    if finite(s.x_2d, s.y_2d)
+                    else None
+                ),
+            }
+            for s in systems
+        ],
+        "edges": [
+            {
+                "id": f"gate-{a}-{b}",
+                "source": a,
+                "target": b,
+                "kind": "gate",
+                "directed": False,
+            }
+            for a, b in pairs
+        ],
+    }
+
+
+def structure_payload(user, ids, params):
+    """Aggregate only visible matching timer records for either map controller."""
+    groups = defaultdict(lambda: defaultdict(int))
+    grouped = (
+        permitted_timers(user, ids, params)
+        .values(
+            "eve_solar_system_id",
+            "objective",
+            "structure_type_id",
+            "structure_type__name",
+        )
+        .order_by("eve_solar_system_id", "objective", "structure_type_id")
+        .annotate(count=Count("pk"))
+    )
+    for record in grouped:
+        groups[record["eve_solar_system_id"]][
+            (
+                record["objective"],
+                record["structure_type_id"],
+                record["structure_type__name"] or "Unknown structure",
+            )
+        ] = record["count"]
+    return {
+        "systems": [
+            {
+                "id": sid,
+                "indicators": [
+                    {
+                        "id": f"structure-{sid}-{relation}-{type_id or 'unknown'}",
+                        "category": RELATIONSHIPS[relation],
+                        "label": name,
+                        "type_id": type_id,
+                        "count": count,
+                        "symbol": {
+                            "FR": "F",
+                            "NE": "N",
+                            "HO": "H",
+                            "UN": "?",
+                        }[relation],
+                        "tooltip": f"{name} · {RELATIONSHIPS[relation]} · {count} timer record(s)",
+                    }
+                    for (relation, type_id, name), count in values.items()
+                ],
+            }
+            for sid, values in groups.items()
+        ]
+    }
+
+
 @login_required
 @permission_required("structuretimers.basic_access", raise_exception=True)
 @require_GET
@@ -101,7 +207,14 @@ def map_data(request, layer):
             return JsonResponse(
                 {
                     "regions": list(
-                        region_model.objects.filter(
+                        region_model.objects.exclude(
+                            name__in=(
+                                []
+                                if request.GET.get("include_test") == "1"
+                                else ["A821-A", "UUA-F4", "J7HZ-F"]
+                            )
+                        )
+                        .filter(
                             Exists(
                                 system_model.objects.filter(
                                     constellation__region_id=OuterRef("pk"),
@@ -133,110 +246,9 @@ def map_data(request, layer):
         )
         ids = {s.id for s in systems}
         if layer == "geography":
-            positioned = [s for s in systems if finite(s.x_2d, s.y_2d)]
-            # Determined from the full region, never from filters or the selected system.
-            ox = min((s.x_2d for s in positioned), default=0)
-            oy = max((s.y_2d for s in positioned), default=0)
-            nearest = []
-            for s in positioned:
-                distances = [
-                    math.hypot(s.x_2d - t.x_2d, s.y_2d - t.y_2d)
-                    for t in positioned
-                    if t.pk != s.pk
-                ]
-                positive = [d for d in distances if d > 0]
-                if positive:
-                    nearest.append(min(positive))
-            scale = sorted(nearest)[len(nearest) // 2] / 150 if nearest else 1
-            pairs = sorted(
-                {
-                    tuple(sorted((a, b)))
-                    for a, b in gate_model.objects.filter(
-                        solar_system_id__in=ids, destination_id__in=ids
-                    ).values_list("solar_system_id", "destination_id")
-                    if a != b
-                }
-            )
-            return JsonResponse(
-                {
-                    "region": {"id": region.pk, "name": region.name},
-                    "origin": [ox, oy],
-                    "scale": scale,
-                    "nodes": [
-                        {
-                            "id": s.pk,
-                            "name": s.name,
-                            "constellation": (
-                                s.constellation.name if s.constellation else ""
-                            ),
-                            "position": (
-                                [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale]
-                                if finite(s.x_2d, s.y_2d)
-                                else None
-                            ),
-                        }
-                        for s in systems
-                    ],
-                    "edges": [
-                        {
-                            "id": f"gate-{a}-{b}",
-                            "source": a,
-                            "target": b,
-                            "kind": "gate",
-                            "directed": False,
-                        }
-                        for a, b in pairs
-                    ],
-                }
-            )
+            return JsonResponse(geography_payload(region, systems, gate_model))
         if layer == "structures":
-            groups = defaultdict(lambda: defaultdict(int))
-            grouped = (
-                permitted_timers(request.user, ids, request.GET)
-                .values(
-                    "eve_solar_system_id",
-                    "objective",
-                    "structure_type_id",
-                    "structure_type__name",
-                )
-                .order_by("eve_solar_system_id", "objective", "structure_type_id")
-                .annotate(count=Count("pk"))
-            )
-            for record in grouped:
-                groups[record["eve_solar_system_id"]][
-                    (
-                        record["objective"],
-                        record["structure_type_id"],
-                        record["structure_type__name"] or "Unknown structure",
-                    )
-                ] = record["count"]
-            return JsonResponse(
-                {
-                    "systems": [
-                        {
-                            "id": sid,
-                            "indicators": [
-                                {
-                                    "id": f"structure-{sid}-{relation}-{type_id or 'unknown'}",
-                                    "category": RELATIONSHIPS[relation],
-                                    "label": name,
-                                    "type_id": type_id,
-                                    "count": count,
-                                    "symbol": {
-                                        "FR": "F",
-                                        "NE": "N",
-                                        "HO": "H",
-                                        "UN": "?",
-                                    }[relation],
-                                    "tooltip": f"{name} · {RELATIONSHIPS[relation]} · {count} timer record(s)",
-                                }
-                                for (relation, type_id, name), count in values.items()
-                            ],
-                        }
-                        for sid, values in groups.items()
-                    ]
-                }
-            )
+            return JsonResponse(structure_payload(request.user, ids, request.GET))
         if layer == "range":
             preset = request.GET.get("range", "none")
             if preset == "none":

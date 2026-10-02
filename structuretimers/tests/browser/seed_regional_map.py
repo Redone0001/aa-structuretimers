@@ -12,6 +12,7 @@ from django.test import Client
 from django.utils.timezone import now
 from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
+from structuretimers.models import ReconCampaign, ReconCampaignSystem
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     TimerFactory,
@@ -153,3 +154,21 @@ Path(os.environ.get("MAP_SESSION_FILE", "/tmp/structure-map-cookies.json")).writ
     json.dumps(cookies)
 )
 print("Seeded synthetic map fixtures")
+
+# Campaign and hidden-by-default CCP region fixtures for map_preferences.cjs.
+campaign = ReconCampaign.objects.create(
+    name="SDE campaign preview",
+    created_by=creator,
+    import_status="ready",
+    gates_status="ready",
+)
+for system_id in [30000001, 30000002, 30000024]:
+    ReconCampaignSystem.objects.create(campaign=campaign, solar_system_id=system_id)
+for i, name in enumerate(["A821-A", "UUA-F4", "J7HZ-F"]):
+    test_region = Region.objects.create(id=10008000 + i, name=name)
+    constellation = Constellation.objects.create(
+        id=20008000 + i, name="Test constellation", region=test_region
+    )
+    SolarSystem.objects.create(
+        id=30008000 + i, name="Test system", constellation=constellation
+    )

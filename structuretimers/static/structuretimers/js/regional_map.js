@@ -6,6 +6,16 @@
     const $ = id => document.getElementById('st-map-'+id);
     const el = (tag, text, className) => { const node=document.createElement(tag); if(text!==undefined)node.textContent=text; if(className)node.className=className;return node; };
     const state = {data:null, structures:new Map(), distances:new Map(), selected:null, rangeReady:false, structuresReady:false};
+    const preferences=window.StructureMapPreferences;
+    const saved=preferences.load('st_regional_map');
+    let remembering=false, saveTimer;
+    function savePreferences(){if(!remembering)return;preferences.save('st_regional_map',{
+        region:$('region').value,relationship:$('relationship').value,window:$('window').value,range:$('range').value,spacing:$('spacing').value,
+        structures:$('structures').checked,gates:$('gates').checked,labels:$('labels').checked,testRegions:$('test-regions').checked,
+        source:$('source').value,sourceName:$('source').selectedOptions[0]?.textContent||'',selected:state.selected,viewport:map.box
+    });}
+    function remember(){if(!remembering)return;clearTimeout(saveTimer);saveTimer=setTimeout(savePreferences,150);}
+    window.addEventListener('pagehide',()=>{clearTimeout(saveTimer);savePreferences();});
     const requests = new Map();
     let revision=0;
     function cancel(key) {const old=requests.get(key);old?.abort();requests.delete(key);}
@@ -18,7 +28,7 @@
     }
     function filters(){return {region:$('region').value,relationship:$('relationship').value,window:$('window').value,range:$('range').value,source:$('source').value};}
     function error(message){$('status').textContent=message+' Use Refresh to retry.';$('status').className='text-danger';}
-    const map=new window.StructureSystemMap($('canvas'),{onSelect:select});
+    const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember});
     function paint(){
         const highlighted=new Set();const needsRange=$('range').value!=='none';
         if(state.structuresReady){for(const id of state.structures.keys()) {const distance=state.distances.get(id);if(!needsRange||(state.rangeReady&&distance!==null&&distance!==undefined&&distance<=state.limit))highlighted.add(id);}}
@@ -47,7 +57,7 @@
     }
     async function select(id){
         const focusedAction=document.activeElement?.dataset.timerAction;
-        state.selected=id;map.select(id,false);$('system').value=id||'';cancel('details');
+        state.selected=id;map.select(id,false);remember();$('system').value=id||'';cancel('details');
         const node=state.data?.nodes.find(n=>n.id===id);$('detail-title').textContent=node?.name||'Select a system';$('details').replaceChildren();
         if(!node){$('details').textContent='Select a system on the map or in the selector.';return;}
         $('details').append(el('p',node.constellation,'text-muted small'));
@@ -80,9 +90,23 @@
     $('spacing').addEventListener('change',()=>map.setSpacing(Number($('spacing').value)));
     ['gates','labels'].forEach(id=>$(id).addEventListener('change',()=>map.setLayers($('gates').checked,$('labels').checked)));
     $('zoom-in').addEventListener('click',()=>map.zoom(.8));$('zoom-out').addEventListener('click',()=>map.zoom(1.25));$('fit').addEventListener('click',()=>map.fit());$('clear').addEventListener('click',()=>select(null));$('refresh').addEventListener('click',refresh);
-    async function init(){try{const data=await request('regions');if(!data)return;$('region').replaceChildren(...data.regions.map(r=>new Option(r.name,r.id)));await region();}catch(e){error(e.message);}}
+    async function init(restore=false){try{
+        const previous=restore?saved.region:$('region').value;
+        const data=await request('regions',{include_test:$('test-regions').checked?'1':'0'});if(!data)return;
+        $('region').replaceChildren(...data.regions.map(r=>new Option(r.name,r.id)));
+        if(data.regions.some(r=>String(r.id)===String(previous)))$('region').value=previous;
+        await region();
+        if(restore && String(saved.region)===$('region').value){map.setViewport(saved.viewport);if(state.data?.nodes.some(n=>n.id===saved.selected))await select(saved.selected);}
+        remembering=true;remember();
+    }catch(e){error(e.message);}}
     $('refresh').addEventListener('click',()=>{if(!$('region').options.length)init();});
     const interval=setInterval(()=>{if(!document.hidden&&state.data&&!root.contains(document.activeElement))refresh();},60000);
     window.addEventListener('pagehide',event=>{requests.forEach(controller=>controller.abort());if(!event.persisted){clearInterval(interval);map.destroy();}});
-    init();
+    for(const id of ['relationship','window','range','spacing']){if(Array.from($(id).options).some(o=>o.value===saved[id]))$(id).value=saved[id];}
+    for(const [id,key] of [['structures','structures'],['gates','gates'],['labels','labels'],['test-regions','testRegions']])if(typeof saved[key]==='boolean')$(id).checked=saved[key];
+    if(/^\d+$/.test(saved.source||'')){$('source').replaceChildren(new Option(String(saved.sourceName||saved.source).slice(0,250),saved.source,true,true));$('source-search').value=saved.sourceName||'';}
+    $('source-controls').hidden=$('range').value==='none';map.spacing=Number($('spacing').value);map.setLayers($('gates').checked,$('labels').checked);
+    root.addEventListener('change',remember);root.addEventListener('input',remember);
+    $('test-regions').addEventListener('change',()=>init());
+    init(true);
 })();

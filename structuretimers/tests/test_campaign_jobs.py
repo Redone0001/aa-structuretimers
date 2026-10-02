@@ -4,10 +4,11 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 from django.urls import reverse
-from app_utils.testing import NoSocketsTestCase
 from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
-from structuretimers.campaign_jobs import prepare_campaign, enqueue_campaign_job
+from app_utils.testing import NoSocketsTestCase
+
+from structuretimers.campaign_jobs import enqueue_campaign_job, prepare_campaign
 from structuretimers.models import ReconCampaign, ReconCampaignSystem
 from structuretimers.tests.testdata.factory import UserWithAccessFactory
 
@@ -42,9 +43,7 @@ class TestCampaignJobs(NoSocketsTestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 prepare_campaign(self.campaign.pk, "systems")
             importer.assert_called_once_with(id=self.region.pk, include_children=True)
-            queue.assert_called_once_with(
-                args=[self.campaign.pk, "gates", False], retry=False
-            )
+            queue.assert_not_called()
             prepare_campaign(self.campaign.pk, "systems")  # redelivery is harmless
             self.assertEqual(importer.call_count, 1)
             second = ReconCampaign.objects.create(
@@ -160,7 +159,7 @@ class TestCampaignJobs(NoSocketsTestCase):
         self.assertEqual(created.import_status, "ready")
         self.assertEqual(created.systems.count(), 1)
         importer.assert_not_called()
-        queue.assert_called_once_with(args=[created.pk, "gates", False], retry=False)
+        queue.assert_not_called()
 
     def test_retry_requires_coordinator_and_does_not_duplicate_queue(self):
         from django.contrib.auth.models import Permission

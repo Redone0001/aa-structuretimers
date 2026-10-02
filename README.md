@@ -275,46 +275,32 @@ button and drag to pan.
 New campaigns import gate connections in the background. For existing campaigns, coordinators can
 use **Load / refresh gate connections** in Map view. Missing gate data is shown
 explicitly; disconnected campaign systems remain selectable. Maps include only
-campaign systems and connections between them within a region, and use bundled coordinates extracted from DOTLAN's regional PDFs.
+campaign systems and their SDE stargates region by region. The campaign map shares the
+regional map's responsive SVG renderer, schematic placement, structure icons,
+spacing controls and keyboard/pan/zoom support. Bulk selection remains synchronized
+with List view. Missing SDE positions remain accessible in the system selector.
+The sidebar shows the same permitted recon and actions as List view.
 
-
-#### Self-contained regional layouts
-
-The package includes system positions for the available DOTLAN regional maps in
-`structuretimers/data/region_layouts.json`. The browser receives coordinates from
-Alliance Auth and draws its own interactive SVG: no PDF/image embedding, external
-website links, CDN scripts, or requests to DOTLAN are required. Attribution is
-plain text. Layout source: DOTLAN EveMaps / Wollari; EVE universe by CCP Games.
-
-Unsupported regions retain the gate-based schematic with an explicit notice.
-Systems absent from a bundled map appear below its fixed layout, so existing
-system positions never move when the campaign selection changes.
-
-To update bundled positions, developers can run
-`python structuretimers/tools/build_region_layouts.py SOURCE_DIRECTORY OUTPUT_JSON`
-with local regional PDFs and an `index.json` mapping each region name to its
-`file` and list of `systems`. Only this offline build tool requires `pdfplumber`;
-production installations have no PDF parser or map download dependency.
-
+See [SDE setup and map behaviour](docs/regional-map.md). Campaign maps now use SDE
+coordinates; the old bundled DOTLAN assets are no longer used by the campaign UI.
 
 #### Campaign responsiveness
 
 Campaign creation saves and redirects immediately, without waiting for ESI. Explicit
 systems are available immediately; selected regions show **Preparing** until the
 Celery worker finishes importing their systems. Completed region membership is
-cached for one hour for subsequent campaigns. Gate imports run separately and
-reuse existing universe data; coordinators can request a background refresh.
+cached for one hour for subsequent campaigns. Maps read gates from the installed SDE; new campaigns do not queue ESI gate imports.
 Import failures and broker errors show a retry control. Pending system imports
 cannot be reserved or marked complete. Pages poll a small status endpoint and
 refresh on completion unless the user has selected systems.
 
 Map data is requested only on opening Map view. Visible timer counts are aggregated
-in the database, and region layout scaling is cached by the server. No recon
+in the database, and SDE normalization is based on the complete region. No recon
 visibility restrictions are bypassed or shared between users.
 
 This update requires `python manage.py migrate` and restarting Celery workers so
 they discover the campaign import task. The regular Alliance Auth Celery worker
-and broker must be running for region imports and gate refreshes to finish.
+and broker must be running for region imports to finish.
 
 
 #### Campaign administration

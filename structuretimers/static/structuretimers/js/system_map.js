@@ -79,7 +79,7 @@
             this.resizeObserver.observe(host);
         }
         point(event) { const p = this.svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; return p.matrixTransform(this.svg.getScreenCTM().inverse()); }
-        applyView() { this.fitted = false; if (this.box) this.svg.setAttribute('viewBox', `${this.box.x} ${this.box.y} ${this.box.width} ${this.box.height}`); }
+        applyView() { this.fitted = false; if (this.box) this.svg.setAttribute('viewBox', `${this.box.x} ${this.box.y} ${this.box.width} ${this.box.height}`); this.options.onViewport?.(this.box); }
         zoom(factor, point) {
             if (!this.box) return;
             const width = this.box.width*factor;
@@ -97,10 +97,14 @@
         setSpacing(value) {this.spacing = value; this.render(); this.fit();}
         setOverlays(overlays, highlighted) {this.overlays = overlays; this.highlighted = highlighted; this.render();}
         setLayers(gates, labels) {const changed = this.showLabels !== labels; this.showGates = gates; this.showLabels = labels; this.render(); if(changed)this.fit();}
+        setViewport(box) {
+            if(box && ['x','y','width','height'].every(k=>Number.isFinite(box[k])&&Math.abs(box[k])<1e9) && box.width>0 && box.height>0){this.box={...box};this.applyView();}
+        }
+        setSelection(ids) {this.selectedIds=new Set(ids);this.select(this.selected,false);}
         select(id, notify = true) {
             this.selected = id;
-            this.svg.querySelectorAll('[data-node]').forEach(el => el.setAttribute('aria-pressed', String(Number(el.dataset.node) === id)));
-            this.svg.querySelectorAll('[data-selection]').forEach(el => el.classList.toggle('is-selected', Number(el.dataset.selection) === id));
+            this.svg.querySelectorAll('[data-node]').forEach(el => el.setAttribute('aria-pressed', String(this.selectedIds ? this.selectedIds.has(Number(el.dataset.node)) : Number(el.dataset.node) === id)));
+            this.svg.querySelectorAll('[data-selection]').forEach(el => el.classList.toggle('is-selected', this.selectedIds ? this.selectedIds.has(Number(el.dataset.selection)) : Number(el.dataset.selection) === id));
             if (notify) this.options.onSelect?.(id);
         }
         hint(el, text) {
@@ -119,13 +123,13 @@
             this.data.nodes.forEach(node => {
                 if (!node.position) return;
                 const x=node.position[0]*this.spacing, y=node.position[1]*this.spacing;
-                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selected===node.id), class: 'st-map-node'});
+                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id), class: 'st-map-node'});
                 const label=svg('text', {x:0, y:4, 'text-anchor':'middle', class:'st-map-name'}, node.name); group.append(label); layers[3].append(group);
                 const width=Math.max(90, label.getComputedTextLength()+24), height=34;
                 const box=svg('rect', {x:-width/2, y:-17, width, height, rx:6, class:'st-map-box'});group.prepend(box);
                 const outlines=svg('g', {transform:`translate(${x} ${y})`}); layers[2].append(outlines);
                 const highlight=svg('rect', {x:-width/2-8,y:-25,width:width+16,height:50,rx:10,class:'st-map-highlight'}); highlight.classList.toggle('is-highlighted', this.highlighted.has(node.id));
-                const selected=svg('rect', {x:-width/2-4,y:-21,width:width+8,height:42,rx:8,class:'st-map-selection','data-selection':node.id}); selected.classList.toggle('is-selected',this.selected===node.id);
+                const selected=svg('rect', {x:-width/2-4,y:-21,width:width+8,height:42,rx:8,class:'st-map-selection','data-selection':node.id}); selected.classList.toggle('is-selected',this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id);
                 const focus=svg('rect', {x:-width/2-12,y:-29,width:width+24,height:58,rx:12,class:'st-map-focus'});outlines.append(highlight,selected,focus);
                 ['mouseenter','focus'].forEach(name=>group.addEventListener(name,()=>focus.classList.add('is-focused')));
                 ['mouseleave','blur'].forEach(name=>group.addEventListener(name,()=>focus.classList.remove('is-focused')));

@@ -6,8 +6,6 @@
 <div id="campaign-import-status" data-url="{% url 'structuretimers:campaign_status' campaign.pk %}" data-import="{{ campaign.import_status }}" data-gates="{{ campaign.gates_status }}">
 {% if campaign.import_status == 'pending' %}<p class="alert alert-info" role="status">{% translate 'Preparing campaign systems in the background. A notice will appear when they are ready.' %}</p>{% endif %}
 {% if campaign.import_status == 'failed' %}<p class="alert alert-danger">{% translate 'System import failed. A coordinator can retry it.' %}</p>{% if perms.structuretimers.recon_coordinator %}<form data-campaign-action method="post" class="mb-3">{% csrf_token %}<button class="btn btn-warning" name="action" value="retry_import">{% translate 'Retry system import' %}</button></form>{% endif %}{% endif %}
-{% if campaign.gates_status == 'pending' and campaign.import_status == 'ready' %}<p class="alert alert-info" role="status">{% translate 'Gate connections are loading in the background. You can already work on this campaign.' %}</p>{% endif %}
-{% if campaign.gates_status == 'failed' and campaign.import_status == 'ready' %}<p class="alert alert-warning">{% translate 'Gate import failed. A coordinator can retry from Map view.' %}</p>{% endif %}
 <p id="campaign-import-changed" class="alert alert-info" hidden>{% translate 'Campaign import status changed.' %} <a href="{{ campaign.get_absolute_url }}">{% translate 'Refresh when ready' %}</a></p>
 </div>
 <p id="campaign-progress"><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
@@ -39,7 +37,7 @@
 <span class="small text-muted">({{ constellation.list|length }} {% translate 'systems' %})</span>
 </h2>
 {% for entry in constellation.list %}
-<section class="card mb-2" data-system-entry="{{ entry.pk }}" data-status="{% if entry.completed_at %}completed{% elif entry.reserved_by_id %}reserved{% else %}available{% endif %}" data-timer-count="{{ entry.timers|length }}"><div class="card-body py-2">
+<section class="card mb-2" data-system-entry="{{ entry.pk }}" {% if entry.can_work %}data-add-url="{% url 'structuretimers:campaign_recon_add' campaign.pk entry.pk %}"{% endif %} data-status="{% if entry.completed_at %}completed{% elif entry.reserved_by_id %}reserved{% else %}available{% endif %}" data-timer-count="{{ entry.timers|length }}"><div class="card-body py-2">
 <div class="d-flex flex-wrap justify-content-between gap-2">
 <h3 class="h5 mb-0"><input form="campaign-bulk" class="form-check-input me-2" type="checkbox" {% if campaign.import_status != 'ready' %}disabled{% endif %} name="systems" value="{{ entry.pk }}" id="system-{{ entry.pk }}"><label for="system-{{ entry.pk }}">{{ entry.solar_system.name }}</label></h3>
 <div>{% if entry.completed_at %}<span class="badge text-bg-success">{% translate 'Completed' %}</span>{% elif entry.reserved_by %}<span class="badge text-bg-warning">{% translate 'Reserved' %}</span>{% else %}<span class="badge text-bg-secondary">{% translate 'Available' %}</span>{% endif %}
@@ -66,42 +64,42 @@
 {% endfor %}
 </div>
 <div id="campaign-map-view" hidden>
-<p class="small text-muted">{% translate 'Hold the left mouse button and drag to move around the map. Select systems by clicking them or pressing Space. Each box shows the system name and visible preliminary timer count. Regional positions are stored locally; maps work without external map services.' %}</p>
-<div class="d-flex gap-3 flex-wrap mb-3 small">
-<span><span class="badge text-bg-secondary">{% translate 'Available' %}</span></span>
-<span><span class="badge text-bg-warning">{% translate 'Reserved' %}</span></span>
-<span><span class="badge text-bg-success">{% translate 'Completed' %}</span></span>
-<span>{% translate 'Outline and check mark: selected' %}</span>
+<section id="st-regional-map">
+<p class="small text-muted">{% translate 'SDE schematic layout. Click or press Enter/Space to toggle a system in the bulk selection. Drag to pan. Systems without coordinates remain in the selector and List view.' %}</p>
+<div class="d-flex flex-wrap gap-2 mb-2">
+<label>{% translate 'Region' %}<select id="campaign-map-region" class="form-select"></select></label>
+<label>{% translate 'Spacing' %}<select id="campaign-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
+<label class="align-self-end"><input id="campaign-map-gates" class="form-check-input" type="checkbox" checked> {% translate 'Stargates' %}</label>
+<label class="align-self-end"><input id="campaign-map-structures" class="form-check-input" type="checkbox" checked> {% translate 'Structure indicators' %}</label>
+<label class="align-self-end"><input id="campaign-map-labels" class="form-check-input" type="checkbox"> {% translate 'Indicator labels' %}</label>
+<button type="button" id="campaign-map-refresh" class="btn btn-outline-secondary align-self-end">{% translate 'Refresh map' %}</button>
 </div>
-{% if perms.structuretimers.recon_coordinator %}
-<form data-campaign-action method="post" class="mb-3">{% csrf_token %}
-<button class="btn btn-sm btn-outline-secondary" name="action" value="load_gates" {% if campaign.gates_status == 'pending' or campaign.import_status != 'ready' %}disabled{% endif %}>{% translate 'Load / refresh gate connections' %}</button>
-<span class="small text-muted">{% translate 'Loads gate connections in the background. You can keep using the campaign.' %}</span>
-</form>
-{% endif %}
-<div id="campaign-region-maps"
- data-loading-label="{% translate 'Loading map…' %}"
- data-error-label="{% translate 'Could not load the map. Click Map view to retry.' %}"
- data-local-layout-label="{% translate 'Layout: DOTLAN EveMaps. Stored locally.' %}"
- data-fallback-layout-label="{% translate 'No bundled regional layout is available. Showing the gate-based layout.' %}"
- data-unmapped-label="{% translate 'Systems missing from the regional layout are shown below the map.' %}"
- data-count-label="{% translate 'Preliminary timers' %}"
- data-available-label="{% translate 'Available' %}"
- data-reserved-label="{% translate 'Reserved' %}"
- data-completed-label="{% translate 'Completed' %}"
- data-zoom-in-label="{% translate 'Zoom in' %}"
- data-zoom-out-label="{% translate 'Zoom out' %}"
- data-fit-label="{% translate 'Fit map' %}"
- data-no-links-label="{% translate 'No stargate links are available for these campaign systems.' %}"></div>
+<p class="small">○ {% translate 'Available' %} · ◐ {% translate 'Reserved' %} · ✓ {% translate 'Completed' %} · {% translate 'Number in parentheses: visible preliminary timers. Outline: selected for bulk action.' %}</p>
+<p id="campaign-map-status" role="status"></p>
+<div class="st-map-layout">
+<div class="st-map-main">
+<div class="d-flex flex-wrap gap-2 mb-2">
+<select id="campaign-map-system" class="form-select" aria-label="{% translate 'Select a system' %}"></select>
+<button type="button" id="campaign-map-zoom-in" class="btn btn-secondary" aria-label="{% translate 'Zoom in' %}">+</button>
+<button type="button" id="campaign-map-zoom-out" class="btn btn-secondary" aria-label="{% translate 'Zoom out' %}">−</button>
+<button type="button" id="campaign-map-fit" class="btn btn-secondary">{% translate 'Fit map' %}</button>
+<button type="button" id="campaign-map-clear" class="btn btn-outline-secondary">{% translate 'Clear selection' %}</button>
+</div><div id="st-map-canvas"></div>
+</div>
+<aside class="card st-map-sidebar"><div class="card-body" id="campaign-map-details" aria-live="polite">{% translate 'Select a system to see its recon and permitted actions.' %}</div></aside>
+</div>
+</section>
 </div>
 <div id="campaign-map-data" data-url="{% url 'structuretimers:campaign_map_data' campaign.pk %}" hidden></div>
 {% endblock %}
 {% block structuretimers_extra_css %}
-<link rel="stylesheet" href="{% static 'structuretimers/css/campaign_map.css' %}">
+<link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">
 {% endblock %}
 {% block extra_javascript %}
 <script src="{% static 'structuretimers/js/campaign_status.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_actions.js' %}" defer></script>
 <script src="{% static 'structuretimers/js/campaign_selection.js' %}" defer></script>
-<script src="{% static 'structuretimers/js/campaign_map.js' %}" defer></script>
+<script src="{% static 'structuretimers/js/map_preferences.js' %}" defer></script>
+<script src="{% static 'structuretimers/js/system_map.js' %}" defer></script>
+<script src="{% static 'structuretimers/js/campaign_sde_map.js' %}" defer></script>
 {% endblock %}

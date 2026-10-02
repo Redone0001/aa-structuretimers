@@ -1,6 +1,6 @@
 # Regional system map
 
-The **Regional map** section sits beside Recon campaigns and is independent of campaign membership. It uses the installed EVE SDE, not Dotlan images, external map links, ESI geography requests, or a force-directed layout. Existing campaign-specific reservation maps remain available.
+The **Regional map** section sits beside Recon campaigns and is independent of campaign membership. It uses the installed EVE SDE, not Dotlan images, external map links, ESI geography requests, or a force-directed layout. Recon campaigns use the same SDE adapter and renderer, with campaign status, bulk selection and reservation-scoped recon actions.
 
 ## Installation
 
@@ -19,6 +19,14 @@ Follow the [SDE package's update-task instructions](https://github.com/Solar-Hel
 
 The picker lists only regions containing an SDE known-space system (system ID 30,000,000–30,999,999). This follows the SDE library's system-ID space classification and excludes wormhole regions such as A-R00001/C-R00001, Abyssal regions and empty imports. Names and system counts are not used: small regions and names containing numbers remain eligible. Missing schematic coordinates do not hide an otherwise eligible region. Global origin search remains unrestricted, and this is a discovery filter rather than a new data-access restriction.
 
+## Saved preferences and campaign map
+
+The browser stores versioned first-party cookies for 180 days (`SameSite=Lax`, `Secure` on HTTPS). `st_regional_map` remembers region, relationship, timer window, range/origin, spacing, overlay toggles, selected system and viewport. `st_campaign_map` remembers campaign list/map mode, region, spacing and overlay toggles. No timer data, reservation identities, permissions or bulk selections are stored. Invalid cookies fall back to defaults; unavailable regions fall back to the first valid option.
+
+A821-A, UUA-F4 and J7HZ-F are hidden in the regional picker unless **Show CCP test regions** is checked. That preference is also remembered. This does not remove explicit campaign systems from a campaign's region selector.
+
+Campaign Map view uses `campaign_sde_map.js` with `system_map.js` and the shared `geography_payload`/`structure_payload` adapters. Its endpoint returns regional `nodes` and `edges`, with node `entryId`, `status`, visible preliminary `count` and grouped `indicators`. Campaigns normalize against the complete SDE region before restricting nodes to campaign membership. Missing SDE systems retain null positions and remain accessible through the selector/List view. The sidebar reuses the permission-filtered list content, so reservation-scoped edit rights and coordinator-only identities stay unchanged. Bulk actions still submit the existing CSRF-protected form and preserve map viewport/selection. New campaigns no longer queue separate ESI gate imports.
+
 ## What the map means
 
 - **Relationship:** friendly (blue), neutral (grey), hostile (danger/red), undefined (warning/yellow). These are timer objectives, not EVE standings or sovereignty. Symbols F/N/H/? and tooltips accompany the colours. Friendly uses AA's Bootstrap blue token; danger/warning intentionally follow the selected theme's palette.
@@ -36,6 +44,8 @@ Structure, gate and label layers toggle independently. With structures off, stru
 | --- | --- |
 | `structuretimers/regional_map.py` | SDE adapter, visible timer aggregation, distance calculation, permitted sidebar actions, JSON endpoints |
 | `static/structuretimers/js/system_map.js` | Generic SVG renderer, geometry, indicator layout, selection, pan/zoom, fit and spacing; no module requests or timer logic |
+| `static/structuretimers/js/map_preferences.js` | Versioned first-party preference cookies |
+| `static/structuretimers/js/campaign_sde_map.js` | Campaign selection, region/overlay controls and reservation-aware sidebar |
 | `static/structuretimers/js/regional_map.js` | Filter state, separate/cancellable requests, sidebar and CSRF-protected recon refresh |
 | `static/structuretimers/css/regional_map.css` | Scoped AA theme tokens and responsive map/sidebar layout |
 | `templates/structuretimers/regional_map.html` | AA Bootstrap page, controls, legend, loading/error status and sidebar |
@@ -51,7 +61,7 @@ All endpoints are GET-only, require login and `structuretimers.basic_access`, an
 
 Base: `/structuretimers/map/data/<layer>/`.
 
-- `regions`: `{ "regions": [{"id": 10000001, "name": "Region"}] }`
+- `regions` (optional `include_test=1` reveals CCP test regions): `{ "regions": [{"id": 10000001, "name": "Region"}] }`
 - `search?q=...`: `{ "systems": [{"id": 30000001, "name": "System"}] }`; minimum two characters; at most 30 results from all regions.
 - `geography?region=...`: public regional data, as below. Gate IDs are canonical sorted pairs. Missing schematic position is `null`, and the system remains in the selector.
 - `structures?region=...&relationship=all|FR|NE|HO|UN&window=preliminary|4|24|all`: `{ "systems": [{"id": 30000001, "indicators": [...]}] }`. Only systems with matching visible records appear. SQL aggregates counts before serialization.
@@ -90,14 +100,16 @@ Each asynchronous layer has an AbortController and response identity check. Filt
 
 Verified in a local, real AA 5.4.0 / Django 5.2.17 application with synthetic SDE and timer models:
 
-- Flatly, Darkly and Materia at desktop and 390px mobile width; screenshot inspection and browser-error checks.
+- Flatly, Darkly and Materia at desktop and 390px mobile width; screenshot inspection and browser-error checks, including the shared campaign map.
+- Cookie restoration of region, filters, overlays, spacing and viewport; malformed/obsolete cookie handling; hidden CCP test regions and opt-in display.
+- Campaign keyboard multi-selection, reservations, completion, missing-coordinate access and viewport retention after actions.
 - Long labels measured inside rectangles, dense systems, several icon rows, overflow indicator, failed icon requests, missing structure types and missing schematic/geographic coordinates.
 - Empty region and 500-system region; responsive layout without horizontal page overflow.
 - Relationship/time filtering, external origin search and geographic range, selection, keyboard Enter, pan without accidental selection, zoom/fit, and viewport retention through refresh.
 - Delayed detail responses and rapid selections; disabled structure layer performs no timer requests.
 - Read-only action suppression and hidden OPSEC/corporation records; adapter permission tests and CSRF-protected refresh in the browser.
 - Synthetic parallel/directed connections: distinct curves, visible arrows outside measured rectangles, theme contrast.
-- 318 Django tests passed; JavaScript map/distribution geometry suites passed. Python formatting and lint checked for changed files.
+- 321 Django tests passed; JavaScript map/distribution geometry suites passed. Python formatting and lint checked for changed files.
 
 To repeat browser coverage, use a **fresh disposable AA5 test database**, with `modeltranslation` and `eve_sde` installed and migrated. Never run the fixture on a production/imported SDE database: it creates synthetic EVE IDs and authenticated test sessions.
 
@@ -106,9 +118,12 @@ MAP_ALLOW_SYNTHETIC_SEED=1 python manage.py shell < structuretimers/tests/browse
 python manage.py runserver 127.0.0.1:8782
 # In an environment with Playwright and Chromium installed:
 MAP_BASE_URL=http://127.0.0.1:8782 node structuretimers/tests/browser/regional_map.cjs
+MAP_BASE_URL=http://127.0.0.1:8782 node structuretimers/tests/browser/map_preferences.cjs
 python manage.py test structuretimers.tests.test_regional_map
 node --test structuretimers/tests/js/*.cjs
 ```
+
+`MAP_THEME` selects `flatly`, `darkly` or `materia` for the preference/campaign suite; `MAP_CAMPAIGN_ID` selects a fresh campaign (default `1`). That suite reserves and completes its synthetic entries, so reset/reseed the disposable campaign before rerunning it.
 
 `MAP_SESSION_FILE` selects the local fixture session file (default `/tmp/structure-map-cookies.json`); `MAP_SCREENSHOT_DIR` selects screenshot output. Keep the session file private and delete the test database/sessions after testing.
 

@@ -3,6 +3,7 @@
 import logging
 
 from celery import shared_task
+
 from django.core.cache import cache
 from django.db import transaction
 from eveuniverse.models import EveRegion, EveSolarSystem
@@ -77,8 +78,8 @@ def prepare_campaign(pk, kind, refresh=False):
                     ]
                 )
                 current.import_status = "ready"
-                current.save(update_fields=["import_status"])
-                transaction.on_commit(lambda: enqueue_campaign_job(pk, "gates"))
+                current.gates_status = "ready"
+                current.save(update_fields=["import_status", "gates_status"])
         else:
             importer = (
                 EveSolarSystem.objects.update_or_create_esi

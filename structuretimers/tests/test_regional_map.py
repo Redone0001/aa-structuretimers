@@ -226,3 +226,21 @@ class RegionalMapTests(TestCase):
         self.assertEqual(
             self.get("search", q="A-R00001").json()["systems"][0]["id"], 31_000_001
         )
+
+    def test_ccp_test_regions_hidden_by_default_but_can_be_shown(self):
+        from eve_sde.models import Constellation, Region, SolarSystem
+
+        for i, name in enumerate(["A821-A", "UUA-F4", "J7HZ-F"]):
+            region = Region.objects.create(id=10000900 + i, name=name)
+            constellation = Constellation.objects.create(
+                id=20000900 + i, name=name, region=region
+            )
+            SolarSystem.objects.create(
+                id=30000900 + i, name=name, constellation=constellation
+            )
+        self.assertEqual(
+            [r["name"] for r in self.get("regions").json()["regions"]], ["Region"]
+        )
+        self.assertEqual(
+            len(self.get("regions", include_test="1").json()["regions"]), 4
+        )
