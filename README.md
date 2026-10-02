@@ -382,3 +382,7 @@ For a shared virtualenv, upgrading this app installs the proxy dependency there
 as well; restart the proxy before restarting Auth workers. No additional schema
 migration is required when upgrading from 3.4.0. Existing webhook notifications
 continue to use their configured webhooks.
+
+### Regional system map
+
+The **Regional map** section next to Recon campaigns displays SDE schematic geography with permission-filtered timer structure indicators and combined relationship, time-window and jump-range filters. It requires `eve_sde` and an imported SDE. See [setup, payload contract, verification and limitations](docs/regional-map.md).

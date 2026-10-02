@@ -29,6 +29,7 @@ dependencies = [
     "dhooks_lite>=1.1",
     "discordproxy @ git+https://github.com/Redone0001/discordproxy.git@41b0bbd0377bcb426f11675d59e45ddf14f0827a",
     "django-eveuniverse>=2",
+    "django-eveonline-sde>=0.2.0,<0.3",
     "django-multiselectfield",
     "puremagic",
     "redis-simple-mq>=1.1",

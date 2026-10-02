@@ -2,11 +2,13 @@
 
 from django.urls import path
 
-from . import views, campaigns
+from . import campaigns, regional_map, views
 
 app_name = "structuretimers"
 
 urlpatterns = [
+    path("map/", regional_map.map_page, name="regional_map"),
+    path("map/data/<str:layer>/", regional_map.map_data, name="regional_map_data"),
     path(
         "campaigns/<int:pk>/map/",
         campaigns.CampaignMapDataView.as_view(),

@@ -1,0 +1,54 @@
+{% extends 'structuretimers/base.html' %}
+{% load static i18n %}
+{% block structuretimers_content %}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{% translate 'Preliminary' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=current">{% translate 'Current' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=past">{% translate 'Past' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=manage-recon">{% translate 'Manage recon' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
+    <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'structuretimers:regional_map' %}">{% translate 'Regional map' %}</a></li>
+</ul>
+<section id="st-regional-map" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+    <div hidden id="st-map-csrf">{% csrf_token %}</div>
+    <div class="card mb-3"><div class="card-body">
+        <div class="st-map-controls">
+            <label>{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
+            <label>{% translate 'Relationship' %}<select id="st-map-relationship" class="form-select"><option value="all">{% translate 'Any relationship' %}</option><option value="FR">{% translate 'Friendly' %}</option><option value="NE">{% translate 'Neutral' %}</option><option value="HO">{% translate 'Hostile' %}</option><option value="UN">{% translate 'Undefined' %}</option></select></label>
+            <label>{% translate 'Timers' %}<select id="st-map-window" class="form-select"><option value="preliminary">{% translate 'Preliminary' %}</option><option value="4">{% translate 'Active · next 4h' %}</option><option value="24">{% translate 'Active · next 24h' %}</option><option value="all">{% translate 'Active · all upcoming' %}</option></select></label>
+            <label>{% translate 'Range' %}<select id="st-map-range" class="form-select"><option value="none">{% translate 'None' %}</option><option value="super">{% translate 'Super · 6 LY' %}</option><option value="carrier">{% translate 'Carrier · 7 LY' %}</option><option value="command">{% translate 'Command Carrier · 7.5 LY' %}</option></select></label>
+            <label>{% translate 'Spacing' %}<select id="st-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
+        </div>
+        <div class="st-map-source mt-3" id="st-map-source-controls" hidden>
+            <label for="st-map-source-search">{% translate 'Range origin · search any region' %}</label>
+            <div class="d-flex gap-2 flex-wrap"><input id="st-map-source-search" class="form-control" type="search" placeholder="{% translate 'At least two characters' %}" autocomplete="off"><select id="st-map-source" class="form-select" aria-label="{% translate 'Range origin results' %}"><option value="">{% translate 'Choose an origin' %}</option></select></div>
+            <p id="st-map-source-status" class="small text-muted mb-0" role="status"></p>
+        </div>
+        <p class="small text-muted mt-2 mb-0">{% translate 'Filters combine with AND. Highlighted systems contain matching visible timers and satisfy the selected range. Counts represent timer records, not a verified structure inventory. Range is geometric distance, not a guarantee that a ship can jump there.' %}</p>
+    </div></div>
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <label><input id="st-map-structures" class="form-check-input me-1" type="checkbox" checked> {% translate 'Structure indicators' %}</label>
+        <label><input id="st-map-gates" class="form-check-input me-1" type="checkbox" checked> {% translate 'Stargates' %}</label>
+        <label><input id="st-map-labels" class="form-check-input me-1" type="checkbox"> {% translate 'Indicator labels' %}</label>
+        <button class="btn btn-outline-secondary btn-sm" id="st-map-refresh" type="button">{% translate 'Refresh' %}</button>
+    </div>
+    <div class="st-map-legend mb-2" aria-label="{% translate 'Map legend' %}">
+        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
+    </div>
+    <p id="st-map-status" role="status" aria-live="polite">{% translate 'Loading regions…' %}</p>
+    <div class="st-map-layout">
+        <div class="st-map-main">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <label class="visually-hidden" for="st-map-system">{% translate 'Select a system' %}</label><select class="form-select" id="st-map-system"><option value="">{% translate 'Select a system' %}</option></select>
+                <button class="btn btn-secondary" id="st-map-zoom-in" type="button" aria-label="{% translate 'Zoom in' %}">+</button><button class="btn btn-secondary" id="st-map-zoom-out" type="button" aria-label="{% translate 'Zoom out' %}">−</button>
+                <button class="btn btn-secondary" id="st-map-fit" type="button">{% translate 'Fit map' %}</button><button class="btn btn-outline-secondary" id="st-map-clear" type="button">{% translate 'Clear selection' %}</button>
+            </div>
+            <div id="st-map-canvas"></div>
+            <p class="small text-muted mt-2">{% translate 'Drag to pan. Wheel or +/− to zoom. Tab to a system, Enter/Space to select. Arrow keys pan when the map is focused; Home fits the map.' %}</p>
+        </div>
+        <aside class="card st-map-sidebar" aria-labelledby="st-map-detail-title"><div class="card-body"><h2 id="st-map-detail-title" class="h5">{% translate 'Select a system' %}</h2><div id="st-map-details" aria-live="polite">{% translate 'Select a system on the map or in the selector to see its permitted timers.' %}</div></div></aside>
+    </div>
+</section>
+{% endblock %}
+{% block structuretimers_extra_css %}<link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">{% endblock %}
+{% block extra_javascript %}<script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}

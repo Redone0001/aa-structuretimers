@@ -83,3 +83,6 @@ STATICFILES_DIRS = []
 STORAGES["staticfiles"][
     "BACKEND"
 ] = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
+# Regional map geography comes from the EVE SDE.
+INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS + ["eve_sde"]
