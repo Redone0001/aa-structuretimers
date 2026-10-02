@@ -49,19 +49,25 @@ $(document).ready(function () {
         columns: [
             {data: 'location'}, {data: 'structure_details'}, {data: 'name_objective'},
             {data: 'owner'},
+            {data: 'reinforcement_time', className: 'text-nowrap', render: (data, type) => {
+                if (type === 'sort' || type === 'type') {
+                    return data ? Number(data.slice(0, 2)) * 60 + Number(data.slice(3, 5)) : 1440;
+                }
+                return data || '—';
+            }},
             {data: 'last_updated_at', render: (data, type) => type === 'display' ? moment(data).utc().format('YYYY-MM-DD HH:mm') : data},
             {data: 'actions', orderable: false, searchable: false},
             {data: 'system_name', visible: false}, {data: 'region_name', visible: false},
             {data: 'structure_type_name', visible: false}, {data: 'owner_name', visible: false},
             {data: 'objective_name', visible: false}
         ],
-        order: [[4, 'asc']], pageLength: 25,
+        order: [[5, 'asc']], pageLength: 25,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, messages.all]],
         drawCallback: function () { updateDashboard(this.api().rows({search: 'applied'}).data().toArray()); },
         initComplete: function () {
             initializeMultiSelectFilters(this.api(), {columns: [
-                {idx: 6, title: messages.solarSystem}, {idx: 7, title: messages.region},
-                {idx: 8, title: messages.structureType}, {idx: 9, title: messages.owner}, {idx: 10, title: messages.objective}
+                {idx: 7, title: messages.solarSystem}, {idx: 8, title: messages.region},
+                {idx: 9, title: messages.structureType}, {idx: 10, title: messages.owner}, {idx: 11, title: messages.objective}
             ]}, exported.getAttribute('data-titleFilterBy'), exported.getAttribute('data-titleAll'),
             exported.getAttribute('data-isNightMode') === 'true');
         }
