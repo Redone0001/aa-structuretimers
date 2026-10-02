@@ -15,6 +15,10 @@ Do not duplicate either entry if another app already enables it. Run the normal 
 
 Follow the [SDE package's update-task instructions](https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde#setup) to keep geography current. The adapter was checked against version 0.2.0 and Alliance Auth 5.4.0.
 
+## Region selection
+
+The picker lists only regions containing an SDE known-space system (system ID 30,000,000–30,999,999). This follows the SDE library's system-ID space classification and excludes wormhole regions such as A-R00001/C-R00001, Abyssal regions and empty imports. Names and system counts are not used: small regions and names containing numbers remain eligible. Missing schematic coordinates do not hide an otherwise eligible region. Global origin search remains unrestricted, and this is a discovery filter rather than a new data-access restriction.
+
 ## What the map means
 
 - **Relationship:** friendly (blue), neutral (grey), hostile (danger/red), undefined (warning/yellow). These are timer objectives, not EVE standings or sovereignty. Symbols F/N/H/? and tooltips accompany the colours. Friendly uses AA's Bootstrap blue token; danger/warning intentionally follow the selected theme's palette.

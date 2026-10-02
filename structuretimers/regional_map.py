@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from django.apps import apps
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -95,10 +95,23 @@ def map_data(request, layer):
     try:
         validate(request.GET)
         if layer == "regions":
+            # SDE system ID namespaces distinguish known space from wormholes
+            # (31m) and Abyssal space (32m), without name or size heuristics.
+            # Missing schematic coordinates do not remove otherwise valid regions.
             return JsonResponse(
                 {
                     "regions": list(
-                        region_model.objects.order_by("name").values("id", "name")
+                        region_model.objects.filter(
+                            Exists(
+                                system_model.objects.filter(
+                                    constellation__region_id=OuterRef("pk"),
+                                    id__gte=30_000_000,
+                                    id__lt=31_000_000,
+                                )
+                            )
+                        )
+                        .order_by("name")
+                        .values("id", "name")
                     )
                 }
             )

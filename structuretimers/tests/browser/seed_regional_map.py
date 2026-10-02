@@ -111,7 +111,7 @@ c2 = Constellation.objects.create(id=20000002, name="Large constellation", regio
 SolarSystem.objects.bulk_create(
     [
         SolarSystem(
-            id=31000000 + i,
+            id=30001000 + i,
             name=f"LARGE-{i}",
             constellation=c2,
             x_2d=i % 25 * 100,
@@ -128,8 +128,8 @@ Stargate.objects.bulk_create(
         Stargate(
             id=51000000 + i,
             name="Gate",
-            solar_system_id=31000000 + i - 1,
-            destination_id=31000000 + i,
+            solar_system_id=30001000 + i - 1,
+            destination_id=30001000 + i,
         )
         for i in range(1, 500)
     ]

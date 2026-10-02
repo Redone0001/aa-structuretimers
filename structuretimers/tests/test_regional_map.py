@@ -197,3 +197,32 @@ class RegionalMapTests(TestCase):
             self.assertEqual(self.get(layer).status_code, 403)
         self.client.logout()
         self.assertEqual(self.get("regions").status_code, 302)
+
+    def test_region_picker_uses_space_type_not_name_size_or_coordinates(self):
+        from eve_sde.models import Constellation, Region, SolarSystem
+
+        for index, (name, system_id) in enumerate(
+            [
+                ("A-R00001", 31_000_001),
+                ("C-R00001", 31_000_002),
+                ("Abyssal", 32_000_001),
+                ("Empty", None),
+                ("Numeric region 123", 30_000_100),
+                ("Pochven", 30_000_101),
+            ],
+            start=1,
+        ):
+            region = Region.objects.create(id=10_000_100 + index, name=name)
+            constellation = Constellation.objects.create(
+                id=20_000_100 + index, name=name, region=region
+            )
+            if system_id:
+                SolarSystem.objects.create(
+                    id=system_id, name=name, constellation=constellation
+                )
+        names = {r["name"] for r in self.get("regions").json()["regions"]}
+        self.assertEqual(names, {"Region", "Numeric region 123", "Pochven"})
+        # Region discovery is not a new access restriction or a search filter.
+        self.assertEqual(
+            self.get("search", q="A-R00001").json()["systems"][0]["id"], 31_000_001
+        )
