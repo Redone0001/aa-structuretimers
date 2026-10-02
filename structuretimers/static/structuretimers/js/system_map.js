@@ -123,7 +123,7 @@
             this.data.nodes.forEach(node => {
                 if (!node.position) return;
                 const x=node.position[0]*this.spacing, y=node.position[1]*this.spacing;
-                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id), class: 'st-map-node'});
+                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-category': node.category || 'default', 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id), class: 'st-map-node'});
                 const label=svg('text', {x:0, y:4, 'text-anchor':'middle', class:'st-map-name'}, node.name); group.append(label); layers[3].append(group);
                 const width=Math.max(90, label.getComputedTextLength()+24), height=34;
                 const box=svg('rect', {x:-width/2, y:-17, width, height, rx:6, class:'st-map-box'});group.prepend(box);

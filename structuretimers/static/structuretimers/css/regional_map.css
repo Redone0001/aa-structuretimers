@@ -39,3 +39,10 @@
     #st-map-canvas { height: 55vh; min-height: 320px; }
     #st-regional-map .st-map-sidebar { max-height: none; }
 }
+
+/* Semantic node categories are independent of campaign business rules. */
+#st-regional-map .st-map-node[data-category="neutral"] .st-map-box { fill: var(--bs-secondary-bg); }
+#st-regional-map .st-map-node[data-category="warning"] .st-map-box { fill: var(--bs-warning-bg-subtle); stroke: var(--bs-warning); }
+#st-regional-map .st-map-node[data-category="warning"] .st-map-name { fill: var(--bs-warning-text-emphasis); }
+#st-regional-map .st-map-node[data-category="success"] .st-map-box { fill: var(--bs-success-bg-subtle); stroke: var(--bs-success); }
+#st-regional-map .st-map-node[data-category="success"] .st-map-name { fill: var(--bs-success-text-emphasis); }

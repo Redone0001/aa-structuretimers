@@ -9,7 +9,7 @@
     if(['1','1.6','2.2'].includes(saved.spacing))$('spacing').value=saved.spacing;
     for(const id of ['gates','structures','labels'])if(typeof saved[id]==='boolean')$(id).checked=saved[id];
     map.spacing=Number($('spacing').value);map.showGates=$('gates').checked;map.showLabels=$('labels').checked;
-    function remember(){prefs.save('st_campaign_map',{region:$('region').value,spacing:$('spacing').value,gates:$('gates').checked,structures:$('structures').checked,labels:$('labels').checked,view});}
+    function remember(){prefs.save('st_campaign_map',{region:$('region').value,spacing:$('spacing').value,gates:$('gates').checked,structures:$('structures').checked,labels:$('labels').checked});}
     function input(node){return document.getElementById('system-'+node.entryId);}
     function sync(){
         const selected=Array.from(document.querySelectorAll('#campaign-list-view input[name="systems"]:checked'));
@@ -36,7 +36,7 @@
         map.setOverlays($('structures').checked?new Map(current.nodes.map(n=>[n.id,n.indicators||[]])):new Map(),new Set());
         const viewport=map.box?{...map.box}:null;
         const symbols={available:'○',reserved:'◐',completed:'✓'};
-        map.setData({...current,nodes:current.nodes.map(n=>({...n,name:`${symbols[n.status]} ${n.name} (${n.count})`}))});
+        map.setData({...current,nodes:current.nodes.map(n=>({...n,category:{available:'neutral',reserved:'warning',completed:'success'}[n.status],name:`${symbols[n.status]} ${n.name} (${n.count})`}))});
         if(!refit)map.setViewport(viewport);
         $('system').replaceChildren(new Option('Select / deselect a system',''),...current.nodes.map(n=>new Option(n.name+(n.position?'':' — position unavailable'),n.id)));
         if(current.nodes.some(n=>n.id===detailId))$('system').value=detailId;
@@ -70,5 +70,5 @@
     $('clear').addEventListener('click',()=>{document.querySelectorAll('#campaign-list-view input[name="systems"]').forEach(el=>el.checked=false);window.dispatchEvent(new Event('campaign:updated'));});
     window.addEventListener('campaign:selection',sync);
     window.addEventListener('campaign:updated',()=>{sync();details(detailId);if(view==='map')load();else regions=[];});
-    switchView(saved.view==='map'?'map':'list');sync();
+    switchView('map');sync();
 })();
