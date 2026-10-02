@@ -215,6 +215,12 @@ class TimerListDataView(
                         if timer.reinforcement_time is not None
                         else None
                     ),
+                    "window_minutes": (
+                        30
+                        if timer.structure_type_id
+                        in {EveTypeId.ANSIBLEX, EveTypeId.METENOX_MOON_DRILL}
+                        else 180
+                    ),
                     "name_objective": name,
                     "owner": objective,
                     # "creator": creator,
@@ -445,22 +451,6 @@ class ManageReconDataView(TimerListDataView):
     def get_queryset(self):
         self.kwargs["tab_name"] = "preliminary"
         return super().get_queryset()
-
-    def get_data(self, context):
-        data = super().get_data(context)
-        for row, timer in zip(data, self.object_list):
-            row["reinforcement_time"] = (
-                timer.reinforcement_time.strftime("%H:%M")
-                if timer.reinforcement_time is not None
-                else None
-            )
-            row["window_minutes"] = (
-                30
-                if timer.structure_type_id
-                in {EveTypeId.ANSIBLEX, EveTypeId.METENOX_MOON_DRILL}
-                else 180
-            )
-        return data
 
     def _get_data_actions(self, timer):
         return render_to_string(

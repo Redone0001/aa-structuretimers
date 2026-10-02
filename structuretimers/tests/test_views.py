@@ -219,6 +219,7 @@ class TestTimerListData(NoSocketsTestCase):
         rows = {row["id"]: row for row in response.json()}
         for timer, expected in zip(timers, ["00:00", "18:45", None]):
             self.assertEqual(rows[timer.pk]["reinforcement_time"], expected)
+            self.assertEqual(rows[timer.pk]["window_minutes"], 180)
             if expected:
                 self.assertNotIn(expected + " UTC", rows[timer.pk]["structure_details"])
 

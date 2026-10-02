@@ -130,7 +130,7 @@ function buildMultiValueSearchRegex(values) {
     return "^(?:" + escapedValues.join("|") + ")$";
 }
 
-function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, titleAll) {
+function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, titleAll, savedFilters = {}) {
     const tableId = table.table().node().id;
     const exportData = document.getElementById("dataExport").dataset;
     const wrapper = $("<div>", {class: "timer-filter-wrapper mb-3"});
@@ -156,7 +156,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         const clear = $("<button>", {type: "button", class: "btn btn-sm btn-outline-secondary timer-filter-clear w-100 mt-2"}).text(exportData.filterClearLabel);
         const options = $("<div>", {class: "timer-filter-options", role: "group", "aria-labelledby": id + "_label"});
         const empty = $("<p>", {class: "small text-muted mb-0", hidden: true}).text(exportData.filterEmptyLabel);
-        const selected = new Set();
+        const selected = new Set(Array.isArray(savedFilters[definition.idx]) ? savedFilters[definition.idx] : []);
         const checks = [];
         function update() {
             const values = Array.from(selected);
@@ -168,7 +168,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         column.data().unique().sort().each(function (value) {
             if (value === null || value === undefined || value === "") return;
             const text = String(value);
-            const checkbox = $("<input>", {type: "checkbox", class: "form-check-input", value: text});
+            const checkbox = $("<input>", {type: "checkbox", class: "form-check-input", value: text, checked: selected.has(text)});
             const label = $("<label>", {class: "timer-filter-option"}).append(checkbox, $("<span>").text(text));
             checkbox.on("change", function () {
                 if (this.checked) selected.add(text); else selected.delete(text);
@@ -194,6 +194,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         group.on("hidden.bs.dropdown", function () { search.val("").trigger("input"); });
         menu.append(search, options, empty, clear);
         wrapper.append(group.append(title, toggle, menu));
+        if (selected.size) update();
     });
 }
 
@@ -404,6 +405,14 @@ $(document).ready(function () {
                 titleAll
             );
         },
+    });
+    $.fn.dataTable.ext.search.push((settings, data, index, row) =>
+        settings.nTable.id !== 'tbl_preliminary' || ReconDistribution.matchesWindow(
+            row, $('#preliminary-window-from').val(), $('#preliminary-window-to').val()));
+    $('#preliminary-window-from, #preliminary-window-to').on('change', () => $('#tbl_preliminary').DataTable().draw());
+    $('#preliminary-window-clear').on('click', () => {
+        $('#preliminary-window-from, #preliminary-window-to').val('');
+        $('#tbl_preliminary').DataTable().draw();
     });
     $("#tbl_preliminary").DataTable({
         ajax: {

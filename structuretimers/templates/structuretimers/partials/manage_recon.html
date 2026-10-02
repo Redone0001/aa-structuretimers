@@ -1,6 +1,6 @@
 {% load i18n %}
 {{ recon_translations|json_script:"recon-translations" }}
-<div id="recon-dashboard" data-url="{% url 'structuretimers:recon_data' %}">
+<div id="recon-dashboard" data-user-id="{{ request.user.pk }}" data-url="{% url 'structuretimers:recon_data' %}">
     <div class="row g-3 mb-4" aria-live="polite">
         <div class="col-md-4"><div class="card h-100"><div class="card-body">
             <h6 class="text-muted">{% translate "Oldest recon / refresh" %}</h6>
@@ -15,8 +15,10 @@
             <strong id="recon-count">—</strong><div class="small text-muted">{% translate "Across all table pages" %}</div>
         </div></div></div>
     </div>
+    {% include "structuretimers/partials/vulnerability_filter.html" with prefix="recon" %}
     <h5>{% translate "Vulnerability window distribution · EVE time (UTC)" %}</h5>
     <p class="small text-muted">{% translate "Darker cells mean more overlapping vulnerability windows. Each cell covers 30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown structure types use ±3 hours." %}</p>
+    {% include "structuretimers/partials/recon_heatmap_help.html" %}
     <div class="recon-heatmap-scroll mb-2">
         <div id="recon-heatmap" class="recon-heatmap" role="group" aria-label="{% translate 'Vulnerability window distribution in 30-minute intervals' %}"></div>
         <div class="recon-axis" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>

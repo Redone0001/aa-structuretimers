@@ -74,3 +74,7 @@
 .st-page .table_timers tbody td:nth-child(7) { min-width: 14rem; overflow-wrap: anywhere; }
 .st-page .table_timers .st-timer-actions { min-width: 8.5rem; flex-wrap: nowrap !important; }
 .st-page .table_timers .st-timer-actions .btn { padding: .25rem .5rem; font-size: .875rem; }
+
+.st-page .recon-heat-cell { appearance: none; padding: 0; color: var(--bs-body-color); border: 1px solid var(--bs-border-color, var(--bs-body-color)); }
+.st-page .recon-heat-cell[aria-pressed="true"] { outline: 2px solid var(--bs-body-color); outline-offset: -2px; }
+.st-page .recon-heat-cell:focus-visible { outline: 3px solid var(--bs-primary); outline-offset: 1px; }
