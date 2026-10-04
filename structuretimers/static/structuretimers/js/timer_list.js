@@ -138,6 +138,10 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         $("<p>", {class: "mb-1 fw-bold"}).text(titleFilterBy + ":"), wrapper
     );
     $(table.table().container()).prepend(row);
+    const windowPrefix = {tbl_preliminary: 'preliminary', tbl_manage_recon: 'recon'}[tableId];
+    if (windowPrefix) {
+        row.append($('#' + windowPrefix + '-window-filter'));
+    }
     filterDefinition.columns.forEach(function (definition) {
         const column = table.column(definition.idx);
         const id = tableId + "_filterSelect" + definition.idx;
