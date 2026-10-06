@@ -546,6 +546,9 @@ class FastTimerForm(TimerForm):
         self.fields["eve_solar_system_2"].required = False
         self.fields["owner_name"].required = True
         self.fields["owner_name"].label = _("Owner")
+        self.fields["structure_type_2"].widget.attrs[
+            "data-skyhook-type-id"
+        ] = str(EveTypeId.ORBITAL_SKYHOOK.value)
         self.fields["location_details"].required = False
         self.order_fields(self.fast_fields + self.derived_fields)
 
