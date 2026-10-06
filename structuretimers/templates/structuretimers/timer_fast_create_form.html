@@ -1,5 +1,5 @@
 {% extends "structuretimers/timer_edit.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block form_intro %}
     <p class="text-muted">
@@ -10,3 +10,8 @@
 {% block submit_button_text %}
     {% translate "Quick add timer" %}
 {% endblock %}
+
+{% block extra_javascript %}
+    {{ block.super }}
+    <script type="text/javascript" src="{% static 'structuretimers/js/timer_fast_create.js' %}"></script>
+{% endblock extra_javascript %}
