@@ -20,7 +20,7 @@ from eveuniverse.models import EveSolarSystem, EveType
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.services.hooks import get_extension_logger
 
-from .constants import EveGroupId
+from .constants import EveGroupId, EveTypeId
 from .models import Timer
 
 logger = get_extension_logger(__name__)
@@ -33,6 +33,11 @@ EVE_TIMER_UNTIL_PATTERN = re.compile(
     r"(?P<date>\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*$",
     re.IGNORECASE,
 )
+EVE_SKYHOOK_HEADER_PATTERN = re.compile(
+    r"^Orbital Skyhook\s+\((?P<solar_system>.+)\s+"
+    r"(?P<location>[^\s]+)\)\s+\[(?P<owner>.+)\]$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -42,26 +47,50 @@ class ParsedEveTimer:
     solar_system_name: str
     structure_name: str
     date: dt.datetime
+    location_details: str = ""
+    owner_name: str = ""
+    structure_type_name: str = ""
 
 
 def parse_eve_timer_text(value: str) -> ParsedEveTimer:
     """Parse text copied from a supported EVE Online structure timer tooltip."""
 
     lines = [line.strip() for line in value.splitlines() if line.strip()]
-    if len(lines) < 2 or " - " not in lines[0]:
+    if len(lines) < 2:
         raise ValueError(
             _(
                 "Paste the EVE timer with 'System - Structure name' on the first "
-                "line and either 'Reinforced until YYYY.MM.DD HH:MM:SS' or "
-                "'Anchoring until YYYY.MM.DD HH:MM:SS' below it."
+                "line (or use the 'Orbital Skyhook (System Planet) [Owner]' "
+                "format) and include a supported timer date below it."
             )
         )
 
-    solar_system_name, structure_name = (
-        part.strip() for part in lines[0].split(" - ", maxsplit=1)
-    )
+    skyhook_match = EVE_SKYHOOK_HEADER_PATTERN.match(lines[0])
+    if skyhook_match:
+        solar_system_name = skyhook_match.group("solar_system").strip()
+        location_details = skyhook_match.group("location").strip()
+        structure_name = location_details
+        owner_name = skyhook_match.group("owner").strip()
+        structure_type_name = "Orbital Skyhook"
+    elif " - " in lines[0]:
+        solar_system_name, structure_name = (
+            part.strip() for part in lines[0].split(" - ", maxsplit=1)
+        )
+        location_details = ""
+        owner_name = ""
+        structure_type_name = ""
+    else:
+        raise ValueError(
+            _(
+                "Paste the EVE timer with 'System - Structure name' on the first "
+                "line, or use the Orbital Skyhook format."
+            )
+        )
+
     if not solar_system_name or not structure_name:
         raise ValueError(_("The solar system and structure name cannot be empty."))
+    if skyhook_match and (not location_details or not owner_name):
+        raise ValueError(_("The Orbital Skyhook location and owner must not be empty."))
 
     until_match = next(
         (match for line in lines[1:] if (match := EVE_TIMER_UNTIL_PATTERN.match(line))),
@@ -86,6 +115,9 @@ def parse_eve_timer_text(value: str) -> ParsedEveTimer:
         solar_system_name=solar_system_name,
         structure_name=structure_name,
         date=timer_date,
+        location_details=location_details,
+        owner_name=owner_name,
+        structure_type_name=structure_type_name,
     )
 
 
@@ -453,7 +485,12 @@ class FastTimerForm(TimerForm):
         "owner_name",
         "objective",
     )
-    derived_fields = ("eve_solar_system_2", "structure_name", "date")
+    derived_fields = (
+        "eve_solar_system_2",
+        "structure_name",
+        "date",
+        "location_details",
+    )
 
     def __init__(self, *args, **kwargs):
         args = list(args)
@@ -466,6 +503,8 @@ class FastTimerForm(TimerForm):
             data = data.copy()
             for field_name in self.derived_fields:
                 data.pop(field_name, None)
+            parsed_owner_name = ""
+            parsed_location_details = ""
 
             try:
                 parsed_timer = parse_eve_timer_text(data.get("pasted_timer", ""))
@@ -479,6 +518,15 @@ class FastTimerForm(TimerForm):
                     data["eve_solar_system_2"] = str(solar_system.id)
                 data["structure_name"] = parsed_timer.structure_name
                 data["date"] = parsed_timer.date.isoformat()
+                parsed_owner_name = parsed_timer.owner_name
+                parsed_location_details = parsed_timer.location_details
+                if parsed_timer.structure_type_name:
+                    data["structure_type_2"] = str(EveTypeId.ORBITAL_SKYHOOK.value)
+
+            if parsed_owner_name:
+                data["owner_name"] = parsed_owner_name
+            if parsed_location_details:
+                data["location_details"] = parsed_location_details
 
             if data_is_positional:
                 args[0] = data
@@ -498,6 +546,7 @@ class FastTimerForm(TimerForm):
         self.fields["eve_solar_system_2"].required = False
         self.fields["owner_name"].required = True
         self.fields["owner_name"].label = _("Owner")
+        self.fields["location_details"].required = False
         self.order_fields(self.fast_fields + self.derived_fields)
 
     def save(self, commit=True):

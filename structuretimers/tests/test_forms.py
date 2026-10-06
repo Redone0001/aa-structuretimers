@@ -91,6 +91,30 @@ class TestParseEveTimerText(NoSocketsTestCase):
         self.assertEqual(parsed.structure_name, "Gorlock's rule continues")
         self.assertEqual(parsed.date.isoformat(), "2026-09-03T18:57:54+00:00")
 
+    def test_should_parse_orbital_skyhook_timer_text(self):
+        parsed = parse_eve_timer_text(
+            "Orbital Skyhook (F-NXLQ VIII) [Guns-R-Us Toy Company]\n"
+            "28.551 km\n"
+            "Reinforced until 2026.10.09 00:44:58"
+        )
+
+        self.assertEqual(parsed.solar_system_name, "F-NXLQ")
+        self.assertEqual(parsed.structure_name, "VIII")
+        self.assertEqual(parsed.location_details, "VIII")
+        self.assertEqual(parsed.owner_name, "Guns-R-Us Toy Company")
+        self.assertEqual(parsed.structure_type_name, "Orbital Skyhook")
+        self.assertEqual(parsed.date.isoformat(), "2026-10-09T00:44:58+00:00")
+
+    def test_should_parse_skyhook_in_multiword_solar_system(self):
+        parsed = parse_eve_timer_text(
+            "Orbital Skyhook (New Caldari VIII) [Guns-R-Us Toy Company]\n"
+            "28.551 km\n"
+            "Reinforced until 2026.10.09 00:44:58"
+        )
+
+        self.assertEqual(parsed.solar_system_name, "New Caldari")
+        self.assertEqual(parsed.structure_name, "VIII")
+
     def test_should_reject_invalid_date(self):
         with self.assertRaisesRegex(ValueError, "date or time is invalid"):
             parse_eve_timer_text(
@@ -119,6 +143,34 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
             form.cleaned_data["date"].isoformat(), "2026-09-05T03:47:08+00:00"
         )
 
+    def test_should_derive_skyhook_location_and_owner(self):
+        solar_system = EveSolarSystemLowSecFactory(name="F-NXLQ")
+        SkyhookTypeFactory()
+        pasted_timer = (
+            "Orbital Skyhook (F-NXLQ VIII) [Guns-R-Us Toy Company]\n"
+            "28.551 km\n"
+            "Reinforced until 2026.10.09 00:44:58"
+        )
+        form = FastTimerForm(
+            data=create_fast_form_data(
+                pasted_timer=pasted_timer,
+                structure_type_2=EveTypeId.ASTRAHUS.value,
+                owner_name="Should be replaced by parsed owner",
+            )
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["eve_solar_system_2"], str(solar_system.id))
+        self.assertEqual(form.cleaned_data["structure_name"], "VIII")
+        self.assertEqual(
+            form.cleaned_data["structure_type_2"], str(EveTypeId.ORBITAL_SKYHOOK.value)
+        )
+        self.assertEqual(form.cleaned_data["location_details"], "VIII")
+        self.assertEqual(form.cleaned_data["owner_name"], "Guns-R-Us Toy Company")
+        self.assertEqual(
+            form.cleaned_data["date"].isoformat(), "2026-10-09T00:44:58+00:00"
+        )
+
     def test_should_default_objective_to_hostile(self):
         form = FastTimerForm()
 
@@ -131,6 +183,7 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
             [field.name for field in form.visible_fields()],
             list(FastTimerForm.fast_fields),
         )
+        self.assertNotIn("location_details", FastTimerForm.fast_fields)
 
     def test_should_require_owner(self):
         form = FastTimerForm(data=create_fast_form_data(owner_name=""))

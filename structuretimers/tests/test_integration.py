@@ -9,6 +9,7 @@ from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase
 
+from structuretimers.constants import EveTypeId
 from structuretimers.models import ScheduledNotification, Timer
 from structuretimers.tasks import send_test_message_to_webhook
 from structuretimers.tests.testdata.factory import (
@@ -16,6 +17,7 @@ from structuretimers.tests.testdata.factory import (
     DiscordWebhookFactory,
     EveSolarSystemLowSecFactory,
     NotificationRuleFactory,
+    SkyhookTypeFactory,
     TimerFactory,
     UserNoAccessFactory,
     UserWithAccessFactory,
@@ -137,6 +139,33 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
         self.assertEqual(timer.owner_name, "SoyuzMultFilm")
         self.assertEqual(timer.objective, Timer.Objective.HOSTILE)
         self.assertEqual(timer.date.isoformat(), "2026-09-05T03:47:08+00:00")
+
+    def test_user_can_quick_add_orbital_skyhook_from_eve_text(self):
+        solar_system = EveSolarSystemLowSecFactory(name="F-NXLQ")
+        structure_type = SkyhookTypeFactory()
+        self.client.force_login(UserWithCreateFactory())
+        form_data = {
+            "pasted_timer": (
+                "Orbital Skyhook (F-NXLQ VIII) [Guns-R-Us Toy Company]\n"
+                "28.551 km\n"
+                "Reinforced until 2026.10.09 00:44:58"
+            ),
+            "structure_type_2": str(EveTypeId.ASTRAHUS.value),
+            "timer_type": Timer.Type.THEFT,
+            "owner_name": "Submitted owner should be replaced",
+            "objective": Timer.Objective.HOSTILE,
+        }
+
+        response = self.client.post(self.add_fast_timer_url, data=form_data)
+
+        self.assertRedirects(response, self.timer_list_url)
+        timer = Timer.objects.get(structure_name="VIII")
+        self.assertEqual(timer.eve_solar_system, solar_system)
+        self.assertEqual(timer.structure_type, structure_type)
+        self.assertEqual(timer.timer_type, Timer.Type.THEFT)
+        self.assertEqual(timer.location_details, "VIII")
+        self.assertEqual(timer.owner_name, "Guns-R-Us Toy Company")
+        self.assertEqual(timer.date.isoformat(), "2026-10-09T00:44:58+00:00")
 
     def test_user_without_permission_can_not_open_quick_add_page(self):
         self.client.force_login(UserNoAccessFactory())
