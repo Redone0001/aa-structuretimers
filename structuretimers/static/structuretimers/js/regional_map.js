@@ -170,7 +170,7 @@
         const database=source().mode==='database';
         $('mode-label').textContent=database?'· Database records':'· Current timers';
         // The battle timeline is about timers; the Database shows structures.
-        root.querySelector('.st-battle-controls').hidden=database;
+        root.querySelectorAll('.st-battle-controls').forEach(e=>{e.hidden=database;});
         if(database&&battle.enabled){document.getElementById('st-battle-enabled').checked=false;battle.updateControls();}
         if(started&&state.data)refresh();
     }

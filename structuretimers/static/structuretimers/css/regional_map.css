@@ -98,17 +98,16 @@
     --st-map-gate-region: var(--bs-purple, var(--bs-info));
 }
 
-/* Top bar: region and time only. */
-#st-regional-map .st-map-topbar {
-    display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: flex-end;
-    border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: .75rem .9rem .5rem;
-}
-#st-regional-map .st-map-region-picker { font-weight: 600; min-width: 14rem; }
-#st-regional-map .st-map-region-picker select { margin-top: .25rem; }
-#st-regional-map .st-battle-controls { flex: 1 1 32rem; min-width: 0; }
-#st-regional-map .st-map-timebar label { display: inline-flex; flex-direction: column; font-weight: 600; gap: .2rem; }
-#st-regional-map .st-map-timebar label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: .45rem; align-self: center; }
-#st-battle-clock { font-size: 1.5rem; font-variant-numeric: tabular-nums; margin-left: auto; align-self: center; }
+/* Top bar: region and time in one compact row; the time slider sits under the map. */
+#st-regional-map .st-map-topbar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+#st-regional-map .st-map-region-picker { width: auto; min-width: 12rem; font-weight: 600; }
+#st-regional-map .st-battle-controls.d-flex { flex: 1 1 28rem; min-width: 0; }
+#st-regional-map .st-map-when { width: auto; flex-wrap: nowrap; }
+#st-regional-map .st-map-when #st-battle-day { width: 9.5rem; }
+#st-regional-map .st-map-time { width: 4.5rem; text-align: center; font-variant-numeric: tabular-nums; }
+#st-battle-clock { font-size: 1.1rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#st-regional-map .st-map-scrubber .form-range { display: block; }
+#st-regional-map .st-map-ticks { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; margin-top: -.25rem; }
 
 /* Gates, Dotlan-style: inside a constellation, between constellations, between regions. */
 #st-regional-map .st-map-edge { stroke: var(--st-map-gate); }

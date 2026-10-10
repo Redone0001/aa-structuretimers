@@ -18,7 +18,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             $('enabled').addEventListener('change',()=>{this.updateControls();hooks.refresh();});
             $('day').addEventListener('change',()=>{if(!$('day').value)return;this.live=false;this.load();});
             $('slider').addEventListener('input',()=>{this.live=false;this.tick();});
-            $('time').addEventListener('input',()=>{if(!$('time').value)return;const [h,m]=$('time').value.split(':').map(Number);$('slider').value=h*60+m;this.live=false;this.tick();});
+            $('time').addEventListener('input',()=>{if(!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test($('time').value))return;const [h,m]=$('time').value.split(':').map(Number);$('slider').value=h*60+m;this.live=false;this.tick();});
             $('live').addEventListener('click',()=>{this.live=true;const today=utc(this.now()).slice(0,10);if($('day').value!==today){$('day').value=today;this.load();}else this.tick();});
             $('fleets').addEventListener('change',()=>{this.hooks.paint();if($('fleets').checked)this.loadFleets();else{this.fleetAbort?.abort();this.fleetAbort=null;this.fleetVersion++;$('fleet-sync').textContent='Fleet background updates paused while overlay is off.';}});
             $('add').addEventListener('click',()=>this.edit());

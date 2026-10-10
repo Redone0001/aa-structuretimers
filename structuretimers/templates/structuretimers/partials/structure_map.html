@@ -14,19 +14,21 @@
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
 
     {# Above the map: only the time and the region. #}
+    {# Above the map: one compact row with the region and the time. #}
     <div class="st-map-topbar mb-2">
-        <label class="st-map-region-picker">{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
-        <div class="st-battle-controls">
-            <div class="st-map-timebar d-flex flex-wrap align-items-end gap-3">
-      <label><input id="st-battle-enabled" type="checkbox" class="form-check-input" checked> {% translate 'Experimental battle timeline' %}</label>
-      <label>{% translate 'Day (EVE / UTC)' %} <input id="st-battle-day" type="date" class="form-control"></label>
-      <button id="st-battle-live" type="button" class="btn btn-primary" aria-pressed="true">{% translate 'Live' %}</button>
-      <label>{% translate 'Time (UTC)' %} <input id="st-battle-time" type="time" step="60" class="form-control"></label>
-      <strong id="st-battle-clock"></strong>
-    </div>
-            <label for="st-battle-slider" class="mt-3">{% translate 'Drag to inspect when timers open' %}</label>
-            <input id="st-battle-slider" type="range" min="0" max="1439" step="1" value="0" class="form-range">
-            <div class="d-flex justify-content-between small text-muted"><span>00:00 UTC</span><span>12:00</span><span>23:59 UTC</span></div>
+        <select id="st-map-region" class="form-select form-select-sm st-map-region-picker" aria-label="{% translate 'Region' %}"></select>
+        <div class="st-battle-controls d-flex flex-wrap align-items-center gap-2">
+            <div class="form-check form-switch mb-0">
+                <input id="st-battle-enabled" type="checkbox" class="form-check-input" role="switch" checked>
+                <label class="form-check-label" for="st-battle-enabled">{% translate 'Battle timeline' %}</label>
+            </div>
+            <div class="input-group input-group-sm st-map-when">
+                <input id="st-battle-day" type="date" class="form-control" aria-label="{% translate 'Day (EVE / UTC)' %}">
+                <input id="st-battle-time" type="text" class="form-control st-map-time" inputmode="numeric" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" placeholder="HH:MM" aria-label="{% translate 'Time (UTC)' %}">
+                <span class="input-group-text">UTC</span>
+                <button id="st-battle-live" type="button" class="btn btn-primary" aria-pressed="true">{% translate 'Live' %}</button>
+            </div>
+            <strong id="st-battle-clock" class="ms-auto"></strong>
         </div>
     </div>
 
@@ -38,6 +40,12 @@
                 <button class="btn btn-secondary" id="st-map-fit" type="button">{% translate 'Fit map' %}</button><button class="btn btn-outline-secondary" id="st-map-clear" type="button">{% translate 'Clear selection' %}</button>
             </div>
             <div id="st-map-canvas"></div>
+            <div class="st-battle-controls st-map-scrubber mt-2">
+                <input id="st-battle-slider" type="range" min="0" max="1439" step="1" value="0" class="form-range" aria-label="{% translate 'Drag to inspect when timers open' %}">
+                <div class="st-map-ticks small text-muted" aria-hidden="true">
+                    <span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span>
+                </div>
+            </div>
         </div>
         <aside class="card st-map-sidebar" aria-labelledby="st-map-detail-title"><div class="card-body"><h2 id="st-map-detail-title" class="h5">{% translate 'Select a system' %}</h2><div id="st-map-details" aria-live="polite">{% translate 'Select a system on the map or in the selector to see its permitted timers.' %}</div></div></aside>
     </div>
