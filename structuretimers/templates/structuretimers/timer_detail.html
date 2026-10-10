@@ -10,6 +10,13 @@
         <span class="text-muted small">· last updated {{ database_entry.last_updated_at|date:"Y-m-d H:i" }} UTC</span>
     </p>
 {% endif %}
+{% if structures_structure %}
+    <h5>Database record</h5>
+    <p>
+        <a href="{{ structures_structure.url }}" target="_blank" rel="noopener">{{ structures_structure.name }}</a>
+        <span class="badge text-bg-info">Structures</span>
+    </p>
+{% endif %}
 {% if linked_timers is not None %}
     <h5>Timers for this structure</h5>
     {% if linked_timers %}

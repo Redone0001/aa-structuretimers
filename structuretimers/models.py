@@ -34,7 +34,7 @@ from app_utils.datetime import DATETIME_FORMAT
 from app_utils.json import JSONDateTimeDecoder, JSONDateTimeEncoder
 from app_utils.urls import reverse_absolute, static_file_absolute_url
 
-from structuretimers import __title__
+from structuretimers import __title__, structures_bridge
 from structuretimers.app_settings import (
     STRUCTURETIMER_NOTIFICATION_SET_AVATAR,
     STRUCTURETIMERS_NOTIFICATIONS_ENABLED,
@@ -477,6 +477,15 @@ class Timer(models.Model):
         limit_choices_to={"timer_type": "PL"},
         help_text="Database record of the structure this timer belongs to",
     )
+    structures_structure_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=(
+            "ID of the aa-structures structure this timer belongs to, "
+            "used instead of a Database record when that app is installed"
+        ),
+    )
     timer_type = models.CharField(max_length=2, choices=Type.choices, default=Type.NONE)
     user = models.ForeignKey(
         User,
@@ -527,11 +536,25 @@ class Timer(models.Model):
         """Make sure every scheduled timer points to a database record."""
         if self.timer_type == Timer.Type.PRELIMINARY:
             self.database_entry = None
-        elif not self.database_entry_id and self.eve_solar_system_id:
-            self.database_entry = Timer.objects.find_or_create_database_entry(self)
+            self.structures_structure_id = None
+        elif (
+            not self.database_entry_id
+            and not self.structures_structure_id
+            and self.eve_solar_system_id
+        ):
+            # Friendly structures known to aa-structures stay in that app.
+            self.structures_structure_id = structures_bridge.find_structure_id(self)
+            if not self.structures_structure_id:
+                self.database_entry = Timer.objects.find_or_create_database_entry(
+                    self
+                )
             update_fields = kwargs.get("update_fields")
             if update_fields is not None:
-                kwargs["update_fields"] = {*update_fields, "database_entry"}
+                kwargs["update_fields"] = {
+                    *update_fields,
+                    "database_entry",
+                    "structures_structure_id",
+                }
         super().save(*args, **kwargs)
 
     def __str__(self):

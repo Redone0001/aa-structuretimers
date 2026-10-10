@@ -22,6 +22,7 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.services.hooks import get_extension_logger
 
 from .constants import EveGroupId, EveTypeId
+from . import structures_bridge
 from .models import Timer
 
 logger = get_extension_logger(__name__)
@@ -284,6 +285,17 @@ class TimerForm(forms.ModelForm):
                     my_instance.database_entry.structure_display_name,
                 )
             ]
+        elif my_instance and my_instance.structures_structure_id:
+            structure = structures_bridge.get_structure(
+                self.user, my_instance.structures_structure_id
+            )
+            if structure:
+                self.fields["database_entry_2"].widget.choices = [
+                    (
+                        structures_bridge.ROW_PREFIX + str(structure.id),
+                        structures_bridge.display_name(structure) + " (Structures)",
+                    )
+                ]
 
         if my_instance:
             self.fields["eve_solar_system_2"].widget.choices = [
@@ -430,8 +442,27 @@ class TimerForm(forms.ModelForm):
             )
 
     def _clean_database_entry(self, cleaned_data):
+        value = str(cleaned_data["database_entry_2"])
+        if value.startswith(structures_bridge.ROW_PREFIX):
+            try:
+                structure_id = int(value[len(structures_bridge.ROW_PREFIX) :])
+            except ValueError:
+                structure_id = None
+            structure = (
+                structures_bridge.get_structure(self.user, structure_id)
+                if structure_id
+                else None
+            )
+            if structure is None:
+                self.add_error(
+                    "database_entry_2", "This structure is not in the Database."
+                )
+                cleaned_data.pop("database_entry_2", None)
+                return
+            cleaned_data["database_entry_2"] = structure
+            return
         try:
-            entry_pk = int(cleaned_data["database_entry_2"])
+            entry_pk = int(value)
         except (TypeError, ValueError):
             entry_pk = None
         entry = (
@@ -451,7 +482,13 @@ class TimerForm(forms.ModelForm):
         timer = super().save(commit=False)
         if "database_entry_2" in self.fields:
             # Empty means "match or add automatically" when the timer is saved.
-            timer.database_entry = self.cleaned_data.get("database_entry_2") or None
+            picked = self.cleaned_data.get("database_entry_2") or None
+            if isinstance(picked, Timer) or picked is None:
+                timer.database_entry = picked
+                timer.structures_structure_id = None
+            else:
+                timer.database_entry = None
+                timer.structures_structure_id = picked.id
 
         # character / corporation / alliance
         if self.is_new:

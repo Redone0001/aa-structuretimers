@@ -38,7 +38,7 @@ from app_utils.views import (
     yesno_str,
 )
 
-from structuretimers import __title__
+from structuretimers import __title__, structures_bridge
 from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
@@ -405,7 +405,7 @@ class TimerListDataView(
             or timer.details_notes
             or timer.assigned_to_id
             or (
-                timer.database_entry_id
+                (timer.database_entry_id or timer.structures_structure_id)
                 and self.request.user.has_perm("structuretimers.recon_member")
             )
         ):
@@ -494,6 +494,19 @@ class ManageReconDataView(TimerListDataView):
                     ngettext("%(count)d timer", "%(count)d timers", count)
                     % {"count": count},
                 )
+        staging_pk = self.request.GET.get("staging")
+        staging_system = (
+            StagingSystem.objects.select_related("eve_solar_system")
+            .filter(pk=staging_pk)
+            .first()
+            if staging_pk and staging_pk.isdigit()
+            else None
+        )
+        data += structures_bridge.database_rows(
+            self.request.user,
+            staging_system,
+            Timer.objects.visible_to_user(self.request.user),
+        )
         return data
 
     def _get_data_actions(self, timer):
@@ -563,6 +576,15 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
                 context["database_entry"] = visible.filter(
                     pk=self.object.database_entry_id
                 ).first()
+            elif self.object.structures_structure_id:
+                structure = structures_bridge.get_structure(
+                    user, self.object.structures_structure_id
+                )
+                if structure:
+                    context["structures_structure"] = {
+                        "name": structures_bridge.display_name(structure),
+                        "url": reverse("structures:index"),
+                    }
         return context
 
 
@@ -800,8 +822,15 @@ class Select2DatabaseEntriesView(
         )
 
     def get_context_data(self, **kwargs):
+        term = (self.request.GET.get("term") or "").strip()
+        structures = (
+            structures_bridge.picker_results(self.request.user, term)
+            if len(term) >= 2
+            else []
+        )
         return {
-            "results": [
+            "results": structures
+            + [
                 {
                     "id": entry.pk,
                     "text": entry.structure_display_name,
