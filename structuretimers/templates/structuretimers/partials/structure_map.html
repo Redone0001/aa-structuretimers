@@ -1,22 +1,19 @@
-{% extends 'structuretimers/base.html' %}
 {% load static i18n %}
-{% block structuretimers_content %}
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=current">{% translate 'Current' %}</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{% translate 'Database' %}</a></li>
-    <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'structuretimers:regional_map' %}">{% translate 'Regional map' %}</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=past">{% translate 'Past' %}</a></li>
-    {% if perms.structuretimers.recon_coordinator %}<li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=standings">Standings</a></li>{% endif %}
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
-</ul>
-<section id="st-regional-map" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+{# One map section, shared by the Current and Database tabs; it draws the active tab's filtered table rows. #}
+<div class="card mb-3" id="st-map-panel" hidden>
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <button class="btn btn-link p-0 text-decoration-none fw-bold" type="button" id="st-map-toggle" data-bs-toggle="collapse" data-bs-target="#st-map-collapse" aria-expanded="false" aria-controls="st-map-collapse">
+            <i class="fas fa-map me-1"></i> Map <span class="small text-muted fw-normal" id="st-map-mode-label"></span>
+        </button>
+    </div>
+    <div class="collapse" id="st-map-collapse">
+        <div class="card-body">
+<section id="st-regional-map" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
     {% include "structuretimers/partials/battle_map.html" %}
     <div class="card mb-3"><div class="card-body">
         <div class="st-map-controls">
             <label>{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
-            <label>{% translate 'Relationship' %}<select id="st-map-relationship" class="form-select"><option value="all">{% translate 'Any relationship' %}</option><option value="FR">{% translate 'Friendly' %}</option><option value="NE">{% translate 'Neutral' %}</option><option value="HO">{% translate 'Hostile' %}</option><option value="UN">{% translate 'Undefined' %}</option></select></label>
-            <label>{% translate 'Timers' %}<select id="st-map-window" class="form-select"><option value="preliminary">{% translate 'Database' %}</option><option value="4">{% translate 'Active · next 4h' %}</option><option value="24">{% translate 'Active · next 24h' %}</option><option value="all">{% translate 'Active · all upcoming' %}</option></select></label>
             <label>{% translate 'Range' %}<select id="st-map-range" class="form-select"><option value="none">{% translate 'None' %}</option>{% for key, limit, label, style in jump_ranges %}<option value="{{ key }}">{{ label }} · {{ limit }} LY</option>{% endfor %}</select></label>
             <label>{% translate 'Spacing' %}<select id="st-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
         </div>
@@ -25,7 +22,7 @@
             <div class="d-flex gap-2 flex-wrap"><input id="st-map-source-search" class="form-control" type="search" placeholder="{% translate 'At least two characters' %}" autocomplete="off"><select id="st-map-source" class="form-select" aria-label="{% translate 'Range origin results' %}"><option value="">{% translate 'Choose an origin' %}</option></select></div>
             <p id="st-map-source-status" class="small text-muted mb-0" role="status"></p>
         </div>
-        <p class="small text-muted mt-2 mb-0">{% translate 'Filters combine with AND. Highlighted systems contain matching visible timers and satisfy the selected range. Counts represent timer records, not a verified structure inventory. Range is geometric distance, not a guarantee that a ship can jump there.' %}</p>
+        <p class="small text-muted mt-2 mb-0">The map shows the rows the table below shows: change the table's filters or search to change the map. Highlighted systems contain matching rows and satisfy the selected range. Range is geometric distance, not a guarantee that a ship can jump there.</p>
     </div></div>
     <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
         <label><input id="st-map-test-regions" class="form-check-input me-1" type="checkbox"> {% translate 'Show CCP test regions' %}</label>
@@ -52,6 +49,6 @@
     </div>
     {% include "structuretimers/partials/battle_fleets.html" %}
 </section>
-{% endblock %}
-{% block structuretimers_extra_css %}<link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">{% endblock %}
-{% block extra_javascript %}<script src="{% static 'structuretimers/js/map_preferences.js' %}"></script><script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/battle_timeline.js' %}"></script><script src="{% static 'structuretimers/js/battle_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}
+        </div>
+    </div>
+</div>

@@ -34,7 +34,6 @@
         updateControls(){
             for(const id of ['day','slider','time','live'])$(id).disabled=!this.enabled;
             $('hours-panel').hidden=!this.enabled;
-            document.getElementById('st-map-window').disabled=this.enabled;
         }
         reset(){this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;this.fleetLoaded=0;this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
         async setRegion(data){this.data=data;await this.load();}
@@ -78,8 +77,7 @@
             }catch(e){if(e.name!=='AbortError')$('error').textContent=e.message+' Use Refresh to retry.';}
         }
         filtered(){
-            const relation=document.getElementById('st-map-relationship').value;
-            return this.timers.filter(t=>(relation==='all'||relationshipCodes[t.relationship]===relation)&&this.hooks.inRange(t.system_id));
+            return this.timers.filter(t=>this.hooks.allowed(t)&&this.hooks.inRange(t.system_id));
         }
         tick(){
             if(!this.data)return;

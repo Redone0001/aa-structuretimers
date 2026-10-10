@@ -8,7 +8,7 @@ from django.apps import apps
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Count, Exists, OuterRef
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
@@ -175,25 +175,16 @@ def structure_payload(user, ids, params):
 
 
 @login_required
-@permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_member"),
-    raise_exception=True,
-)
+@permission_required("structuretimers.basic_access", raise_exception=True)
 @require_GET
 @never_cache
 def map_page(request):
-    return render(
-        request,
-        "structuretimers/regional_map.html",
-        {"title": "Regional map", "jump_ranges": JUMP_RANGES},
-    )
+    """The map is a section of the Current and Database tabs now."""
+    return redirect(reverse("structuretimers:timer_list") + "?tab=current")
 
 
 @login_required
-@permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_member"),
-    raise_exception=True,
-)
+@permission_required("structuretimers.basic_access", raise_exception=True)
 @require_GET
 @never_cache
 def map_data(request, layer):

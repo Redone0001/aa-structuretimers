@@ -48,7 +48,7 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_PAGING_ENABLED,
 )
 from structuretimers.constants import EveTypeId
-from structuretimers.distance_ranges import distance_range
+from structuretimers.distance_ranges import JUMP_RANGES, distance_range
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
 from structuretimers.models import (
     DistancesFromStaging,
@@ -162,6 +162,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
                 "tab": self._selected_tab(),
+                "jump_ranges": JUMP_RANGES,
                 **self._standings_context(),
                 "campaigns": ReconCampaign.objects.all(),
                 "recon_translations": {
@@ -292,6 +293,17 @@ class TimerListDataView(
                     "actions": self._get_data_actions(timer),
                     "timer_type_name": timer.get_timer_type_display(),
                     "objective_name": self._calc_standing_name(timer),
+                    # Plain values for the map section, which draws table rows.
+                    "map": {
+                        "system_id": timer.eve_solar_system_id,
+                        "objective": timer.objective,
+                        "structure_type_id": timer.structure_type_id,
+                        "structure_name": timer.structure_name,
+                        "location_details": timer.location_details,
+                        "timer_type_name": (
+                            timer.get_timer_type_display() if timer.date else ""
+                        ),
+                    },
                     "system_name": timer.eve_solar_system.name,
                     "region_name": timer.eve_solar_system.eve_constellation.eve_region.name,
                     "structure_type_name": (

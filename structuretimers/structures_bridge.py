@@ -163,6 +163,14 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
                 "structure_type_name": structure.eve_type.name,
                 "owner_name": corporation.corporation_name,
                 "objective_name": "+10",
+                "map": {
+                    "system_id": system.id,
+                    "objective": "FR",
+                    "structure_type_id": structure.eve_type_id,
+                    "structure_name": structure.name,
+                    "location_details": "",
+                    "timer_type_name": "",
+                },
                 "timer_count": count,
             }
         )

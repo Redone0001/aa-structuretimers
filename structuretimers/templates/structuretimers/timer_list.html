@@ -18,7 +18,6 @@
                 {% translate "Database" %}
             </button>
         </li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:regional_map' %}">{% translate "Regional map" %}</a></li>
         {% endif %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-past" type="button" aria-selected="false" data-bs-target="#past" aria-controls="past" role="tab" data-bs-toggle="tab">
@@ -61,6 +60,8 @@
             </div>
         </li>
     </ul>
+
+    {% include 'structuretimers/partials/structure_map.html' %}
 
     <div class="card">
         <div class="card-body">
@@ -185,6 +186,7 @@
     <link rel="stylesheet" href="{% static 'structuretimers/css/select2.css' %}">
     <link rel="stylesheet" href="{% static 'structuretimers/css/global.css' %}" type="text/css" media="screen">
     <link rel="stylesheet" href="{% static 'structuretimers/css/timer_list.css' %}" type="text/css" media="screen">
+    <link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">
 {% endblock structuretimers_extra_css %}
 
 {% block extra_javascript %}
@@ -194,4 +196,10 @@
     <script type="text/javascript" src="{% static 'structuretimers/js/recon_distribution.js' %}"></script>
     <script type="application/javascript" src="{% static 'structuretimers/js/timer_list.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/manage_recon.js' %}"></script>
+    <script src="{% static 'structuretimers/js/structure_map_source.js' %}"></script>
+    <script src="{% static 'structuretimers/js/map_preferences.js' %}"></script>
+    <script src="{% static 'structuretimers/js/system_map.js' %}"></script>
+    <script src="{% static 'structuretimers/js/battle_timeline.js' %}"></script>
+    <script src="{% static 'structuretimers/js/battle_map.js' %}"></script>
+    <script src="{% static 'structuretimers/js/regional_map.js' %}"></script>
 {% endblock extra_javascript %}

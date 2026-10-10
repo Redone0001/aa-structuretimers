@@ -40,16 +40,14 @@ class TestReconMember(NoSocketsTestCase):
         self.assertEqual(response.context["tab"], "current")
         self.assertNotContains(response, 'id="tab-preliminary"')
         self.assertNotContains(response, 'id="tab-recon-campaigns"')
-        self.assertNotContains(response, reverse("structuretimers:regional_map"))
+        # The map section is open to everyone who can see timers.
+        self.assertContains(response, 'id="st-map-panel"')
         self.assertNotContains(response, reverse("structuretimers:add_recon"))
         self.assertNotContains(response, 'id="recon-dashboard"')
 
     def test_recon_pages_and_endpoints_are_forbidden(self):
         for url in [
             reverse("structuretimers:recon_data"),
-            reverse("structuretimers:regional_map"),
-            reverse("structuretimers:regional_map_data", args=["geography"]),
-            reverse("structuretimers:battle_map_data", args=["snapshot"]),
             reverse("structuretimers:campaign_list"),
             reverse("structuretimers:add_recon"),
         ]:
@@ -72,6 +70,22 @@ class TestReconMember(NoSocketsTestCase):
         response = self.client.get(reverse("structuretimers:timer_list"))
         self.assertContains(response, 'id="tab-preliminary"')
         self.assertEqual(
-            self.client.get(reverse("structuretimers:regional_map")).status_code,
+            self.client.get(reverse("structuretimers:recon_data")).status_code,
             HTTPStatus.OK,
         )
+
+    def test_map_is_open_to_basic_access_but_shows_no_records(self):
+        self.assertRedirects(
+            self.client.get(reverse("structuretimers:regional_map")),
+            reverse("structuretimers:timer_list") + "?tab=current",
+        )
+        response = self.client.get(
+            reverse("structuretimers:battle_map_data", args=["snapshot"])
+        )
+        self.assertNotEqual(response.status_code, HTTPStatus.FORBIDDEN)
+        response = self.client.get(
+            reverse("structuretimers:regional_map_data", args=["structures"]),
+            {"region": self.recon.eve_solar_system.eve_constellation.eve_region_id},
+        )
+        self.assertNotEqual(response.status_code, HTTPStatus.FORBIDDEN)
+        self.assertNotIn(str(self.recon.eve_solar_system_id), response.content.decode())
