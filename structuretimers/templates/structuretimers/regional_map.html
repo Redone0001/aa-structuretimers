@@ -4,9 +4,9 @@
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=current">{% translate 'Current' %}</a></li>
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{% translate 'Database' %}</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
     <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'structuretimers:regional_map' %}">{% translate 'Regional map' %}</a></li>
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=past">{% translate 'Past' %}</a></li>
+    <li class="nav-item ms-auto"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
 </ul>
 <section id="st-regional-map" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
