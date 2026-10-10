@@ -82,5 +82,5 @@
 #st-regional-map .st-map-force-range[data-force-color="hostile"] { stroke: var(--st-hostile); }
 #st-regional-map .st-map-force-range[data-force-color="intersection"] { stroke: var(--bs-warning); }
 
-.st-battle-force-groups { display: grid; gap: 1.5rem; }
+.st-battle-force-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 1.5rem; align-items: start; }
 .st-battle-force-groups > section { min-width: 0; }
