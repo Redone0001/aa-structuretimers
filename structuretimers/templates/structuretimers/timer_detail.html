@@ -3,6 +3,26 @@
 <h5>{% translate "Timer" %}</h5>
 <p>{{ object }}</p>
 
+{% if database_entry %}
+    <h5>Database record</h5>
+    <p>
+        <a href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{{ database_entry.structure_display_name }}</a>
+        <span class="text-muted small">· last updated {{ database_entry.last_updated_at|date:"Y-m-d H:i" }} UTC</span>
+    </p>
+{% endif %}
+{% if linked_timers is not None %}
+    <h5>Timers for this structure</h5>
+    {% if linked_timers %}
+        <ul>
+            {% for timer in linked_timers %}
+                <li>{{ timer.get_timer_type_display }} · {{ timer.date|date:"Y-m-d H:i" }} UTC{% if timer.date and timer.date < now %} <span class="text-muted">(past)</span>{% endif %}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-muted">None yet</p>
+    {% endif %}
+{% endif %}
+
 <h5>{% translate "Assigned to" %}</h5>
 <p>{{ object.assigned_character_name|default:_("Unassigned") }}</p>
 

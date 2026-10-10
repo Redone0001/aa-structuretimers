@@ -9,6 +9,7 @@ from typing import Iterable
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -17,6 +18,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -398,7 +400,15 @@ class TimerListDataView(
 
     def _get_data_actions(self, timer: Timer):
         actions = ""
-        if timer.details_image_url or timer.details_notes or timer.assigned_to_id:
+        if (
+            timer.details_image_url
+            or timer.details_notes
+            or timer.assigned_to_id
+            or (
+                timer.database_entry_id
+                and self.request.user.has_perm("structuretimers.recon_member")
+            )
+        ):
             disabled_html = ""
             button_type = "primary"
             data_toggle = 'data-bs-toggle="modal" data-bs-target="#modalTimerDetails" '
@@ -466,6 +476,26 @@ class ManageReconDataView(TimerListDataView):
         self.kwargs["tab_name"] = "preliminary"
         return super().get_queryset()
 
+    def get_data(self, context):
+        data = super().get_data(context)
+        counts = dict(
+            Timer.objects.visible_to_user(self.request.user)
+            .filter(database_entry__in=[row["id"] for row in data])
+            .values("database_entry")
+            .annotate(count=Count("id"))
+            .values_list("database_entry", "count")
+        )
+        for row in data:
+            row["timer_count"] = count = counts.get(row["id"], 0)
+            if count:
+                row["name_objective"] = format_html(
+                    '{}<br><span class="badge text-bg-secondary">{}</span>',
+                    row["name_objective"],
+                    ngettext("%(count)d timer", "%(count)d timers", count)
+                    % {"count": count},
+                )
+        return data
+
     def _get_data_actions(self, timer):
         return render_to_string(
             "structuretimers/partials/recon_actions.html",
@@ -518,6 +548,22 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         return qs.visible_to_user(self.request.user).select_related(
             "structure_type", "eve_solar_system", "assigned_to__profile__main_character"
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["now"] = now()
+        user = self.request.user
+        if user.has_perm("structuretimers.recon_member"):
+            visible = Timer.objects.visible_to_user(user)
+            if self.object.timer_type == Timer.Type.PRELIMINARY:
+                context["linked_timers"] = visible.filter(
+                    database_entry=self.object
+                ).order_by("-date")
+            elif self.object.database_entry_id:
+                context["database_entry"] = visible.filter(
+                    pk=self.object.database_entry_id
+                ).first()
+        return context
 
 
 class TimerManagementView(LoginRequiredMixin, PermissionRequiredMixin, View):
