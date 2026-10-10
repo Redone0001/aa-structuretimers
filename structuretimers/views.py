@@ -114,6 +114,16 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
             organization.effective = standings.standing_label(
                 standings.effective_standing(organization)
             )
+            # A corp without its own standing takes its alliance's.
+            organization.inherited = (
+                organization.standing_override is None
+                and organization.standing_auto is None
+                and organization.alliance is not None
+                and (
+                    organization.alliance.standing_override is not None
+                    or organization.alliance.standing_auto is not None
+                )
+            )
         return {
             "organizations": organizations,
             "standing_choices": Organization.Standing.choices,

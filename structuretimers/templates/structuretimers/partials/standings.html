@@ -57,7 +57,7 @@
                             </select>
                         </form>
                     </td>
-                    <td><strong>{{ organization.effective }}</strong></td>
+                    <td><strong>{{ organization.effective }}</strong>{% if organization.inherited %} <span class="small text-muted">from {{ organization.alliance.name }}</span>{% endif %}</td>
                 </tr>
             {% empty %}
                 <tr><td colspan="6" class="text-muted">No owners yet. They appear here as structures get owners.</td></tr>
