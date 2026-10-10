@@ -67,6 +67,11 @@ urlpatterns = [
         name="select2_solar_systems",
     ),
     path(
+        "select2_database_entries/",
+        views.Select2DatabaseEntriesView.as_view(),
+        name="select2_database_entries",
+    ),
+    path(
         "select2_structure_types/",
         views.Select2StructureTypesView.as_view(),
         name="select2_structure_types",

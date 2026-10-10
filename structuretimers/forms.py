@@ -140,6 +140,16 @@ class TimerForm(forms.ModelForm):
         "This field is calculated from the current time. "
         "Alternatively, you can enter the date above in the `Date` field."
     )
+    database_entry_2 = forms.CharField(
+        required=False,
+        label="Existing structure",
+        help_text=(
+            "Optional. Pick a structure from the Database to link this timer to it "
+            "and fill in its details. Leave empty to match on solar system, type "
+            "and name, or add a new Database record."
+        ),
+        widget=forms.Select(attrs={"class": "select2-database-entries"}),
+    )
     eve_solar_system_2 = forms.CharField(
         required=True,
         label=format_html("{} {}", _("Solar System"), ASTERISK_HTML),
@@ -228,6 +238,7 @@ class TimerForm(forms.ModelForm):
     class Meta:
         model = Timer
         fields = (
+            "database_entry_2",
             "eve_solar_system_2",
             "location_details",
             "reinforcement_time",
@@ -260,6 +271,20 @@ class TimerForm(forms.ModelForm):
 
         super().__init__(*args, **kwargs)
 
+        if (
+            not self.user
+            or not self.user.has_perm("structuretimers.recon_member")
+            or (my_instance and my_instance.timer_type == Timer.Type.PRELIMINARY)
+        ):
+            self.fields.pop("database_entry_2", None)
+        elif my_instance and my_instance.database_entry_id:
+            self.fields["database_entry_2"].widget.choices = [
+                (
+                    str(my_instance.database_entry_id),
+                    my_instance.database_entry.structure_display_name,
+                )
+            ]
+
         if my_instance:
             self.fields["eve_solar_system_2"].widget.choices = [
                 (
@@ -285,6 +310,9 @@ class TimerForm(forms.ModelForm):
 
         if cleaned_data.get("details_image_url"):
             self._clean_image(cleaned_data)
+
+        if cleaned_data.get("database_entry_2"):
+            self._clean_database_entry(cleaned_data)
 
         days_left = cleaned_data.get("days_left")
         hours_left = cleaned_data.get("hours_left")
@@ -401,8 +429,29 @@ class TimerForm(forms.ModelForm):
                 code="details_url_unsupported_type",
             )
 
+    def _clean_database_entry(self, cleaned_data):
+        try:
+            entry_pk = int(cleaned_data["database_entry_2"])
+        except (TypeError, ValueError):
+            entry_pk = None
+        entry = (
+            Timer.objects.visible_to_user(self.user)
+            .filter(pk=entry_pk, timer_type=Timer.Type.PRELIMINARY)
+            .first()
+            if entry_pk
+            else None
+        )
+        if entry is None:
+            self.add_error("database_entry_2", "This structure is not in the Database.")
+            cleaned_data.pop("database_entry_2", None)
+            return
+        cleaned_data["database_entry_2"] = entry
+
     def save(self, commit=True):
         timer = super().save(commit=False)
+        if "database_entry_2" in self.fields:
+            # Empty means "match or add automatically" when the timer is saved.
+            timer.database_entry = self.cleaned_data.get("database_entry_2") or None
 
         # character / corporation / alliance
         if self.is_new:

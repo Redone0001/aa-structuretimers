@@ -9,7 +9,7 @@ from typing import Iterable
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -768,6 +768,68 @@ class Select2SolarSystemsView(JSONResponseMixin, ListView):
         else:
             results = None
         return {"results": results}
+
+    def render_to_response(self, context, **response_kwargs):
+        return self.render_to_json_response(context, **response_kwargs)
+
+
+class Select2DatabaseEntriesView(
+    LoginRequiredMixin, PermissionRequiredMixin, JSONResponseMixin, ListView
+):
+    """Structures in the Database for the timer form's select2 picker."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_member",
+    )
+
+    def get_queryset(self):
+        term = (self.request.GET.get("term") or "").strip()
+        if len(term) < 2:
+            return Timer.objects.none()
+        return (
+            Timer.objects.visible_to_user(self.request.user)
+            .filter(timer_type=Timer.Type.PRELIMINARY)
+            .filter(
+                Q(structure_name__icontains=term)
+                | Q(eve_solar_system__name__istartswith=term)
+                | Q(owner_name__icontains=term)
+            )
+            .select_related("eve_solar_system", "structure_type")
+            .order_by("eve_solar_system__name", "structure_name")[:30]
+        )
+
+    def get_context_data(self, **kwargs):
+        return {
+            "results": [
+                {
+                    "id": entry.pk,
+                    "text": entry.structure_display_name,
+                    "solar_system": {
+                        "id": entry.eve_solar_system_id,
+                        "text": entry.eve_solar_system.name,
+                    },
+                    "structure_type": (
+                        {
+                            "id": entry.structure_type_id,
+                            "text": entry.structure_type.name,
+                        }
+                        if entry.structure_type
+                        else None
+                    ),
+                    "structure_name": entry.structure_name,
+                    "owner_name": entry.owner_name or "",
+                    "location_details": entry.location_details,
+                    "objective": entry.objective,
+                    "reinforcement_time": (
+                        entry.reinforcement_time.strftime("%H:%M")
+                        if entry.reinforcement_time
+                        else ""
+                    ),
+                }
+                for entry in self.object_list
+            ]
+        }
 
     def render_to_response(self, context, **response_kwargs):
         return self.render_to_json_response(context, **response_kwargs)

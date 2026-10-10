@@ -3,12 +3,14 @@
 from datetime import time, timedelta
 from unittest.mock import Mock, patch
 
+from django.urls import reverse
 from django.utils.timezone import now
 from app_utils.testing import NoSocketsTestCase
 from structuretimers.forms import TimerForm
 from structuretimers.models import Timer
 from structuretimers.tests.testdata.factory import (
     TimerFactory,
+    UserMainFactory,
     UserWithCreateFactory,
 )
 
@@ -113,3 +115,62 @@ class TestDatabaseEntry(NoSocketsTestCase):
         self.assertNotEqual(timer.pk, record.pk)
         self.assertEqual(timer.timer_type, Timer.Type.ARMOR)
         self.assertEqual(timer.database_entry, record)
+
+    def test_picked_record_is_linked_even_if_details_differ(self):
+        user = UserWithCreateFactory()
+        record = TimerFactory(
+            timer_type=Timer.Type.PRELIMINARY, date=None, structure_name="Home"
+        )
+        form = TimerForm(
+            user=user,
+            data=create_form_data(
+                database_entry_2=str(record.pk),
+                eve_solar_system_2=record.eve_solar_system_id,
+                structure_type_2=record.structure_type_id,
+                structure_name="Renamed since",
+                timer_type=Timer.Type.ARMOR,
+                days_left=1,
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        timer = form.save()
+        self.assertEqual(timer.database_entry, record)
+
+    def test_picker_rejects_unknown_records_and_needs_recon_member(self):
+        user = UserWithCreateFactory()
+        not_a_record = TimerFactory(timer_type=Timer.Type.ARMOR)
+        form = TimerForm(
+            user=user,
+            data=create_form_data(
+                database_entry_2=str(not_a_record.pk),
+                eve_solar_system_2=not_a_record.eve_solar_system_id,
+                structure_type_2=not_a_record.structure_type_id,
+                days_left=1,
+            ),
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("database_entry_2", form.errors)
+        basic = UserMainFactory(
+            permissions__=[
+                "structuretimers.basic_access",
+                "structuretimers.create_timer",
+            ]
+        )
+        self.assertNotIn("database_entry_2", TimerForm(user=basic).fields)
+
+    def test_picker_search_returns_visible_records(self):
+        user = UserWithCreateFactory()
+        record = TimerFactory(
+            timer_type=Timer.Type.PRELIMINARY, date=None, structure_name="Home base"
+        )
+        TimerFactory(
+            timer_type=Timer.Type.PRELIMINARY,
+            date=None,
+            structure_name="Home secret",
+            is_opsec=True,
+        )
+        self.client.force_login(user)
+        url = reverse("structuretimers:select2_database_entries")
+        results = self.client.get(url, {"term": "home"}).json()["results"]
+        self.assertEqual([row["id"] for row in results], [record.pk])
+        self.assertEqual(results[0]["structure_name"], "Home base")

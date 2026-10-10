@@ -35,6 +35,33 @@ $(document).ready(function () {
         dropdownCssClass: "st-select2-dropdown"
     });
 
+    $('.select2-database-entries').select2({
+        ajax: {
+            url: elem.getAttribute('data-select2DatabaseEntriesUrl'),
+            dataType: 'json'
+        },
+        theme: myTheme,
+        width: "100%",
+        allowClear: true,
+        minimumInputLength: 2,
+        placeholder: "Search the Database by name, system or owner",
+        dropdownCssClass: "st-select2-dropdown"
+    }).on('select2:select', function (event) {
+        // Copy the picked structure's details into the form.
+        const entry = event.params.data;
+        const setSelect = (selector, option) => {
+            if (!option) return;
+            $(selector).empty().append(new Option(option.text, option.id, true, true)).trigger('change');
+        };
+        setSelect('.select2-solar-systems', entry.solar_system);
+        setSelect('.select2-structure-types', entry.structure_type);
+        $('#id_structure_name').val(entry.structure_name);
+        $('#id_owner_name').val(entry.owner_name);
+        $('#id_location_details').val(entry.location_details);
+        if (entry.reinforcement_time) $('#id_reinforcement_time').val(entry.reinforcement_time);
+        $('#id_objective').val(entry.objective).trigger('change');
+    });
+
     $('.select2-render').addClass('form-select');
     $('#id_assigned_to').select2({theme: myTheme, width: '100%',
         dropdownCssClass: 'st-select2-dropdown'});
