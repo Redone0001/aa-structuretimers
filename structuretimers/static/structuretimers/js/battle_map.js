@@ -9,22 +9,22 @@
     const relationshipCodes = {friendly:'FR',hostile:'HO',neutral:'NE',undefined:'UN'};
     class BattleMap {
         constructor(root, hooks) {
-            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();this.rangeSelected=new Set();this.rangeCache=new Map();this.rangeGeneration=0;
+            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();this.rangeSelected=new Set();this.rangeCache=new Map();this.rangeGeneration=0;this.fleetVersion=0;this.fleetLoaded=0;
             $('day').value=utc(Date.now()).slice(0,10);
             $('enabled').addEventListener('change',()=>{this.updateControls();hooks.refresh();});
             $('day').addEventListener('change',()=>{if(!$('day').value)return;this.live=false;this.load();});
             $('slider').addEventListener('input',()=>{this.live=false;this.tick();});
             $('time').addEventListener('input',()=>{if(!$('time').value)return;const [h,m]=$('time').value.split(':').map(Number);$('slider').value=h*60+m;this.live=false;this.tick();});
             $('live').addEventListener('click',()=>{this.live=true;const today=utc(this.now()).slice(0,10);if($('day').value!==today){$('day').value=today;this.load();}else this.tick();});
-            $('fleets').addEventListener('change',()=>this.hooks.paint());
+            $('fleets').addEventListener('change',()=>{this.hooks.paint();if($('fleets').checked)this.loadFleets();else{this.fleetAbort?.abort();this.fleetAbort=null;this.fleetVersion++;$('fleet-sync').textContent='Fleet background updates paused while overlay is off.';}});
             $('add').addEventListener('click',()=>this.edit());
             $('close').addEventListener('click',()=>$('editor').close());
             $('form').addEventListener('submit',event=>{event.preventDefault();this.saveToken(false);setTimeout(()=>{if(!this.saving)$('form').classList.remove('is-submitting');},0);});
             $('delete').addEventListener('click',()=>this.saveToken(true));
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
-            this.interval=setInterval(()=>{if(!document.hidden)this.tick();},1000);
-            window.addEventListener('pagehide',event=>{this.abort?.abort();if(!event.persisted)clearInterval(this.interval);});
+            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if($('fleets').checked&&Date.now()-this.fleetLoaded>=120000)this.loadFleets();}},1000);
+            window.addEventListener('pagehide',event=>{this.abort?.abort();this.fleetAbort?.abort();if(!event.persisted)clearInterval(this.interval);});
             document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data&&this.now()-(this.loaded||0)>=15*60000)this.load();});
             this.updateControls();
         }
@@ -36,7 +36,7 @@
             $('hours-panel').hidden=!this.enabled;
             document.getElementById('st-map-window').disabled=this.enabled;
         }
-        reset(){this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
+        reset(){this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;this.fleetLoaded=0;this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
         async setRegion(data){this.data=data;await this.load();}
         async api(layer, params={}, options={}){
             const url=new URL(this.root.dataset.battleApi.replace('LAYER',layer),location.origin);
@@ -46,16 +46,33 @@
             if(!response.ok)throw new Error(data.error||`Request failed (${response.status}).`);
             return data;
         }
-        async load(){
+        applyFleets(tokens){
+            this.tokens=tokens;this.fleetLoaded=Date.now();this.syncForceRanges();this.renderFleets();this.hooks.paint();
+            $('fleet-sync').textContent=`Forces updated ${clock(this.now())} UTC · updates every 2 minutes while fleet overlay is on.`;
+        }
+        async loadFleets(){
+            if(!this.data||!$('fleets').checked||document.hidden||this.fleetAbort||this.saving||this.moving.size)return;
+            const controller=new AbortController(), version=++this.fleetVersion;
+            this.fleetAbort=controller;this.fleetLoaded=Date.now();
+            try{
+                const data=await this.api('fleets',{region:this.data.region.id},{signal:controller.signal});
+                if(version!==this.fleetVersion)return;
+                this.applyFleets(data.tokens);
+                if(this.selected!==null)this.hooks.select(this.selected);
+            }catch(error){if(error.name!=='AbortError')$('fleet-sync').textContent=`Fleet update failed: ${error.message} Retrying within 2 minutes.`;}
+            finally{if(this.fleetAbort===controller)this.fleetAbort=null;}
+        }
+        async load(forceFleets=false){
             if(!this.data||!$('day').value)return;
             this.abort?.abort();const controller=new AbortController();this.abort=controller;
+            this.fleetAbort?.abort();this.fleetAbort=null;const fleetVersion=++this.fleetVersion;
             const region=this.data.region.id, day=$('day').value;
             if(this.loadedDay!==day){this.timers=[];this.ready=false;this.renderHours();this.signature=null;this.tick();}
             $('error').textContent='';
             try{
-                const data=await this.api('snapshot',{region,day},{signal:controller.signal});
+                const data=await this.api('snapshot',{region,day,fleets:forceFleets||$('fleets').checked?'1':'0'},{signal:controller.signal});
                 if(this.abort!==controller)return;
-                this.timers=data.timers;this.tokens=data.tokens;this.offset=Date.parse(data.server_time)-Date.now();this.ready=true;
+                this.timers=data.timers;if(data.tokens&&fleetVersion===this.fleetVersion)this.applyFleets(data.tokens);this.offset=Date.parse(data.server_time)-Date.now();this.ready=true;
                 this.loaded=Date.parse(data.server_time);this.loadedDay=day;this.syncForceRanges();this.signature=null;this.renderHours();this.renderFleets();this.tick();
                 if(this.selected!==null)this.hooks.select(this.selected);
             }catch(e){if(e.name!=='AbortError')$('error').textContent=e.message+' Use Refresh to retry.';}
@@ -239,7 +256,24 @@
             ranges.addEventListener('click',()=>this.toggleForceRange(token));actions.append(ranges);card.append(actions);
             return card;
         }
-        renderFleets(){const list=$('fleet-list');list.replaceChildren(...this.tokens.map(t=>this.fleetCard(t)));if(!this.tokens.length)list.append(el('p','No fleet tokens in this region.','text-muted'));this.updateRangeButtons();}
+        renderFleets(){
+            const list=$('fleet-list');list.replaceChildren();
+            for(const [stance,label] of [['friend','Friend'],['foe','Foe']]){
+                const tokens=this.tokens.filter(t=>t.stance===stance), section=el('section');
+                section.append(el('h3',`${label} · ${tokens.length} force(s)`,'h5'));
+                const rows=timeline.fleetSummary(tokens);
+                if(rows.length){
+                    const table=el('table',undefined,'table table-sm');table.append(el('caption',`${label}: reported ship counts by ship class. Unknown counts are not treated as zero.`,'small'));
+                    const head=el('thead'), header=el('tr');for(const title of ['Ship class','DPS','Logi']){const cell=el('th',title);cell.scope='col';header.append(cell);}head.append(header);table.append(head);
+                    const body=el('tbody');
+                    for(const row of rows){const tr=el('tr');tr.append(el('th',row.name));for(const [value,unknown] of [[row.dps,row.unknownDps],[row.logi,row.unknownLogi]])tr.append(el('td',`${value}${unknown?' + ? ('+unknown+' force'+(unknown>1?'s':'')+')':''}`));body.append(tr);}table.append(body);section.append(table);
+                }
+                const cards=el('div',undefined,'st-battle-fleet-list');cards.append(...tokens.map(t=>this.fleetCard(t)));section.append(cards);
+                if(!tokens.length)section.append(el('p','No forces reported.','text-muted'));list.append(section);
+            }
+            this.updateRangeButtons();
+        }
+
         edit(token=null){
             if(!this.data)return;
             this.editing=token;$('form').reset();if(!this.saving)$('form').classList.remove('is-submitting');$('form-error').textContent='';$('delete').hidden=!token;
@@ -256,6 +290,7 @@
             const token=this.tokens.find(t=>t.id===item.tokenId);
             if(!token?.can_edit||this.moving.has(token.id)||source===destination)return;
             const region=this.data?.region.id;
+            this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;
             this.moving.add(token.id);this.hooks.paint();
             $('move-status').textContent=`Moving ${this.tokenName(token)}…`;
             try{
@@ -273,10 +308,11 @@
         async saveToken(remove){
             if(this.saving)return;
             if(!remove&&!$('token-system').value){$('form-error').textContent='Choose a valid solar system from the suggestions.';return;}
+            this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;
             this.saving=true;$('form').setAttribute('aria-busy','true');
             $('save').disabled=true;$('delete').disabled=true;$('form-error').textContent='';
             const body=Object.fromEntries(new FormData($('form')));if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';
-            try{await this.post('fleet',body);$('editor').close();await this.load();}catch(e){$('form-error').textContent=e.message;}finally{this.saving=false;$('form').classList.remove('is-submitting');$('form').removeAttribute('aria-busy');$('save').disabled=false;$('delete').disabled=false;}
+            try{await this.post('fleet',body);$('editor').close();await this.load(true);}catch(e){$('form-error').textContent=e.message;}finally{this.saving=false;$('form').classList.remove('is-submitting');$('form').removeAttribute('aria-busy');$('save').disabled=false;$('delete').disabled=false;}
         }
         autocomplete(kind){
             let timeout,controller;

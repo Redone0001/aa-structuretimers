@@ -93,7 +93,7 @@ class FleetForm(forms.ModelForm):
         ]
 
 
-def token_payload(token, user, system=None):
+def token_payload(token, user, system=None, ship_classes=None):
     fields = [*FleetForm.Meta.fields, "id", "alliance_id", "ship_id", "revision"]
     if system is None:
         _, system_model, _ = sde_models()
@@ -102,7 +102,17 @@ def token_payload(token, user, system=None):
             .filter(pk=token.system_id)
             .first()
         )
+    if ship_classes is None:
+        from django.apps import apps
+
+        type_model = apps.get_model("eve_sde", "ItemType")
+        ship_classes = dict(
+            type_model.objects.filter(
+                pk=token.ship_id, group__category_id=6
+            ).values_list("pk", "group__name")
+        )
     return {
+        "ship_class": ship_classes.get(token.ship_id) or "Unknown / unspecified",
         "system_name": system.name if system else str(token.system_id),
         "region_name": (
             system.constellation.region.name if system and system.constellation else ""
@@ -137,6 +147,14 @@ def regional_fleets(user, region_id):
             pk__in={t.system_id for t in tokens}
         ).select_related("constellation__region")
     }
+    from django.apps import apps
+
+    type_model = apps.get_model("eve_sde", "ItemType")
+    ship_classes = dict(
+        type_model.objects.filter(
+            pk__in={t.ship_id for t in tokens if t.ship_id}, group__category_id=6
+        ).values_list("pk", "group__name")
+    )
     result = []
     for token in tokens:
         system = locations.get(token.system_id)
@@ -149,7 +167,7 @@ def regional_fleets(user, region_id):
                 for d in (distance_ly(system, other) for other in regional)
             )
         if nearby:
-            result.append(token_payload(token, user, system))
+            result.append(token_payload(token, user, system, ship_classes))
     return result
 
 
@@ -201,6 +219,17 @@ def battle_data(request, layer):
             term = request.GET.get("q", "").strip()[:200]
             return JsonResponse(
                 {"results": lookup(kind, term) if len(term) >= 2 else []}
+            )
+        if layer == "fleets":
+            region_model, _, _ = sde_models()
+            region = get_object_or_404(
+                region_model, pk=int(request.GET.get("region", "0"))
+            )
+            return JsonResponse(
+                {
+                    "tokens": regional_fleets(request.user, region.pk),
+                    "server_time": now().isoformat(),
+                }
             )
         if layer != "snapshot":
             return JsonResponse({"error": "Unknown layer."}, status=404)
@@ -263,7 +292,11 @@ def battle_data(request, layer):
         return JsonResponse(
             {
                 "timers": records,
-                "tokens": regional_fleets(request.user, region_id),
+                "tokens": (
+                    regional_fleets(request.user, region_id)
+                    if request.GET.get("fleets", "1") == "1"
+                    else None
+                ),
                 "server_time": now().isoformat(),
                 "day": day.isoformat(),
                 "scope": "all map users",

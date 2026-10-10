@@ -41,8 +41,18 @@
         const color=active.length>1?'intersection':active[0].stance==='friend'?'friendly':'hostile';
         return new Map([...active[0].systems].filter(id=>active.every(entry=>entry.systems.has(id))).map(id=>[id,color]));
     }
+    function fleetSummary(tokens){
+        const groups=new Map();
+        for(const token of tokens){
+            const name=token.ship_class||'Unknown / unspecified';
+            if(!groups.has(name))groups.set(name,{name,dps:0,logi:0,unknownDps:0,unknownLogi:0});
+            const row=groups.get(name);
+            for(const field of ['dps','logi'])if(token[field]===null||token[field]===undefined)row[field==='dps'?'unknownDps':'unknownLogi']++;else row[field]+=token[field];
+        }
+        return [...groups.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    }
     function hourKey(timer) { return timer.date ? new Date(timer.date).toISOString().slice(0,13)+':00Z' : 'Unscheduled'; }
-    const api = {stateAt, onMap, hourKey, signal, fleetRangeOverlay};
+    const api = {stateAt, onMap, hourKey, signal, fleetRangeOverlay, fleetSummary};
     if (typeof module !== 'undefined') module.exports = api;
     else root.StructureBattleTimeline = api;
 })(typeof window === 'undefined' ? globalThis : window);

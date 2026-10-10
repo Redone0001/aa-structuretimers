@@ -126,6 +126,23 @@ class BattleMapTests(RegionalMapTests):
         SolarSystem.objects.filter(pk=outside.pk).update(x=8 * LIGHT_YEAR)
         self.assertEqual(len(self.snapshot().json()["tokens"]), 1)
 
+    def test_fleet_only_poll_and_disabled_snapshot(self):
+        from unittest.mock import patch
+
+        self.post("fleet", system_id=self.a.pk, dps=30, logi=4)
+        data = self.client.get(self.url("fleets"), {"region": self.region.pk}).json()
+        self.assertEqual(len(data["tokens"]), 1)
+        self.assertNotIn("timers", data)
+        self.assertEqual(data["tokens"][0]["ship_class"], "Unknown / unspecified")
+        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+            self.assertIsNone(self.snapshot(fleets="0").json()["tokens"])
+            fleets.assert_not_called()
+        self.client.force_login(UserNoAccessFactory())
+        self.assertEqual(
+            self.client.get(self.url("fleets"), {"region": self.region.pk}).status_code,
+            403,
+        )
+
     def test_snapshot_permission_filtering_and_durations(self):
         self.active_timer(structure_name="Visible")
         self.active_timer(structure_name="SECRET", is_opsec=True)
@@ -253,6 +270,7 @@ class BattleMapTests(RegionalMapTests):
         self.assertEqual(data["results"], [{"id": ship.pk, "name": "Rifter"}])
         result = self.post("fleet", system_id=self.a.pk, ship_name="Rifter")
         self.assertEqual(result.json()["token"]["ship_id"], ship.pk)
+        self.assertEqual(result.json()["token"]["ship_class"], "Frigate")
 
     def test_public_alliance_autocomplete_and_logo_resolve(self):
         from eveuniverse.models import EveEntity

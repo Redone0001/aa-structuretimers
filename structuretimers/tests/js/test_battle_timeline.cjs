@@ -66,3 +66,16 @@ test('force ranges intersect, ignore gate mobility, and wait for every selected 
     assert.equal(fleetRangeOverlay([friend,{...foe,systems:new Set([4])}]).size,0);
     assert.equal(fleetRangeOverlay([]).size,0);
 });
+test('fleet summary groups ship classes and preserves unknown counts',()=>{
+    const {fleetSummary}=require('../../static/structuretimers/js/battle_timeline.js');
+    const rows=fleetSummary([
+        {ship_class:'Cruiser',dps:20,logi:3},
+        {ship_class:'Cruiser',dps:null,logi:0},
+        {ship_class:'Dreadnought',dps:4,logi:null},
+        {dps:0,logi:2}
+    ]);
+    assert.deepEqual(rows[0],{name:'Cruiser',dps:20,logi:3,unknownDps:1,unknownLogi:0});
+    assert.deepEqual(rows[1],{name:'Dreadnought',dps:4,logi:0,unknownDps:0,unknownLogi:1});
+    assert.equal(rows[2].name,'Unknown / unspecified');
+    assert.deepEqual(fleetSummary([]),[]);
+});
