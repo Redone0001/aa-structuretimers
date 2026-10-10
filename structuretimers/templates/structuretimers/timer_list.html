@@ -25,6 +25,13 @@
                 {% translate "Past" %}
             </button>
         </li>
+        {% if perms.structuretimers.recon_member %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-recon-campaigns" type="button" aria-selected="false" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
+                {% translate "Recon campaigns" %}
+            </button>
+        </li>
+        {% endif %}
         <li role="presentation" class="nav-item ms-auto">
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -46,13 +53,6 @@
                 </ul>
             </div>
         </li>
-        {% if perms.structuretimers.recon_member %}
-        <li class="nav-item ms-2" role="presentation">
-            <button class="nav-link" id="tab-recon-campaigns" type="button" aria-selected="false" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
-                {% translate "Recon campaigns" %}
-            </button>
-        </li>
-        {% endif %}
     </ul>
 
     <div class="card">
