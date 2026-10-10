@@ -18,7 +18,11 @@
                 <button class="btn btn-sm btn-secondary mt-1" type="submit">Sync now</button>
             </form>
         {% else %}
-            <div class="text-muted mb-1">No automatic standings yet.</div>
+            <div class="text-muted mb-1">No automatic standings yet. Sync now uses any character already in Auth with alliance-contacts access.</div>
+            <form class="d-inline" method="post" action="{% url 'structuretimers:standings_sync' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-secondary mt-1" type="submit">Sync now</button>
+            </form>
         {% endif %}
         <a class="btn btn-sm btn-primary mt-1" href="{% url 'structuretimers:standings_source' %}">
             {% if standings_source %}Use another character{% else %}Add a character for alliance standings{% endif %}

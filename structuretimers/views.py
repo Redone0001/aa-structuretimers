@@ -1020,7 +1020,14 @@ class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def post(self, request):
         standings.sync_all()
-        messages.info(request, "Standings refreshed from alliance contacts.")
+        if StandingsSource.objects.exists():
+            messages.info(request, "Standings refreshed from alliance contacts.")
+        else:
+            messages.warning(
+                request,
+                "No character in Auth has alliance-contacts access yet. "
+                "Add one to get automatic standings.",
+            )
         return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
 
 

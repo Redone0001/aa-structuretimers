@@ -124,7 +124,37 @@ def sync_source(source: StandingsSource) -> int:
     return len(groups)
 
 
+def borrow_existing_token() -> Optional[StandingsSource]:
+    """Use a token another app already holds with the alliance contacts scope.
+
+    Alliance Auth has no shared "default" character; apps such as
+    aa-standingsrequests ask members for this scope, and django-esi tokens are
+    shared by every app, so one can be reused instead of adding a character.
+    """
+    from esi.models import Token  # pylint: disable=import-outside-toplevel
+
+    for token in Token.objects.all().require_scopes(CONTACTS_SCOPE).order_by("-created"):
+        try:
+            character = requests.get(
+                f"{ESI_URL}/characters/{token.character_id}/",
+                headers={"User-Agent": USER_AGENT},
+                timeout=(5, 30),
+            ).json()
+        except requests.RequestException:
+            continue
+        alliance_id = character.get("alliance_id")
+        if alliance_id:
+            return StandingsSource.objects.create(
+                token=token,
+                alliance_id=alliance_id,
+                alliance_name=EveEntity.objects.resolve_name(alliance_id),
+            )
+    return None
+
+
 def sync_all() -> None:
+    if not StandingsSource.objects.exists():
+        borrow_existing_token()
     for source in StandingsSource.objects.select_related("token"):
         try:
             sync_source(source)

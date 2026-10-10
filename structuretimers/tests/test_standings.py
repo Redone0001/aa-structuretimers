@@ -163,3 +163,24 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
             Timer.objects.get(pk=timer.structure_id).objective,
             Timer.Objective.FRIENDLY,
         )
+
+
+class TestBorrowToken(NoSocketsTestCase):
+    @patch("structuretimers.standings.EveEntity.objects.resolve_name", return_value="Our Alliance")
+    @patch("structuretimers.standings.requests.get")
+    def test_existing_contacts_token_is_reused(self, get, _):
+        from esi.models import Scope
+
+        get.return_value.json.return_value = {"alliance_id": 999}
+        user = UserMainFactory()
+        (token,) = Token.objects.bulk_create(
+            [Token(user=user, character_id=7, character_name="Diplo", character_owner_hash="y")]
+        )
+        token.scopes.add(Scope.objects.create(name=standings.CONTACTS_SCOPE))
+        source = standings.borrow_existing_token()
+        self.assertEqual(source.token, token)
+        self.assertEqual(source.alliance_id, 999)
+        self.assertEqual(source.alliance_name, "Our Alliance")
+
+    def test_nothing_to_borrow(self):
+        self.assertIsNone(standings.borrow_existing_token())
