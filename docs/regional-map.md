@@ -196,3 +196,11 @@ Paused timers expose **−1 min / +1 min** controls to correct remaining repair 
 Each force card has a **Show ranges / Hide ranges** toggle beside Edit / move (also available to map readers). Gate mobility has no jump range, so its toggle is disabled. Super, Carrier, Conduit carrier, and Blops reuse the map's shared 6 / 7 / 7.5 / 8 LY presets and geographic distance endpoint. Dashed system boxes are blue for a single friendly force and red for a single hostile force. With multiple selected forces, only the intersection is outlined, in the theme's warning yellow. An empty intersection shows no force boxes; timer highlights are independent.
 
 Selections are local to the current map view and clear on region changes. Moving or changing a selected force recalculates its range; deleting it removes its selection on refresh. Ranges are inclusive of the preset limit, exclude unavailable coordinates, and show geometric reach, not verified jump eligibility. Failed loads hide the incomplete intersection and allow toggling off/on to retry. Already loaded distances are reused while the origin and mobility stay unchanged.
+
+### Cross-region force locations
+
+The fleet editor searches solar systems across the installed SDE, with region names in suggestions. A valid system is required; arbitrary alliance and ship text remain accepted. The selected map system pre-fills the editor, including external locations.
+
+The snapshot includes forces in the displayed region, regions directly connected to it by stargates (either direction), and other systems within 8 LY of any system in the displayed region. More distant forces remain stored and appear when viewing their own or a nearby region. Missing geographic coordinates do not exclude forces in directly neighboring regions.
+
+External force systems are grouped into a shelf to the right of the map, labeled **Outside region**. This is schematic placement, with no invented gate connections. Multiple forces in one system share its box. Selecting, editing, dragging, and Show ranges work there; jump ranges still use real SDE coordinates. New shelf locations trigger Fit so newly moved forces remain visible. Regional timer queries remain limited to the displayed region.

@@ -21,6 +21,7 @@
             $('close').addEventListener('click',()=>$('editor').close());
             $('form').addEventListener('submit',event=>{event.preventDefault();this.saveToken(false);});
             $('delete').addEventListener('click',()=>this.saveToken(true));
+            this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
             this.interval=setInterval(()=>{if(!document.hidden)this.tick();},1000);
             window.addEventListener('pagehide',event=>{this.abort?.abort();if(!event.persisted)clearInterval(this.interval);});
@@ -36,7 +37,7 @@
             document.getElementById('st-map-window').disabled=this.enabled;
         }
         reset(){this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
-        async setRegion(data){this.data=data;$('token-system').replaceChildren(...data.nodes.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(n=>new Option(n.name,n.id)));await this.load();}
+        async setRegion(data){this.data=data;await this.load();}
         async api(layer, params={}, options={}){
             const url=new URL(this.root.dataset.battleApi.replace('LAYER',layer),location.origin);
             Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
@@ -137,10 +138,42 @@
         }
         sidebar(id,container){
             this.selected=id;
-            if(this.enabled){const records=this.filtered().filter(t=>t.system_id===id);if(document.getElementById('st-map-structures').checked){for(const timer of records)container.append(this.timerCard(timer));if(!records.length)container.append(el('p','No scheduled timers for this system on the loaded day.'));}}
+            if(this.enabled){const records=this.filtered().filter(t=>t.system_id===id);if(document.getElementById('st-map-structures').checked){for(const timer of records)container.append(this.timerCard(timer));if(!records.length)container.append(el('p',this.mapNodes().find(n=>n.id===id)?.external?'Outside-region force location. Timer loading is limited to the displayed region.':'No scheduled timers for this system on the loaded day.'));}}
             const tokens=this.tokens.filter(t=>t.system_id===id);
             if(tokens.length){container.append(el('h3','Latest forces','h6'));tokens.forEach(t=>container.append(this.fleetCard(t)));}
             this.updateRangeButtons();this.tick();
+        }
+        mapNodes(){
+            const nodes=this.data?.nodes||[], known=new Set(nodes.map(n=>n.id));
+            const locations=new Map(this.tokens.filter(t=>!known.has(t.system_id)).map(t=>[t.system_id,t]));
+            const positioned=nodes.filter(n=>n.position);
+            const edge=Math.max(0,...positioned.map(n=>n.position[0]))+350;
+            const top=Math.min(0,...positioned.map(n=>n.position[1]));
+            return [...nodes,...[...locations.values()].sort((a,b)=>a.system_name.localeCompare(b.system_name)).map((t,index)=>({
+                id:t.system_id,name:t.system_name,constellation:`${t.region_name} · Outside region (schematic placement)`,
+                position:[edge+Math.floor(index/6)*400,top+(index%6)*180],external:true
+            }))];
+        }
+        systemAutocomplete(){
+            let timeout,controller;this.systemMatches=new Map();
+            $('token-system-name').addEventListener('input',()=>{
+                clearTimeout(timeout);controller?.abort();
+                const q=$('token-system-name').value.trim();
+                $('token-system').value=this.systemMatches.get(q)||'';
+                if(q.length<2){$('system-options').replaceChildren();return;}
+                timeout=setTimeout(async()=>{
+                    controller=new AbortController();
+                    try{
+                        const data=await this.api('lookup',{kind:'system',q},{signal:controller.signal});
+                        if($('token-system-name').value.trim()!==q)return;
+                        this.systemMatches=new Map(data.results.map(s=>[s.name,s.id]));
+                        $('system-options').replaceChildren(...data.results.map(s=>{const option=new Option(s.region,s.name);return option;}));
+                        const exact=data.results.find(s=>s.name.toLowerCase()===q.toLowerCase());
+                        $('token-system').value=exact?.id||'';
+                        $('lookup-status').textContent=data.results.length?'Choose a system; suggestions cover all regions.':'No matching solar system.';
+                    }catch(error){if(error.name!=='AbortError')$('lookup-status').textContent='System search unavailable. Type again to retry.';}
+                },200);
+            });
         }
         forceRanges(){
             return timeline.fleetRangeOverlay(this.tokens.filter(t=>this.rangeSelected.has(t.id)).map(t=>({
@@ -194,7 +227,7 @@
             const heading=el('div',undefined,'d-flex gap-2 align-items-center');
             for(const [kind,id] of [['alliances',token.alliance_id],['types',token.ship_id]])if(id){const img=el('img');img.src=`https://images.evetech.net/${kind}/${id}/${kind==='alliances'?'logo':'icon'}?size=64`;img.alt=kind==='alliances'?'Alliance logo':'Ship icon';img.width=32;img.height=32;img.addEventListener('error',()=>img.remove());heading.append(img);}
             const title=el('button',this.tokenName(token),'btn btn-link p-0 text-start');title.type='button';title.addEventListener('click',()=>this.hooks.select(token.system_id));heading.append(title);card.append(heading);
-            card.append(el('p',`${this.data?.nodes.find(n=>n.id===token.system_id)?.name||token.system_id} · ${token.stance} · DPS ${token.dps??'?'} / Logi ${token.logi??'?'} · ${token.mobility}`,'small mb-1'));
+            card.append(el('p',`${token.system_name||token.system_id} · ${token.region_name?'('+token.region_name+') · ':''}${token.stance} · DPS ${token.dps??'?'} / Logi ${token.logi??'?'} · ${token.mobility}`,'small mb-1'));
             if(token.note)card.append(el('p',token.note,'small st-battle-note'));
             if(token.dscan){const details=el('details');details.append(el('summary','D-scan text'),el('pre',token.dscan,'st-battle-note'));card.append(details);}
             card.append(el('p',`Updated ${utc(Date.parse(token.updated_at)).replace('T',' ').slice(0,19)} UTC`,'small text-muted mb-1'));
@@ -211,7 +244,11 @@
             if(!this.data)return;
             this.editing=token;$('form').reset();$('form-error').textContent='';$('delete').hidden=!token;
             for(const field of $('form').elements)if(field.name&&token)field.value=token[field.name]??'';
-            if(!token&&this.selected)$('token-system').value=this.selected;
+            const node=this.mapNodes().find(n=>n.id===(token?.system_id||this.selected));
+            $('token-system').value=token?.system_id||node?.id||'';
+            $('token-system-name').value=token?.system_name||node?.name||'';
+            this.systemMatches=new Map(node?[[node.name,node.id]]:token?[[token.system_name,token.system_id]]:[]);
+            $('system-options').replaceChildren();
             $('editor-title').textContent=token?'Edit fleet token':'Add fleet token';$('editor').showModal();$('alliance').focus();
         }
         async post(layer,body){return this.api(layer,{}, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':this.root.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(body)});}
@@ -228,12 +265,13 @@
                 this.abort?.abort();this.abort=null;
                 this.tokens=this.tokens.map(t=>t.id===token.id?result.token:t);
                 this.renderFleets();this.syncForceRanges();this.hooks.select(destination);
-                $('move-status').textContent=`${this.tokenName(result.token)} moved to ${this.data.nodes.find(n=>n.id===destination)?.name||destination}.`;
+                $('move-status').textContent=`${this.tokenName(result.token)} moved to ${result.token.system_name||destination}.`;
             }catch(e){
                 if(this.data?.region.id===region)$('move-status').textContent=`Move not saved: ${e.message} Use Refresh to check the latest position.`;
             }finally{this.moving.delete(token.id);this.hooks.paint();}
         }
         async saveToken(remove){
+            if(!remove&&!$('token-system').value){$('form-error').textContent='Choose a valid solar system from the suggestions.';return;}
             $('save').disabled=true;$('delete').disabled=true;$('form-error').textContent='';
             const body=Object.fromEntries(new FormData($('form')));if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';
             try{await this.post('fleet',body);$('editor').close();await this.load();}catch(e){$('form-error').textContent=e.message;}finally{$('save').disabled=false;$('delete').disabled=false;}

@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 from .alliance_directory import lookup_alliances, resolve_alliance
 
 from .models import MapFleetToken, MapTimerState, Timer
-from .regional_map import RELATIONSHIPS, sde_models
+from .regional_map import RELATIONSHIPS, sde_models, distance_ly, RANGES
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
 
@@ -93,16 +93,79 @@ class FleetForm(forms.ModelForm):
         ]
 
 
-def token_payload(token, user):
+def token_payload(token, user, system=None):
     fields = [*FleetForm.Meta.fields, "id", "alliance_id", "ship_id", "revision"]
+    if system is None:
+        _, system_model, _ = sde_models()
+        system = (
+            system_model.objects.select_related("constellation__region")
+            .filter(pk=token.system_id)
+            .first()
+        )
     return {
+        "system_name": system.name if system else str(token.system_id),
+        "region_name": (
+            system.constellation.region.name if system and system.constellation else ""
+        ),
+        "region_id": (
+            system.constellation.region_id if system and system.constellation else None
+        ),
         **{f: getattr(token, f) for f in fields},
         "can_edit": token.user_can_edit(user),
         "updated_at": token.updated_at.isoformat(),
     }
 
 
+def regional_fleets(user, region_id):
+    """Include adjacent-region forces and forces within the longest jump preset."""
+    _, system_model, gate_model = sde_models()
+    regional = list(system_model.objects.filter(constellation__region_id=region_id))
+    ids = {s.pk for s in regional}
+    neighbors = set(
+        gate_model.objects.filter(solar_system_id__in=ids).values_list(
+            "destination__constellation__region_id", flat=True
+        )
+    ) | set(
+        gate_model.objects.filter(destination_id__in=ids).values_list(
+            "solar_system__constellation__region_id", flat=True
+        )
+    )
+    tokens = list(visible_tokens(user))
+    locations = {
+        s.pk: s
+        for s in system_model.objects.filter(
+            pk__in={t.system_id for t in tokens}
+        ).select_related("constellation__region")
+    }
+    result = []
+    for token in tokens:
+        system = locations.get(token.system_id)
+        if not system:
+            continue
+        nearby = system.pk in ids or system.constellation.region_id in neighbors
+        if not nearby:
+            nearby = any(
+                d is not None and d <= max(RANGES.values())
+                for d in (distance_ly(system, other) for other in regional)
+            )
+        if nearby:
+            result.append(token_payload(token, user, system))
+    return result
+
+
 def lookup(kind, term):
+    if kind == "system":
+        _, system_model, _ = sde_models()
+        return [
+            {
+                "id": system.pk,
+                "name": system.name,
+                "region": system.constellation.region.name,
+            }
+            for system in system_model.objects.filter(name__icontains=term)
+            .select_related("constellation__region")
+            .order_by("name")[:30]
+        ]
     if kind == "alliance":
         return lookup_alliances(term)
     # The complete installed SDE supplies ships, even if eveuniverse has not loaded them.
@@ -133,7 +196,7 @@ def battle_data(request, layer):
             return JsonResponse({"error": "Unknown action."}, status=404)
         if layer == "lookup":
             kind = request.GET.get("kind")
-            if kind not in ("alliance", "ship"):
+            if kind not in ("alliance", "ship", "system"):
                 raise ValueError("Unknown lookup.")
             term = request.GET.get("q", "").strip()[:200]
             return JsonResponse(
@@ -200,10 +263,7 @@ def battle_data(request, layer):
         return JsonResponse(
             {
                 "timers": records,
-                "tokens": [
-                    token_payload(t, request.user)
-                    for t in visible_tokens(request.user).filter(system_id__in=systems)
-                ],
+                "tokens": regional_fleets(request.user, region_id),
                 "server_time": now().isoformat(),
                 "day": day.isoformat(),
                 "scope": "all map users",

@@ -14,7 +14,7 @@
   <form id="st-battle-form">
     <div class="d-flex justify-content-between gap-3"><h2 id="st-battle-editor-title" class="h5">{% translate 'Fleet token' %}</h2><button id="st-battle-close" type="button" class="btn btn-sm btn-outline-secondary" aria-label="{% translate 'Close fleet editor' %}">×</button></div>
     <div class="st-battle-fields">
-      <label>{% translate 'System' %}<select name="system_id" id="st-battle-token-system" class="form-select" required></select></label>
+      <label>{% translate 'System' %}<input id="st-battle-token-system-name" class="form-control" list="st-battle-system-options" autocomplete="off" required placeholder="Search any solar system"><input type="hidden" name="system_id" id="st-battle-token-system"></label>
       <label>{% translate 'Stance' %}<select name="stance" class="form-select"><option value="foe">{% translate 'Foe' %}</option><option value="friend">{% translate 'Friend' %}</option></select></label>
       <label>{% translate 'Alliance' %}<input name="alliance_name" id="st-battle-alliance" class="form-control" list="st-battle-alliance-options" maxlength="200" autocomplete="off" placeholder="Any name, even uncertain"></label>
       <label>{% translate 'Ship' %}<input name="ship_name" id="st-battle-ship" class="form-control" list="st-battle-ship-options" maxlength="200" autocomplete="off" placeholder="Ship name"></label>
@@ -22,6 +22,7 @@
       <label>{% translate 'Number of Logi' %}<input name="logi" type="number" min="0" max="2147483647" step="1" class="form-control" placeholder="Unknown"></label>
       <label>{% translate 'Mobility' %}<select name="mobility" class="form-select"><option value="gate">Gate</option><option value="super">Super range</option><option value="carrier">Carrier</option><option value="conduit">Conduit carrier</option><option value="blops">Blops</option></select></label>
     </div>
+    <datalist id="st-battle-system-options"></datalist>
     <datalist id="st-battle-alliance-options"></datalist><datalist id="st-battle-ship-options"></datalist>
     <p id="st-battle-lookup-status" class="small text-muted" role="status"></p>
     <label class="d-block mt-2">{% translate 'Note' %}<textarea name="note" class="form-control" rows="2" maxlength="5000"></textarea></label>

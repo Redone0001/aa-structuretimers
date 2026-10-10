@@ -88,6 +88,44 @@ class BattleMapTests(RegionalMapTests):
             400,
         )
 
+    def test_global_system_lookup_and_adjacent_region_fleets(self):
+        from eve_sde.models import Region, Constellation, SolarSystem, Stargate
+        from structuretimers.regional_map import LIGHT_YEAR
+
+        region = Region.objects.create(id=10000002, name="Next door")
+        constellation = Constellation.objects.create(
+            id=20000002, name="Neighbor", region=region
+        )
+        outside = SolarSystem.objects.create(
+            id=30000009,
+            name="OUTSIDE",
+            constellation=constellation,
+            x=100 * LIGHT_YEAR,
+            y=0,
+            z=0,
+        )
+        Stargate.objects.create(
+            id=99, name="Border", solar_system=self.a, destination=outside
+        )
+        data = self.client.get(
+            self.url("lookup"), {"kind": "system", "q": "OUT"}
+        ).json()
+        self.assertEqual(
+            data["results"],
+            [{"id": outside.pk, "name": "OUTSIDE", "region": "Next door"}],
+        )
+        created = self.post("fleet", system_id=outside.pk, mobility="blops").json()[
+            "token"
+        ]
+        self.assertEqual(created["system_name"], "OUTSIDE")
+        tokens = self.snapshot().json()["tokens"]
+        self.assertEqual([t["id"] for t in tokens], [created["id"]])
+        self.assertEqual(tokens[0]["region_id"], region.pk)
+        Stargate.objects.filter(pk=99).delete()
+        self.assertEqual(self.snapshot().json()["tokens"], [])
+        SolarSystem.objects.filter(pk=outside.pk).update(x=8 * LIGHT_YEAR)
+        self.assertEqual(len(self.snapshot().json()["tokens"]), 1)
+
     def test_snapshot_permission_filtering_and_durations(self):
         self.active_timer(structure_name="Visible")
         self.active_timer(structure_name="SECRET", is_opsec=True)

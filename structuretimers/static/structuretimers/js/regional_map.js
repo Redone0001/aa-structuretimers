@@ -34,11 +34,22 @@
         const d=state.distances.get(id);return state.rangeReady&&d!==null&&d!==undefined&&d<=state.limit;
     }});
     function paint(){
+        let refit=false;
         const highlighted=battle.enabled&&$('structures').checked?battle.highlights():new Set();const needsRange=$('range').value!=='none';
         if(state.structuresReady){for(const id of state.structures.keys()) {const distance=state.distances.get(id);if(!needsRange||(state.rangeReady&&distance!==null&&distance!==undefined&&distance<=state.limit))highlighted.add(id);}}
+        if(state.data){
+            const nodes=battle.mapNodes();
+            refit=JSON.stringify((map.data?.nodes||[]).filter(n=>n.external).map(n=>n.id))!==JSON.stringify(nodes.filter(n=>n.external).map(n=>n.id));
+            map.data={...state.data,nodes};
+            const external=nodes.filter(n=>n.external), previous=$('system').value;
+            for(const option of [...$('system').options])if(option.dataset.external)option.remove();
+            for(const node of external){const option=new Option(node.name+' — outside region',node.id);option.dataset.external='1';$('system').add(option);}
+            $('system').value=previous;
+        }
         map.nodeStates=battle.nodeStates();
         map.forceRanges=battle.forceRanges();
         map.setOverlays(battle.overlays($('structures').checked?state.structures:new Map()),battle.enabled&&$('structures').checked?battle.highlights():highlighted);
+        if(refit)map.fit();
         const missing=state.data?.nodes.filter(n=>!n.position).length||0;
         $('status').className='text-muted';
         $('status').textContent=`${state.data?.nodes.length||0} systems · ${highlighted.size} match${missing?` · ${missing} without schematic positions (use selector)`:''}${!$('structures').checked?' · Structure layer off; timer matching paused.':''}${needsRange&&!$('source').value?' · Choose a range origin.':''}${state.rangeReady?` · Range ≤ ${state.limit} LY`:''}`;
@@ -64,14 +75,14 @@
     async function select(id){
         const focusedAction=document.activeElement?.dataset.timerAction;
         state.selected=id;battle.selected=id;map.select(id,false);remember();$('system').value=id||'';cancel('details');
-        const node=state.data?.nodes.find(n=>n.id===id);$('detail-title').textContent=node?.name||'Select a system';$('details').replaceChildren();
+        const node=battle.mapNodes().find(n=>n.id===id);$('detail-title').textContent=node?.name||'Select a system';$('details').replaceChildren();
         if(!node){$('details').textContent='Select a system on the map or in the selector.';return;}
         $('details').append(el('p',node.constellation,'text-muted small'));
         if($('range').value!=='none'){const origin=el('button','Use as range origin','btn btn-sm btn-outline-secondary mb-2');origin.type='button';origin.addEventListener('click',()=>{$('source').replaceChildren(new Option(node.name,node.id,true,true));$('source-search').value=node.name;refresh();});$('details').append(origin);}
         if(!node.position)$('details').append(el('p','Schematic position unavailable in the SDE. Timers remain accessible here.','text-warning'));
         if($('range').value!=='none'&&state.rangeReady){const distance=state.distances.get(id);$('details').append(el('p',distance===null||distance===undefined?'Distance unavailable: geographic coordinates are missing.':`${distance.toFixed(2)} LY from range origin`));}
         battle.sidebar(id,$('details'));
-        if(battle.enabled)return;
+        if(battle.enabled||node.external)return;
         if(!$('structures').checked){$('details').append(el('p','Enable Structure indicators to load permitted timer details.'));return;}
         const loading=el('p','Loading permitted timers…');$('details').append(loading);
         try {const data=await request('details',{...filters(),system:id});if(!data||state.selected!==id)return;loading.remove();if(!data.timers.length){$('details').append(el('p','No visible timers match these filters.'));return;}
