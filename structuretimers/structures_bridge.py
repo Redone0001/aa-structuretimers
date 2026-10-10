@@ -146,7 +146,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
                 ),
                 "name_objective": name,
                 "owner": format_html(
-                    '<span class="badge text-bg-primary">{}</span>', "friendly"
+                    '<span class="badge text-bg-primary">{}</span>', "+10"
                 ),
                 "reinforcement_time": reinforce_time(structure),
                 "window_minutes": WINDOW_MINUTES,
@@ -162,7 +162,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
                 "region_name": region.name,
                 "structure_type_name": structure.eve_type.name,
                 "owner_name": corporation.corporation_name,
-                "objective_name": "friendly",
+                "objective_name": "+10",
                 "timer_count": count,
             }
         )

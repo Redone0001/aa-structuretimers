@@ -86,7 +86,7 @@ class TestStructuresBridge(NoSocketsTestCase):
         rows = {row["id"]: row for row in self.client.get(url).json()}
         row = rows[f"s-{self.structure.id}"]
         self.assertEqual(row["reinforcement_time"], "19:00")
-        self.assertEqual(row["objective_name"], "friendly")
+        self.assertEqual(row["objective_name"], "+10")
         self.assertEqual(row["owner_name"], "Friendly Corp")
         self.assertEqual(row["timer_count"], 1)
         self.assertIn(self.home.pk, rows)

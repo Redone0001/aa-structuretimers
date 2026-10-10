@@ -9,7 +9,7 @@ from django.urls import reverse
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
-from structuretimers.models import ScheduledNotification, Timer
+from structuretimers.models import Organization, ScheduledNotification, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -50,7 +50,7 @@ class TestRecon(NoSocketsTestCase):
         for name in list(form.fields)[:4]:
             self.assertTrue(form.fields[name].required, name)
         self.assertEqual(form["timer_type"].value(), None)
-        self.assertEqual(form["objective"].value(), Timer.Objective.NEUTRAL)
+        self.assertNotIn("objective", form.fields)
         self.assertContains(response, 'value="00:00"')
 
     def test_create_list_detail_and_edit(self):
@@ -126,12 +126,13 @@ class TestRecon(NoSocketsTestCase):
                 self.assertFalse(form.is_valid())
                 self.assertIn(field, form.errors)
 
-    def test_optional_details_and_objective_are_saved(self):
+    def test_optional_details_are_saved_and_objective_follows_standing(self):
+        Organization.objects.filter(name="Owner corp").update(standing_override=5)
         form = ReconForm(
             data={
                 **self.data,
                 "location_details": "Moon 2",
-                "objective": Timer.Objective.FRIENDLY,
+                "objective": Timer.Objective.HOSTILE,
                 "details_notes": "Scout report",
             },
             user=self.user,

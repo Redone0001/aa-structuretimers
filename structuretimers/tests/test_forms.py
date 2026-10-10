@@ -183,10 +183,9 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
             form.cleaned_data["date"].isoformat(), "2026-10-09T00:44:58+00:00"
         )
 
-    def test_should_default_objective_to_hostile(self):
-        form = FastTimerForm()
-
-        self.assertEqual(form.fields["objective"].initial, Timer.Objective.HOSTILE)
+    def test_objective_is_not_entered_by_people(self):
+        self.assertNotIn("objective", FastTimerForm().fields)
+        self.assertNotIn("objective", TimerForm().fields)
 
     def test_should_only_show_fast_entry_fields(self):
         form = FastTimerForm()

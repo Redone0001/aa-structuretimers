@@ -126,3 +126,40 @@ class TestStandingsTab(NoSocketsTestCase):
         self.client.force_login(self.coordinator)
         response = self.client.post(reverse("structuretimers:standings_sync"))
         self.assertEqual(response.status_code, 302)
+
+
+@patch(
+    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
+)
+class TestStandingDecidesObjective(NoSocketsTestCase):
+    def test_owner_standing_sets_objective_and_follows_changes(self):
+        from structuretimers.models import Timer
+        from structuretimers.tests.testdata.factory import TimerFactory
+
+        alliance = Organization.objects.create(
+            id=10, name="Enemy", category=ALLIANCE, standing_auto=-5
+        )
+        corp = Organization.objects.create(
+            id=11, name="Enemy Corp", category=CORP, alliance=alliance
+        )
+        timer = TimerFactory(owner_corporation=corp, objective=Timer.Objective.FRIENDLY)
+        self.assertEqual(timer.objective, Timer.Objective.HOSTILE)
+        self.assertEqual(timer.database_entry.objective, Timer.Objective.HOSTILE)
+
+        coordinator = UserMainFactory(
+            permissions__=[
+                "structuretimers.basic_access",
+                "structuretimers.recon_coordinator",
+            ]
+        )
+        self.client.force_login(coordinator)
+        self.client.post(
+            reverse("structuretimers:standing_set", args=[alliance.pk]),
+            {"standing": "10"},
+        )
+        timer.refresh_from_db()
+        self.assertEqual(timer.objective, Timer.Objective.FRIENDLY)
+        self.assertEqual(
+            Timer.objects.get(pk=timer.database_entry_id).objective,
+            Timer.Objective.FRIENDLY,
+        )

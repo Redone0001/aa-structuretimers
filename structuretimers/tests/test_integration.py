@@ -10,7 +10,7 @@ from django.utils.timezone import now
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
-from structuretimers.models import ScheduledNotification, Timer
+from structuretimers.models import Organization, ScheduledNotification, Timer
 from structuretimers.tasks import send_test_message_to_webhook
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
@@ -129,8 +129,8 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
             "structure_type_2": str(structure_type.id),
             "timer_type": Timer.Type.HULL,
             "owner_2": make_owner("SoyuzMultFilm", 98000002),
-            "objective": Timer.Objective.HOSTILE,
         }
+        Organization.objects.filter(pk=98000002).update(standing_override=-10)
 
         response = self.client.post(self.add_fast_timer_url, data=form_data)
 

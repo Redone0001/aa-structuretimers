@@ -1,6 +1,6 @@
 {% load i18n %}
 {{ recon_translations|json_script:"recon-translations" }}
-<div id="recon-dashboard" data-user-id="{{ request.user.pk }}" data-url="{% url 'structuretimers:recon_data' %}?staging={{ selected_staging_system.pk }}">
+<div id="recon-dashboard" data-standing-title="Standing" data-user-id="{{ request.user.pk }}" data-url="{% url 'structuretimers:recon_data' %}?staging={{ selected_staging_system.pk }}">
     <div class="row g-3 mb-4" aria-live="polite">
         <div class="col-md-4"><div class="card h-100"><div class="card-body">
             <h6 class="text-muted">{% translate "Oldest recon / refresh" %}</h6>

@@ -22,14 +22,28 @@ def bucket(value: float) -> int:
 
 def effective_standing(organization: Optional[Organization]) -> Optional[int]:
     """Standing of an owner: its own (override first), then its alliance's."""
-    for org in (organization, organization.alliance if organization else None):
-        if org is None:
-            continue
-        if org.standing_override is not None:
-            return org.standing_override
-        if org.standing_auto is not None:
-            return org.standing_auto
-    return None if organization is None else 0
+    return None if organization is None else organization.effective_standing
+
+
+def refresh_objectives() -> None:
+    """Re-derive friend or foe on every owned timer after standings changed."""
+    from .models import Timer  # pylint: disable=import-outside-toplevel
+
+    owner_ids = (
+        Timer.objects.filter(owner_corporation__isnull=False)
+        .values_list("owner_corporation_id", flat=True)
+        .distinct()
+    )
+    by_objective = {}
+    for owner in Organization.objects.filter(pk__in=owner_ids).select_related(
+        "alliance"
+    ):
+        objective = Organization.objective_for_standing(owner.effective_standing)
+        by_objective.setdefault(objective, []).append(owner.pk)
+    for objective, ids in by_objective.items():
+        Timer.objects.filter(owner_corporation_id__in=ids).exclude(
+            objective=objective
+        ).update(objective=objective)
 
 
 def standing_label(value: Optional[int]) -> str:
@@ -103,3 +117,4 @@ def sync_all() -> None:
         except Exception as ex:  # pylint: disable=broad-exception-caught
             source.last_error = str(ex)[:254]
             source.save(update_fields=["last_error"])
+    refresh_objectives()

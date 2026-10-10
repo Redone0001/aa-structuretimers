@@ -274,7 +274,7 @@ class TimerListDataView(
                     "distance_jumps": distances.jumps if distances else None,
                     "actions": self._get_data_actions(timer),
                     "timer_type_name": timer.get_timer_type_display(),
-                    "objective_name": timer.get_objective_display(),
+                    "objective_name": self._calc_standing_name(timer),
                     "system_name": timer.eve_solar_system.name,
                     "region_name": timer.eve_solar_system.eve_constellation.eve_region.name,
                     "structure_type_name": (
@@ -337,6 +337,12 @@ class TimerListDataView(
             )
         return format_html("{}", timer.assigned_character_name or _("Unassigned"))
 
+    @staticmethod
+    def _calc_standing_name(timer) -> str:
+        if timer.owner_corporation_id:
+            return standings.standing_label(timer.owner_corporation.effective_standing)
+        return timer.get_objective_display()
+
     def _calc_objective(self, timer):
         tags = []
         is_restricted = False
@@ -355,7 +361,7 @@ class TimerListDataView(
             "{}<br>{}",
             mark_safe(
                 bootstrap5_label_html(
-                    timer.get_objective_display(), timer.label_type_for_objective()
+                    self._calc_standing_name(timer), timer.label_type_for_objective()
                 )
             ),
             mark_safe(" ".join(tags)),
@@ -847,6 +853,7 @@ class StandingSetView(LoginRequiredMixin, PermissionRequiredMixin, View):
         else:
             return JsonResponse({"error": "Unknown standing"}, status=400)
         organization.save(update_fields=["standing_override", "updated_at"])
+        standings.refresh_objectives()
         return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
 
 
@@ -890,6 +897,7 @@ def add_standings_source(request, token):
     )
     try:
         count = standings.sync_source(source)
+        standings.refresh_objectives()
     except Exception as ex:  # pylint: disable=broad-exception-caught
         messages.error(request, f"Could not read alliance contacts: {ex}")
     else:

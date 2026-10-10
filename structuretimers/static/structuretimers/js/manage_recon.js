@@ -92,7 +92,7 @@ $(document).ready(function () {
         initComplete: function () {
             initializeMultiSelectFilters(this.api(), {columns: [
                 {idx: 8, title: messages.solarSystem}, {idx: 9, title: messages.region},
-                {idx: 10, title: messages.structureType}, {idx: 11, title: messages.owner}, {idx: 12, title: messages.objective}
+                {idx: 10, title: messages.structureType}, {idx: 11, title: messages.owner}, {idx: 12, title: root.dataset.standingTitle}
             ]}, exported.getAttribute('data-titleFilterBy'), exported.getAttribute('data-titleAll'),
             saved.columns || {});
             this.api().page(Math.min(saved.page || 0, Math.max(0, this.api().page.info().pages - 1))).draw(false);

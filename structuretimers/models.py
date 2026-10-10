@@ -140,6 +140,26 @@ class Organization(models.Model):
         return self.name
 
     @property
+    def effective_standing(self) -> int:
+        """Own standing (override first), then the alliance's, else 0."""
+        for org in (self, self.alliance):
+            if org is None:
+                continue
+            if org.standing_override is not None:
+                return org.standing_override
+            if org.standing_auto is not None:
+                return org.standing_auto
+        return 0
+
+    @staticmethod
+    def objective_for_standing(value: int) -> str:
+        if value > 0:
+            return Timer.Objective.FRIENDLY
+        if value < 0:
+            return Timer.Objective.HOSTILE
+        return Timer.Objective.NEUTRAL
+
+    @property
     def display_name(self) -> str:
         if self.alliance_id:
             return f"{self.name} [{self.alliance.name}]"
@@ -627,6 +647,11 @@ class Timer(models.Model):
             ).first()
             if self.owner_corporation:
                 self.owner_name = self.owner_corporation.name
+        if self.owner_corporation_id:
+            # The owner's standing decides friend or foe.
+            self.objective = Organization.objective_for_standing(
+                self.owner_corporation.effective_standing
+            )
         if self.timer_type == Timer.Type.PRELIMINARY:
             self.database_entry = None
             self.structures_structure_id = None

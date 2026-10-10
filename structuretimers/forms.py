@@ -181,11 +181,6 @@ class TimerForm(forms.ModelForm):
         empty_label=_("Unassigned"),
         widget=forms.Select(attrs={"class": "select2-render"}),
     )
-    objective = forms.ChoiceField(
-        initial=Timer.Objective.UNDEFINED,
-        choices=Timer.Objective.choices,
-        widget=forms.Select(attrs={"class": "select2-render"}),
-    )
     timer_type = forms.ChoiceField(
         required=False,
         label=_("Timer Type"),
@@ -263,7 +258,6 @@ class TimerForm(forms.ModelForm):
             "timer_type",
             "reinforcement_time",
             "location_details",
-            "objective",
             "assigned_to",
             "details_image_url",
             "details_notes",
@@ -667,11 +661,6 @@ class FastTimerForm(TimerForm):
             }
         ),
     )
-    objective = forms.ChoiceField(
-        initial=Timer.Objective.HOSTILE,
-        choices=Timer.Objective.choices,
-        widget=forms.Select(attrs={"class": "select2-render"}),
-    )
 
     fast_fields = (
         "pasted_timer",
@@ -679,7 +668,6 @@ class FastTimerForm(TimerForm):
         "structure_type_2",
         "timer_type",
         "owner_2",
-        "objective",
     )
     derived_fields = (
         "eve_solar_system_2",
@@ -785,7 +773,6 @@ class ReconForm(TimerForm):
         "timer_type",
         "reinforcement_time",
         "location_details",
-        "objective",
         "details_notes",
     )
 
@@ -806,16 +793,11 @@ class ReconForm(TimerForm):
         self.fields["location_details"].help_text = _(
             "Nearby planet, moon, gate, or other location information."
         )
-        self.fields["objective"].label = _("Objective")
         self.fields["details_notes"].label = _("Details / notes")
         self.fields["details_notes"].help_text = _(
             "Additional information about this recon."
         )
-        self.fields["objective"].required = False
         if self.is_new:
-            self.initial["objective"] = Timer.Objective.NEUTRAL
             self.initial["reinforcement_time"] = dt.time(0, 0)
         self.order_fields(self.recon_fields)
 
-    def clean_objective(self):
-        return self.cleaned_data.get("objective") or Timer.Objective.NEUTRAL
