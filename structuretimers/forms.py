@@ -134,13 +134,6 @@ class TimerForm(forms.ModelForm):
     """Form for timers."""
 
     ASTERISK_HTML = mark_safe('<i class="fas fa-asterisk"></i>')
-    TIME_REMAINING_WIDGET_ATTRS = {
-        "class": "timer-time-remaining-field",
-    }
-    TIME_REMAINING_HELP_TEXT = _(
-        "This field is calculated from the current time. "
-        "Alternatively, you can enter the date above in the `Date` field."
-    )
     database_entry_2 = forms.CharField(
         required=False,
         label="Existing structure",
@@ -199,31 +192,7 @@ class TimerForm(forms.ModelForm):
             attrs={"id": "timer-date-field"}, format=DATETIME_FORMAT
         ),
         # input_formats=[DATETIME_FORMAT],
-        help_text=_(
-            "The date when the timer happens. "
-            "Alternatively, you can enter the remaining time below."
-        ),
-    )
-    days_left = forms.IntegerField(
-        required=False,
-        label=_("Days Remaining"),
-        validators=[MinValueValidator(0)],
-        widget=forms.NumberInput(attrs=TIME_REMAINING_WIDGET_ATTRS),
-        help_text=TIME_REMAINING_HELP_TEXT,
-    )
-    hours_left = forms.IntegerField(
-        required=False,
-        label=_("Hours Remaining"),
-        validators=[MinValueValidator(0), MaxValueValidator(23)],
-        widget=forms.NumberInput(attrs=TIME_REMAINING_WIDGET_ATTRS),
-        help_text=TIME_REMAINING_HELP_TEXT,
-    )
-    minutes_left = forms.IntegerField(
-        required=False,
-        label=_("Minutes Remaining"),
-        validators=[MinValueValidator(0), MaxValueValidator(59)],
-        widget=forms.NumberInput(attrs=TIME_REMAINING_WIDGET_ATTRS),
-        help_text=TIME_REMAINING_HELP_TEXT,
+        help_text="When the reinforcement timer ends, in EVE time (UTC).",
     )
     reinforcement_time = forms.TimeField(
         required=False,
@@ -252,9 +221,6 @@ class TimerForm(forms.ModelForm):
             "structure_type_2",
             "owner_2",
             "date",
-            "days_left",
-            "hours_left",
-            "minutes_left",
             "timer_type",
             "reinforcement_time",
             "location_details",
@@ -366,42 +332,12 @@ class TimerForm(forms.ModelForm):
         if "owner_2" in self.fields and cleaned_data.get("owner_2"):
             self._clean_owner(cleaned_data)
 
-        days_left = cleaned_data.get("days_left")
-        hours_left = cleaned_data.get("hours_left")
-        minutes_left = cleaned_data.get("minutes_left")
-        date = cleaned_data.get("date")
-        if any([days_left, hours_left, minutes_left]):
-            if days_left is None:
-                days_left = cleaned_data["days_left"] = 0
-            if hours_left is None:
-                hours_left = cleaned_data["hours_left"] = 0
-            if minutes_left is None:
-                minutes_left = cleaned_data["minutes_left"] = 0
-
+        # No date means "not reinforced": the entry is only a Database record.
         timer_type = cleaned_data.get("timer_type")
-        if (
-            timer_type != Timer.Type.PRELIMINARY
-            and days_left is None
-            and hours_left is None
-            and minutes_left is None
-            and date is None
-        ):
+        if cleaned_data.get("date") is None:
             cleaned_data["timer_type"] = Timer.Type.PRELIMINARY.value
-        if timer_type == Timer.Type.PRELIMINARY and (
-            days_left is not None
-            or hours_left is not None
-            or minutes_left is not None
-            or date is not None
-        ):
+        elif not timer_type or timer_type == Timer.Type.PRELIMINARY:
             cleaned_data["timer_type"] = Timer.Type.NONE.value
-        if not cleaned_data.get("timer_type"):
-            has_date = any(
-                cleaned_data.get(name) is not None
-                for name in ("date", "days_left", "hours_left", "minutes_left")
-            )
-            cleaned_data["timer_type"] = (
-                Timer.Type.NONE.value if has_date else Timer.Type.PRELIMINARY.value
-            )
 
     def clean_reinforcement_time(self):
         value = self.cleaned_data.get("reinforcement_time")
@@ -586,32 +522,7 @@ class TimerForm(forms.ModelForm):
             timer.eve_alliance = alliance
             timer.user = self.user
 
-        # calculate future time
-        days_left = self.cleaned_data.get("days_left")
-        hours_left = self.cleaned_data.get("hours_left")
-        minutes_left = self.cleaned_data.get("minutes_left")
-        date = self.cleaned_data.get("date")
-        if date is not None:
-            timer.date = date
-        elif (
-            days_left is not None
-            and hours_left is not None
-            and minutes_left is not None
-        ):
-            future_time = dt.timedelta(
-                days=days_left, hours=hours_left, minutes=minutes_left
-            )
-            current_time = now()
-            date = current_time + future_time
-            logger.debug(
-                "Determined timer eve time is %s - current time %s, adding %s",
-                date,
-                current_time,
-                future_time,
-            )
-            timer.date = date
-        else:
-            timer.date = None
+        timer.date = self.cleaned_data.get("date")
 
         if timer.timer_type == Timer.Type.PRELIMINARY:
             timer.discord_timerboard = False
@@ -767,9 +678,6 @@ class ReconForm(TimerForm):
         "structure_type_2",
         "owner_2",
         "date",
-        "days_left",
-        "hours_left",
-        "minutes_left",
         "timer_type",
         "reinforcement_time",
         "location_details",
@@ -786,8 +694,7 @@ class ReconForm(TimerForm):
             "other types use ±3 hours."
         )
         self.fields["date"].help_text = (
-            "Only if it is reinforced: when the timer ends. "
-            "Alternatively, enter the remaining time below."
+            "Only if it is reinforced: when the timer ends, in EVE time (UTC)."
         )
         self.fields["location_details"].label = _("Location details")
         self.fields["location_details"].help_text = _(

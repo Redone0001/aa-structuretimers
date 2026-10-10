@@ -101,12 +101,4 @@ $(document).ready(function () {
     $.datetimepicker.setLocale(languageCode);
     $('#timer-date-field').datetimepicker({ format: 'Y-m-d H:i', theme: 'default', onGenerate: function () { this.addClass('st-datepicker'); } });
 
-    // Clear date field when time-remaining fields are used and vice versa
-    $('.timer-time-remaining-field').change(function () {
-        $('#timer-date-field').val('');
-    });
-
-    $('#timer-date-field').change(function () {
-        $('.timer-time-remaining-field').val('');
-    });
 });

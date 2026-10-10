@@ -16,7 +16,7 @@ from structuretimers.tests.testdata.factory import (
     UserWithCreateFactory,
 )
 
-from .test_forms import create_form_data
+from .test_forms import FUTURE, create_form_data
 
 
 @skipUnless(structures_bridge.is_available(), "aa-structures is not installed")
@@ -107,7 +107,7 @@ class TestStructuresBridge(NoSocketsTestCase):
                 structure_type_2=self.structure.eve_type_id,
                 structure_name="Renamed",
                 timer_type=Timer.Type.ARMOR,
-                days_left=1,
+                date=FUTURE,
             ),
         )
         self.assertTrue(form.is_valid(), form.errors)
@@ -122,7 +122,7 @@ class TestStructuresBridge(NoSocketsTestCase):
                 database_entry_2=f"s-{self.structure.id}",
                 eve_solar_system_2=self.structure.eve_solar_system_id,
                 structure_type_2=self.structure.eve_type_id,
-                days_left=1,
+                date=FUTURE,
             ),
         )
         self.assertFalse(form.is_valid())

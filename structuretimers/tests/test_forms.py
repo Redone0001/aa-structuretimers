@@ -1,4 +1,7 @@
+import datetime as dt
 from unittest.mock import Mock, patch
+
+from django.utils.timezone import now
 
 from requests.exceptions import ConnectionError as NewConnectionError
 from requests.exceptions import HTTPError, Timeout
@@ -31,6 +34,10 @@ def bytes_from_file(filename, chunksize=8192):
                     yield b
             else:
                 break
+
+
+#: A date for reinforcement timers in tests, in the form's input format.
+FUTURE = (now() + dt.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
 
 
 def make_owner(name="Test Owner Corp", corporation_id=98000001) -> str:
@@ -226,13 +233,6 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         cls.type_athanor = RefineryTypeFactory(id=35835, name="Athanor")
         SkyhookTypeFactory()
 
-    def test_should_accept_normal_timer_with_date_parts(self):
-        # given
-        form_data = create_form_data(days_left=0, hours_left=3, minutes_left=30)
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-
     def test_should_accept_normal_timer_with_date(self):
         # given
         form_data = create_form_data(date="2022-03-05 20:07")
@@ -240,65 +240,12 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         # when / then
         self.assertTrue(form.is_valid())
 
-    def test_should_accept_normal_timer_with_partial_date_1(self):
-        # given
-        form_data = create_form_data(days_left=1)
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-
-    def test_should_accept_normal_timer_with_partial_date_2(self):
-        # given
-        form_data = create_form_data(hours_left=1)
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-
-    def test_should_accept_normal_timer_with_partial_date_3(self):
-        # given
-        form_data = create_form_data(minutes_left=1)
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-
     def test_should_accept_preliminary_timer_without_date(self):
         # given
         form_data = create_form_data(timer_type=Timer.Type.PRELIMINARY)
         form = TimerForm(data=form_data)
         # when / then
         self.assertTrue(form.is_valid())
-
-    def test_should_upgrade_preliminary_timer_when_date_parts_specified(self):
-        # given
-        form_data = create_form_data(
-            timer_type=Timer.Type.PRELIMINARY,
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
-        )
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-        self.assertIsNone(form.cleaned_data["date"])
-        self.assertIsNotNone(form.cleaned_data["days_left"])
-        self.assertIsNotNone(form.cleaned_data["hours_left"])
-        self.assertIsNotNone(form.cleaned_data["minutes_left"])
-
-    def test_should_upgrade_preliminary_timer_when_date_parts_specified_2(self):
-        # given
-        form_data = create_form_data(timer_type=Timer.Type.PRELIMINARY, days_left=5)
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertTrue(form.is_valid())
-        self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-        self.assertIsNone(form.cleaned_data["date"])
-        self.assertIsNotNone(form.cleaned_data["days_left"])
-        self.assertIsNotNone(form.cleaned_data["hours_left"])
-        self.assertIsNotNone(form.cleaned_data["minutes_left"])
 
     def test_should_upgrade_preliminary_timer_when_date_specified(self):
         # given
@@ -309,9 +256,6 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         # when / then
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.NONE)
-        self.assertIsNone(form.cleaned_data["days_left"])
-        self.assertIsNone(form.cleaned_data["hours_left"])
-        self.assertIsNone(form.cleaned_data["minutes_left"])
         self.assertIsNotNone(form.cleaned_data["date"])
 
     def test_should_set_timer_as_preliminary_timer_when_no_date_specified(self):
@@ -322,13 +266,10 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["timer_type"], Timer.Type.PRELIMINARY)
         self.assertIsNone(form.cleaned_data["date"])
-        self.assertIsNone(form.cleaned_data["days_left"])
-        self.assertIsNone(form.cleaned_data["hours_left"])
-        self.assertIsNone(form.cleaned_data["minutes_left"])
 
     def test_should_not_accept_timer_without_solar_system(self):
         # given
-        form_data = create_form_data(days_left=0, hours_left=3, minutes_left=30)
+        form_data = create_form_data(date=FUTURE)
         del form_data["eve_solar_system_2"]
         form = TimerForm(data=form_data)
         # when / then
@@ -336,15 +277,8 @@ class TestTimerFormIsValid(NoSocketsTestCase):
 
     def test_should_not_accept_timer_without_structure_type(self):
         # given
-        form_data = create_form_data(days_left=0, hours_left=3, minutes_left=30)
+        form_data = create_form_data(date=FUTURE)
         del form_data["structure_type_2"]
-        form = TimerForm(data=form_data)
-        # when / then
-        self.assertFalse(form.is_valid())
-
-    def test_should_not_accept_invalid_days(self):
-        # given
-        form_data = create_form_data(days_left=-1, hours_left=3, minutes_left=30)
         form = TimerForm(data=form_data)
         # when / then
         self.assertFalse(form.is_valid())
@@ -361,9 +295,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         form_data = create_form_data(
             timer_type=Timer.Type.MOONMINING,
             structure_type_2=self.type_astrahus.id,
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
         )
         form = TimerForm(data=form_data)
         # when / then
@@ -375,9 +307,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         image_file = bytearray(bytes_from_file(test_image_filename()))
         mock_get.return_value.content = image_file
         form_data = create_form_data(
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
             details_image_url="http://www.example.com/image.png",
         )
         form = TimerForm(data=form_data)
@@ -390,9 +320,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         image_file = bytearray(bytes_from_file(test_image_filename()))
         mock_get.return_value.content = image_file
         form_data = create_form_data(
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
             details_image_url="invalid-url",
         )
         form = TimerForm(data=form_data)
@@ -404,9 +332,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         # given
         mock_get.side_effect = NewConnectionError
         form_data = create_form_data(
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
             details_image_url="http://www.example.com/image.png",
         )
         form = TimerForm(data=form_data)
@@ -418,9 +344,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         # given
         mock_get.side_effect = HTTPError
         form_data = create_form_data(
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
             details_image_url="http://www.example.com/image.png",
         )
         form = TimerForm(data=form_data)
@@ -432,9 +356,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         # given
         mock_get.side_effect = Timeout
         form_data = create_form_data(
-            days_left=0,
-            hours_left=3,
-            minutes_left=30,
+            date=FUTURE,
             details_image_url="http://www.example.com/image.png",
         )
         form = TimerForm(data=form_data)
@@ -452,9 +374,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
         for tc in cases:
             with self.subTest(name=tc[0]):
                 form_data = create_form_data(
-                    days_left=0,
-                    hours_left=3,
-                    minutes_left=30,
+                    date=FUTURE,
                     timer_type=Timer.Type.THEFT,
                     structure_type_2=tc[1],
                 )
@@ -538,7 +458,7 @@ class TestTimerFormSave(NoSocketsTestCase):
     def test_should_create_new_normal_timer(self):
         # given
         form_data = create_form_data(
-            days_left=0, hours_left=3, minutes_left=30, timer_type=Timer.Type.ARMOR
+            date=FUTURE, timer_type=Timer.Type.ARMOR
         )
         form = TimerForm(user=self.user, data=form_data)
         # when
@@ -561,7 +481,7 @@ class TestTimerFormSave(NoSocketsTestCase):
 
     def test_should_promote_preliminary_timer_to_normal_timer(self):
         # given
-        form_data = create_form_data(timer_type=Timer.Type.PRELIMINARY, days_left=1)
+        form_data = create_form_data(timer_type=Timer.Type.PRELIMINARY, date=FUTURE)
         form = TimerForm(user=self.user, data=form_data)
         # when
         form.save()
@@ -575,7 +495,7 @@ class TestTimerFormSave(NoSocketsTestCase):
             form = TimerForm(
                 user=self.user,
                 data=create_form_data(
-                    days_left=1,
+                    date=FUTURE,
                     discord_timerboard=selected,
                 ),
             )

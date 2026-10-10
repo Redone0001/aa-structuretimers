@@ -12,7 +12,7 @@ from app_utils.testing import NoSocketsTestCase
 from structuretimers.constants import EveTypeId
 from structuretimers.models import Organization, ScheduledNotification, Timer
 from structuretimers.tasks import send_test_message_to_webhook
-from structuretimers.tests.test_forms import make_owner
+from structuretimers.tests.test_forms import FUTURE, make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     DiscordWebhookFactory,
@@ -52,9 +52,7 @@ class TestCreateNewTimer(NoSocketsTestCase):
             "eve_solar_system_2": [str(solar_system.id)],
             "structure_type_2": [str(structure_type.id)],
             "timer_type": Timer.Type.ANCHORING,
-            "days_left": 1,
-            "hours_left": 2,
-            "minutes_left": 3,
+            "date": FUTURE,
             "objective": Timer.Objective.HOSTILE,
             "visibility": Timer.Visibility.UNRESTRICTED,
             "_save": "Save",
@@ -70,8 +68,7 @@ class TestCreateNewTimer(NoSocketsTestCase):
         self.assertEqual(obj.eve_solar_system, solar_system)
         self.assertEqual(obj.structure_type, structure_type)
         self.assertEqual(obj.timer_type, Timer.Type.ANCHORING)
-        timer_date = now() + timedelta(days=1, hours=2, minutes=3)
-        self.assertAlmostEqual(obj.date, timer_date, delta=timedelta(seconds=10))
+        self.assertEqual(obj.date.strftime("%Y-%m-%d %H:%M"), FUTURE)
 
     def test_user_without_permission_can_not_add_timer(self):
         # given
@@ -83,9 +80,7 @@ class TestCreateNewTimer(NoSocketsTestCase):
             "eve_solar_system_2": [str(solar_system.id)],
             "structure_type_2": [str(structure_type.id)],
             "timer_type": Timer.Type.ANCHORING,
-            "days_left": 1,
-            "hours_left": 2,
-            "minutes_left": 3,
+            "date": FUTURE,
             "objective": Timer.Objective.HOSTILE,
             "visibility": Timer.Visibility.UNRESTRICTED,
             "_save": "Save",

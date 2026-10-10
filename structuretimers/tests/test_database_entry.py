@@ -14,7 +14,7 @@ from structuretimers.tests.testdata.factory import (
     UserWithCreateFactory,
 )
 
-from .test_forms import create_form_data
+from .test_forms import FUTURE, create_form_data
 
 
 @patch(
@@ -103,7 +103,7 @@ class TestDatabaseEntry(NoSocketsTestCase):
                 structure_type_2=record.structure_type_id,
                 structure_name="Home",
                 timer_type=Timer.Type.ARMOR,
-                days_left=1,
+                date=FUTURE,
             ),
         )
         record_pk = record.pk
@@ -129,7 +129,7 @@ class TestDatabaseEntry(NoSocketsTestCase):
                 structure_type_2=record.structure_type_id,
                 structure_name="Renamed since",
                 timer_type=Timer.Type.ARMOR,
-                days_left=1,
+                date=FUTURE,
             ),
         )
         self.assertTrue(form.is_valid(), form.errors)
@@ -145,7 +145,7 @@ class TestDatabaseEntry(NoSocketsTestCase):
                 database_entry_2=str(not_a_record.pk),
                 eve_solar_system_2=not_a_record.eve_solar_system_id,
                 structure_type_2=not_a_record.structure_type_id,
-                days_left=1,
+                date=FUTURE,
             ),
         )
         self.assertFalse(form.is_valid())
