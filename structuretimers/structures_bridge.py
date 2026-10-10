@@ -195,6 +195,10 @@ def picker_results(user: User, term: str) -> list:
             },
             "structure_name": structure.name,
             "owner_name": structure.owner.corporation.corporation_name,
+            "owner": {
+                "id": "lookup:" + structure.owner.corporation.corporation_name,
+                "text": structure.owner.corporation.corporation_name,
+            },
             "location_details": "",
             "objective": "FR",
             "reinforcement_time": reinforce_time(structure) or "",

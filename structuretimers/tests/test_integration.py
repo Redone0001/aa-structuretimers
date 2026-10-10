@@ -12,6 +12,7 @@ from app_utils.testing import NoSocketsTestCase
 from structuretimers.constants import EveTypeId
 from structuretimers.models import ScheduledNotification, Timer
 from structuretimers.tasks import send_test_message_to_webhook
+from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     DiscordWebhookFactory,
@@ -47,6 +48,7 @@ class TestCreateNewTimer(NoSocketsTestCase):
         structure_type = CitadelTypeFactory()
         form_data = {
             "structure_name": "Timer 4",
+            "owner_2": make_owner(),
             "eve_solar_system_2": [str(solar_system.id)],
             "structure_type_2": [str(structure_type.id)],
             "timer_type": Timer.Type.ANCHORING,
@@ -77,6 +79,7 @@ class TestCreateNewTimer(NoSocketsTestCase):
         structure_type = CitadelTypeFactory()
         form_data = {
             "structure_name": "Timer 4",
+            "owner_2": make_owner(),
             "eve_solar_system_2": [str(solar_system.id)],
             "structure_type_2": [str(structure_type.id)],
             "timer_type": Timer.Type.ANCHORING,
@@ -125,7 +128,7 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
             ),
             "structure_type_2": str(structure_type.id),
             "timer_type": Timer.Type.HULL,
-            "owner_name": "SoyuzMultFilm",
+            "owner_2": make_owner("SoyuzMultFilm", 98000002),
             "objective": Timer.Objective.HOSTILE,
         }
 
@@ -152,9 +155,9 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
             ),
             "structure_type_2": str(EveTypeId.ASTRAHUS.value),
             "timer_type": Timer.Type.THEFT,
-            "owner_name": "Submitted owner should be replaced",
             "objective": Timer.Objective.HOSTILE,
         }
+        make_owner("Guns-R-Us Toy Company", 98000005)
 
         response = self.client.post(self.add_fast_timer_url, data=form_data)
 
@@ -205,7 +208,7 @@ class TestEditTimer(NoSocketsTestCase):
 
         owner_name = "The Boys"
         form_data = _make_form_data_from_timer(timer) | {
-            "owner_name": owner_name,
+            "owner_2": make_owner(owner_name, 98000004),
         }
 
         # when
@@ -238,7 +241,7 @@ class TestEditTimer(NoSocketsTestCase):
 
         owner_name = "The Boys"
         form_data = _make_form_data_from_timer(timer) | {
-            "owner_name": owner_name,
+            "owner_2": make_owner(owner_name, 98000004),
         }
 
         # when
@@ -289,8 +292,8 @@ def _make_form_data_from_timer(timer: Timer) -> Dict[str, Any]:
         "is_opsec": timer.is_opsec,
         "location_details": timer.location_details or "",
         "objective": timer.objective,
-        "owner_name": timer.owner_name,
-        "structure_name": timer.structure_name,
+        "owner_2": make_owner(timer.owner_name or "Test Owner Corp", 98000003),
+        "structure_name": timer.structure_name or "Test structure",
         "structure_type_2": [timer.structure_type.pk],
         "timer_type": timer.timer_type,
         # "user": timer.user.pk if timer.user else "",

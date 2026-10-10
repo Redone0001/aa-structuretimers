@@ -10,6 +10,7 @@ from app_utils.testing import NoSocketsTestCase
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import ReconForm
 from structuretimers.models import Timer
+from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     TimerFactory,
@@ -118,6 +119,7 @@ class TestManageRecon(NoSocketsTestCase):
                 "structure_type_2": structure_type.pk,
                 "eve_solar_system_2": self.timer.eve_solar_system_id,
                 "structure_name": "Ansiblex recon",
+                "owner_2": make_owner(),
                 "reinforcement_time": "00:00",
             },
             user=self.user,
@@ -148,6 +150,8 @@ class TestManageRecon(NoSocketsTestCase):
             url,
             {
                 "eve_solar_system_2": self.timer.eve_solar_system_id,
+                "structure_type_2": CitadelTypeFactory().pk,
+                "owner_2": make_owner(),
                 "structure_name": "Updated recon",
             },
         )

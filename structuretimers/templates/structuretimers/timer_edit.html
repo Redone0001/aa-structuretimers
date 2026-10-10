@@ -37,7 +37,8 @@
         id="dataExport"
         data-select2SolarSystemsUrl="{% url 'structuretimers:select2_solar_systems' %}"
         data-select2StructureTypesUrl="{% url 'structuretimers:select2_structure_types' %}"
-        data-select2DatabaseEntriesUrl="{% url 'structuretimers:select2_database_entries' %}">
+        data-select2DatabaseEntriesUrl="{% url 'structuretimers:select2_database_entries' %}"
+        data-select2OwnersUrl="{% url 'structuretimers:select2_owners' %}">
     </div>
 
     {{ LANGUAGE_CODE|json_script:"language-code-data" }}

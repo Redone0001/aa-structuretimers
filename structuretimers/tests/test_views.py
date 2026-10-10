@@ -20,6 +20,7 @@ from app_utils.testing import (
 )
 
 from structuretimers.models import Timer
+from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     DistancesFromStagingFactory,
@@ -516,6 +517,7 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
             "visibility": Timer.Visibility.UNRESTRICTED,
             "date": timer.date.strftime("%Y-%m-%d %H:%M"),
             "structure_name": "Hacked Name",
+            "owner_2": make_owner(),
         }
 
     def test_should_not_allow_unauthorized_user_to_delete_timer(self):

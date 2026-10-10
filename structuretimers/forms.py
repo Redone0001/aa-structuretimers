@@ -22,7 +22,7 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.services.hooks import get_extension_logger
 
 from .constants import EveGroupId, EveTypeId
-from . import structures_bridge
+from . import owners, structures_bridge
 from .models import Timer
 
 logger = get_extension_logger(__name__)
@@ -161,6 +161,15 @@ class TimerForm(forms.ModelForm):
         label=format_html("{} {}", _("Structure Type"), ASTERISK_HTML),
         widget=forms.Select(attrs={"class": "select2-structure-types"}),
     )
+    owner_2 = forms.CharField(
+        required=True,
+        label=format_html("{} {}", _("Owner"), ASTERISK_HTML),
+        help_text=(
+            "Player corporation that owns the structure. Its alliance is filled "
+            "in automatically."
+        ),
+        widget=forms.Select(attrs={"class": "select2-owners"}),
+    )
     assigned_to = AssigneeChoiceField(
         queryset=get_user_model().objects.filter(
             is_active=True, profile__main_character__isnull=False
@@ -178,7 +187,10 @@ class TimerForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "select2-render"}),
     )
     timer_type = forms.ChoiceField(
-        choices=Timer.Type.choices,
+        required=False,
+        label=_("Timer Type"),
+        choices=[("", "Not reinforced")] + Timer.Type.choices,
+        help_text="Leave empty and leave the date empty if it is not reinforced.",
         widget=forms.Select(attrs={"class": "select2-render"}),
     )
     visibility = forms.ChoiceField(
@@ -240,19 +252,19 @@ class TimerForm(forms.ModelForm):
         model = Timer
         fields = (
             "database_entry_2",
-            "eve_solar_system_2",
-            "location_details",
-            "reinforcement_time",
-            "structure_type_2",
-            "timer_type",
             "structure_name",
-            "owner_name",
-            "objective",
-            "assigned_to",
+            "eve_solar_system_2",
+            "structure_type_2",
+            "owner_2",
             "date",
             "days_left",
             "hours_left",
             "minutes_left",
+            "timer_type",
+            "reinforcement_time",
+            "location_details",
+            "objective",
+            "assigned_to",
             "details_image_url",
             "details_notes",
             "visibility",
@@ -271,6 +283,37 @@ class TimerForm(forms.ModelForm):
             self.is_new = True
 
         super().__init__(*args, **kwargs)
+
+        self.fields["structure_name"].required = True
+        self.fields["structure_name"].label = format_html(
+            "{} {}", _("Structure name"), self.ASTERISK_HTML
+        )
+        self.fields["timer_type"].widget.choices = [
+            choice
+            for choice in self.fields["timer_type"].choices
+            if choice[0] != Timer.Type.PRELIMINARY
+        ]
+        if my_instance and my_instance.owner_corporation_id:
+            self.fields["owner_2"].widget.choices = [
+                (
+                    str(my_instance.owner_corporation_id),
+                    my_instance.owner_corporation.display_name,
+                )
+            ]
+        elif my_instance and my_instance.owner_name:
+            self.fields["owner_2"].widget.choices = [
+                (
+                    owners.LOOKUP_PREFIX + my_instance.owner_name,
+                    f'Look up corporation "{my_instance.owner_name}" on ESI',
+                )
+            ]
+            self.initial.setdefault(
+                "owner_2", owners.LOOKUP_PREFIX + my_instance.owner_name
+            )
+        if my_instance and my_instance.owner_corporation_id:
+            self.initial.setdefault("owner_2", str(my_instance.owner_corporation_id))
+        if my_instance and my_instance.timer_type == Timer.Type.PRELIMINARY:
+            self.initial["timer_type"] = ""
 
         if (
             not self.user
@@ -326,6 +369,9 @@ class TimerForm(forms.ModelForm):
         if cleaned_data.get("database_entry_2"):
             self._clean_database_entry(cleaned_data)
 
+        if "owner_2" in self.fields and cleaned_data.get("owner_2"):
+            self._clean_owner(cleaned_data)
+
         days_left = cleaned_data.get("days_left")
         hours_left = cleaned_data.get("hours_left")
         minutes_left = cleaned_data.get("minutes_left")
@@ -354,6 +400,14 @@ class TimerForm(forms.ModelForm):
             or date is not None
         ):
             cleaned_data["timer_type"] = Timer.Type.NONE.value
+        if not cleaned_data.get("timer_type"):
+            has_date = any(
+                cleaned_data.get(name) is not None
+                for name in ("date", "days_left", "hours_left", "minutes_left")
+            )
+            cleaned_data["timer_type"] = (
+                Timer.Type.NONE.value if has_date else Timer.Type.PRELIMINARY.value
+            )
 
     def clean_reinforcement_time(self):
         value = self.cleaned_data.get("reinforcement_time")
@@ -441,6 +495,22 @@ class TimerForm(forms.ModelForm):
                 code="details_url_unsupported_type",
             )
 
+    def _clean_owner(self, cleaned_data):
+        value = cleaned_data["owner_2"]
+        try:
+            owner = owners.clean_owner_value(value)
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.warning("Could not look up owner %r on ESI", value, exc_info=True)
+            self.add_error("owner_2", "Could not reach ESI to check this owner. Try again.")
+            return
+        if owner is None:
+            name = str(value).removeprefix(owners.LOOKUP_PREFIX)
+            self.add_error(
+                "owner_2", f'No player corporation named "{name}" exists in EVE.'
+            )
+            return
+        cleaned_data["owner_2"] = owner
+
     def _clean_database_entry(self, cleaned_data):
         value = str(cleaned_data["database_entry_2"])
         if value.startswith(structures_bridge.ROW_PREFIX):
@@ -480,6 +550,10 @@ class TimerForm(forms.ModelForm):
 
     def save(self, commit=True):
         timer = super().save(commit=False)
+        owner = self.cleaned_data.get("owner_2")
+        if isinstance(owner, owners.Organization):
+            timer.owner_corporation = owner
+            timer.owner_name = owner.name
         if "database_entry_2" in self.fields:
             # Empty means "match or add automatically" when the timer is saved.
             picked = self.cleaned_data.get("database_entry_2") or None
@@ -604,7 +678,7 @@ class FastTimerForm(TimerForm):
         "assigned_to",
         "structure_type_2",
         "timer_type",
-        "owner_name",
+        "owner_2",
         "objective",
     )
     derived_fields = (
@@ -645,8 +719,8 @@ class FastTimerForm(TimerForm):
                 if parsed_timer.structure_type_name:
                     data["structure_type_2"] = str(EveTypeId.ORBITAL_SKYHOOK.value)
 
-            if parsed_owner_name:
-                data["owner_name"] = parsed_owner_name
+            if parsed_owner_name and not data.get("owner_2"):
+                data["owner_2"] = owners.LOOKUP_PREFIX + parsed_owner_name
             if parsed_location_details:
                 data["location_details"] = parsed_location_details
 
@@ -666,8 +740,6 @@ class FastTimerForm(TimerForm):
         # Invalid paste data is reported against the text area instead of producing
         # a second, confusing "solar system is required" error from the hidden field.
         self.fields["eve_solar_system_2"].required = False
-        self.fields["owner_name"].required = True
-        self.fields["owner_name"].label = _("Owner")
         self.fields["structure_type_2"].widget.attrs[
             "data-skyhook-type-id"
         ] = str(EveTypeId.ORBITAL_SKYHOOK.value)
@@ -699,16 +771,20 @@ class FastTimerForm(TimerForm):
 
 
 class ReconForm(TimerForm):
-    """Capture reconnaissance as an unscheduled preliminary timer."""
+    """Add a structure to the Database, optionally with its reinforcement timer."""
 
     recon_fields = (
-        "eve_solar_system_2",
-        "location_details",
-        "structure_type_2",
-        "reinforcement_time",
-        "timer_type",
         "structure_name",
-        "owner_name",
+        "eve_solar_system_2",
+        "structure_type_2",
+        "owner_2",
+        "date",
+        "days_left",
+        "hours_left",
+        "minutes_left",
+        "timer_type",
+        "reinforcement_time",
+        "location_details",
         "objective",
         "details_notes",
     )
@@ -718,26 +794,17 @@ class ReconForm(TimerForm):
         for name in tuple(self.fields):
             if name not in self.recon_fields:
                 self.fields.pop(name)
-        self.fields["structure_type_2"].required = False
-        self.fields["structure_type_2"].label = _("Structure type")
-        self.fields["structure_type_2"].help_text = _(
-            "Optional. Ansiblex and Metenox use a ±30 minute vulnerability window; "
-            "other or unknown types use ±3 hours."
+        self.fields["structure_type_2"].help_text = (
+            "Ansiblex and Metenox use a ±30 minute vulnerability window; "
+            "other types use ±3 hours."
         )
-        self.fields["timer_type"].widget = forms.HiddenInput()
-        self.fields["timer_type"].disabled = True
-        self.initial["timer_type"] = Timer.Type.PRELIMINARY
-        self.fields["structure_name"].required = True
-        self.fields["structure_name"].label = format_html(
-            "{} {}", _("Structure name"), self.ASTERISK_HTML
+        self.fields["date"].help_text = (
+            "Only if it is reinforced: when the timer ends. "
+            "Alternatively, enter the remaining time below."
         )
         self.fields["location_details"].label = _("Location details")
         self.fields["location_details"].help_text = _(
             "Nearby planet, moon, gate, or other location information."
-        )
-        self.fields["owner_name"].label = _("Owner name")
-        self.fields["owner_name"].help_text = _(
-            "Name of the corporation owning the structure."
         )
         self.fields["objective"].label = _("Objective")
         self.fields["details_notes"].label = _("Details / notes")

@@ -106,6 +106,7 @@ class TimerManagerBase(models.Manager):
         "structure_type_id",
         "structure_name",
         "owner_name",
+        "owner_corporation_id",
         "eve_corporation_id",
         "eve_alliance_id",
         "objective",
@@ -119,6 +120,7 @@ class TimerManagerBase(models.Manager):
     DATABASE_ENTRY_FILL_FIELDS = (
         "location_details",
         "owner_name",
+        "owner_corporation_id",
         "eve_corporation_id",
         "eve_alliance_id",
         "reinforcement_time",

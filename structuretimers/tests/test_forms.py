@@ -7,7 +7,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
-from structuretimers.models import Timer
+from structuretimers.models import Organization, Timer
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     EveSolarSystemLowSecFactory,
@@ -33,8 +33,19 @@ def bytes_from_file(filename, chunksize=8192):
                 break
 
 
+def make_owner(name="Test Owner Corp", corporation_id=98000001) -> str:
+    """Remember an owner corporation so forms need no ESI lookup."""
+    organization, _ = Organization.objects.get_or_create(
+        id=corporation_id,
+        defaults={"name": name, "category": Organization.Category.CORPORATION},
+    )
+    return str(organization.pk)
+
+
 def create_form_data(**kwargs):
     form_data = {
+        "structure_name": "Test structure",
+        "owner_2": make_owner(),
         "eve_solar_system_2": 30004984,
         "structure_type_2": EveTypeId.ASTRAHUS.value,
         "timer_type": Timer.Type.NONE,
@@ -53,7 +64,7 @@ def create_fast_form_data(**kwargs):
         ),
         "structure_type_2": EveTypeId.ASTRAHUS.value,
         "timer_type": Timer.Type.ARMOR,
-        "owner_name": "SoyuzMultFilm",
+        "owner_2": make_owner("SoyuzMultFilm", 98000002),
         "objective": Timer.Objective.HOSTILE,
     }
     form_data.update(kwargs)
@@ -151,11 +162,12 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
             "28.551 km\n"
             "Reinforced until 2026.10.09 00:44:58"
         )
+        make_owner("Guns-R-Us Toy Company", 98000005)
         form = FastTimerForm(
             data=create_fast_form_data(
                 pasted_timer=pasted_timer,
                 structure_type_2=EveTypeId.ASTRAHUS.value,
-                owner_name="Should be replaced by parsed owner",
+                owner_2="",
             )
         )
 
@@ -166,7 +178,7 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
             form.cleaned_data["structure_type_2"], str(EveTypeId.ORBITAL_SKYHOOK.value)
         )
         self.assertEqual(form.cleaned_data["location_details"], "VIII")
-        self.assertEqual(form.cleaned_data["owner_name"], "Guns-R-Us Toy Company")
+        self.assertEqual(form.cleaned_data["owner_2"].name, "Guns-R-Us Toy Company")
         self.assertEqual(
             form.cleaned_data["date"].isoformat(), "2026-10-09T00:44:58+00:00"
         )
@@ -186,10 +198,10 @@ class TestFastTimerFormIsValid(NoSocketsTestCase):
         self.assertNotIn("location_details", FastTimerForm.fast_fields)
 
     def test_should_require_owner(self):
-        form = FastTimerForm(data=create_fast_form_data(owner_name=""))
+        form = FastTimerForm(data=create_fast_form_data(owner_2=""))
 
         self.assertFalse(form.is_valid())
-        self.assertIn("owner_name", form.errors)
+        self.assertIn("owner_2", form.errors)
 
     def test_should_reject_unknown_solar_system(self):
         form = FastTimerForm(

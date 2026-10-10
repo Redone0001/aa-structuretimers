@@ -10,7 +10,12 @@ from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.models import ReconCampaign, ReconCampaignSystem, Timer
-from structuretimers.tests.testdata.factory import TimerFactory, UserWithAccessFactory
+from structuretimers.tests.test_forms import make_owner
+from structuretimers.tests.testdata.factory import (
+    CitadelTypeFactory,
+    TimerFactory,
+    UserWithAccessFactory,
+)
 
 
 @patch(
@@ -120,7 +125,14 @@ class TestCampaigns(NoSocketsTestCase):
         self.act("reserve")
         self.assertEqual(self.client.get(url).status_code, 200)
         self.assertEqual(
-            self.client.post(url, {"structure_name": "Scouted structure"}).status_code,
+            self.client.post(
+                url,
+                {
+                    "structure_name": "Scouted structure",
+                    "structure_type_2": timer.structure_type_id,
+                    "owner_2": make_owner(),
+                },
+            ).status_code,
             302,
         )
         timer.refresh_from_db()
@@ -140,7 +152,13 @@ class TestCampaigns(NoSocketsTestCase):
             "structuretimers:campaign_recon_add", args=[self.campaign.pk, self.entry.pk]
         )
         response = self.client.post(
-            url, {"structure_name": "New recon", "eve_solar_system_2": "999999"}
+            url,
+            {
+                "structure_name": "New recon",
+                "eve_solar_system_2": "999999",
+                "structure_type_2": CitadelTypeFactory().pk,
+                "owner_2": make_owner(),
+            },
         )
         self.assertEqual(response.status_code, 302)
         timer = Timer.objects.get(structure_name="New recon")

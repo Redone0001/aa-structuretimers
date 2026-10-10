@@ -38,7 +38,7 @@ from app_utils.views import (
     yesno_str,
 )
 
-from structuretimers import __title__, structures_bridge
+from structuretimers import __title__, owners, structures_bridge
 from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
@@ -200,6 +200,7 @@ class TimerListDataView(
             "assigned_to__profile__main_character",
             "eve_corporation",
             "eve_alliance",
+            "owner_corporation__alliance",
         )
         return timers_qs
 
@@ -280,7 +281,10 @@ class TimerListDataView(
         return visibility
 
     def _calc_owner_name(self, timer):
-        if timer.owner_name:
+        if timer.owner_corporation_id:
+            owner_name = timer.owner_corporation.name
+            owner = timer.owner_corporation.display_name
+        elif timer.owner_name:
             owner_name = timer.owner_name
             owner = owner_name
         else:
@@ -795,6 +799,15 @@ class Select2SolarSystemsView(JSONResponseMixin, ListView):
         return self.render_to_json_response(context, **response_kwargs)
 
 
+class Select2OwnersView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Known owner corporations for the Owner field, plus an ESI lookup."""
+
+    permission_required = "structuretimers.basic_access"
+
+    def get(self, request):
+        return JsonResponse({"results": owners.autocomplete(request.GET.get("term"))})
+
+
 class Select2DatabaseEntriesView(
     LoginRequiredMixin, PermissionRequiredMixin, JSONResponseMixin, ListView
 ):
@@ -817,7 +830,9 @@ class Select2DatabaseEntriesView(
                 | Q(eve_solar_system__name__istartswith=term)
                 | Q(owner_name__icontains=term)
             )
-            .select_related("eve_solar_system", "structure_type")
+            .select_related(
+                "eve_solar_system", "structure_type", "owner_corporation__alliance"
+            )
             .order_by("eve_solar_system__name", "structure_name")[:30]
         )
 
@@ -848,6 +863,21 @@ class Select2DatabaseEntriesView(
                     ),
                     "structure_name": entry.structure_name,
                     "owner_name": entry.owner_name or "",
+                    "owner": (
+                        {
+                            "id": str(entry.owner_corporation_id),
+                            "text": entry.owner_corporation.display_name,
+                        }
+                        if entry.owner_corporation_id
+                        else (
+                            {
+                                "id": owners.LOOKUP_PREFIX + entry.owner_name,
+                                "text": entry.owner_name,
+                            }
+                            if entry.owner_name
+                            else None
+                        )
+                    ),
                     "location_details": entry.location_details,
                     "objective": entry.objective,
                     "reinforcement_time": (

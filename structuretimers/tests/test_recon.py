@@ -10,7 +10,9 @@ from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
 from structuretimers.models import ScheduledNotification, Timer
+from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
+    CitadelTypeFactory,
     EveSolarSystemLowSecFactory,
     UserWithAccessFactory,
     UserWithCreateFactory,
@@ -27,9 +29,12 @@ class TestRecon(NoSocketsTestCase):
         self.system = EveSolarSystemLowSecFactory()
         self.client.force_login(self.user)
         self.url = reverse("structuretimers:add_recon")
+        self.structure_type = CitadelTypeFactory()
         self.data = {
-            "eve_solar_system_2": str(self.system.pk),
             "structure_name": "Recon target",
+            "eve_solar_system_2": str(self.system.pk),
+            "structure_type_2": str(self.structure_type.pk),
+            "owner_2": make_owner("Owner corp"),
             "reinforcement_time": "23:45",
         }
 
@@ -38,7 +43,13 @@ class TestRecon(NoSocketsTestCase):
         self.assertEqual(response.status_code, 200)
         form = response.context["form"]
         self.assertEqual(tuple(form.fields), ReconForm.recon_fields)
-        self.assertTrue(form.fields["timer_type"].widget.is_hidden)
+        self.assertEqual(
+            list(form.fields)[:4],
+            ["structure_name", "eve_solar_system_2", "structure_type_2", "owner_2"],
+        )
+        for name in list(form.fields)[:4]:
+            self.assertTrue(form.fields[name].required, name)
+        self.assertEqual(form["timer_type"].value(), None)
         self.assertEqual(form["objective"].value(), Timer.Objective.NEUTRAL)
         self.assertContains(response, 'value="00:00"')
 
@@ -53,7 +64,8 @@ class TestRecon(NoSocketsTestCase):
         self.assertEqual(timer.reinforcement_time, time(23, 45))
         self.assertEqual(timer.user, self.user)
         self.assertIsNone(timer.date)
-        self.assertIsNone(timer.structure_type)
+        self.assertEqual(timer.structure_type, self.structure_type)
+        self.assertEqual(timer.owner_name, "Owner corp")
         self.assertFalse(ScheduledNotification.objects.filter(timer=timer).exists())
         response = self.client.get(
             reverse("structuretimers:timer_list_data", args=["preliminary"])
@@ -69,26 +81,33 @@ class TestRecon(NoSocketsTestCase):
             response.context["form"]["reinforcement_time"].value(), time(23, 45)
         )
         response = self.client.post(
-            edit_url, {**self.data, "reinforcement_time": "06:30"}
+            edit_url,
+            {
+                **self.data,
+                "reinforcement_time": "06:30",
+                "objective": Timer.Objective.NEUTRAL,
+                "visibility": Timer.Visibility.UNRESTRICTED,
+            },
         )
         self.assertEqual(response.status_code, 302)
         timer.refresh_from_db()
         self.assertEqual(timer.reinforcement_time, time(6, 30))
 
-    def test_ignores_injected_timer_fields(self):
+    def test_reinforced_structure_also_gets_its_timer(self):
         form = ReconForm(
             data={
                 **self.data,
                 "timer_type": Timer.Type.HULL,
-                "date": "2026-10-01 12:00",
-                "hours_left": "2",
+                "date": "2030-10-01 12:00",
             },
             user=self.user,
         )
         self.assertTrue(form.is_valid(), form.errors)
         timer = form.save()
-        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
-        self.assertIsNone(timer.date)
+        self.assertEqual(timer.timer_type, Timer.Type.HULL)
+        self.assertIsNotNone(timer.date)
+        self.assertEqual(timer.database_entry.structure_name, "Recon target")
+        self.assertEqual(timer.database_entry.reinforcement_time, time(23, 45))
 
     def test_optional_fields_can_be_blank(self):
         form = ReconForm(data={**self.data, "reinforcement_time": ""}, user=self.user)
@@ -96,7 +115,12 @@ class TestRecon(NoSocketsTestCase):
         self.assertIsNone(form.save().reinforcement_time)
 
     def test_required_fields(self):
-        for field in ("eve_solar_system_2", "structure_name"):
+        for field in (
+            "structure_name",
+            "eve_solar_system_2",
+            "structure_type_2",
+            "owner_2",
+        ):
             with self.subTest(field=field):
                 form = ReconForm(data={**self.data, field: ""}, user=self.user)
                 self.assertFalse(form.is_valid())
@@ -107,7 +131,6 @@ class TestRecon(NoSocketsTestCase):
             data={
                 **self.data,
                 "location_details": "Moon 2",
-                "owner_name": "Owner corp",
                 "objective": Timer.Objective.FRIENDLY,
                 "details_notes": "Scout report",
             },

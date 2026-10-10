@@ -35,6 +35,19 @@ $(document).ready(function () {
         dropdownCssClass: "st-select2-dropdown"
     });
 
+    $('.select2-owners').select2({
+        ajax: {
+            url: elem.getAttribute('data-select2OwnersUrl'),
+            dataType: 'json',
+            delay: 300
+        },
+        theme: myTheme,
+        width: "100%",
+        minimumInputLength: 2,
+        placeholder: "Enter name of the owning corporation",
+        dropdownCssClass: "st-select2-dropdown"
+    });
+
     $('.select2-database-entries').select2({
         ajax: {
             url: elem.getAttribute('data-select2DatabaseEntriesUrl'),
@@ -56,7 +69,7 @@ $(document).ready(function () {
         setSelect('.select2-solar-systems', entry.solar_system);
         setSelect('.select2-structure-types', entry.structure_type);
         $('#id_structure_name').val(entry.structure_name);
-        $('#id_owner_name').val(entry.owner_name);
+        setSelect('.select2-owners', entry.owner);
         $('#id_location_details').val(entry.location_details);
         if (entry.reinforcement_time) $('#id_reinforcement_time').val(entry.reinforcement_time);
         $('#id_objective').val(entry.objective).trigger('change');

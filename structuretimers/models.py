@@ -90,6 +90,62 @@ class General(models.Model):
         )
 
 
+class Organization(models.Model):
+    """A player corporation or alliance that owns structures, with its standing.
+
+    Every owner seen on a structure is remembered here, so it can be picked again
+    and given a standing.
+    """
+
+    class Category(models.TextChoices):
+        CORPORATION = "corporation", _("Corporation")
+        ALLIANCE = "alliance", _("Alliance")
+
+    class Standing(models.IntegerChoices):
+        TERRIBLE = -10, "-10"
+        BAD = -5, "-5"
+        NEUTRAL = 0, "0"
+        GOOD = 5, "+5"
+        EXCELLENT = 10, "+10"
+
+    id = models.PositiveBigIntegerField(primary_key=True, help_text="EVE ID")
+    name = models.CharField(max_length=254, db_index=True)
+    category = models.CharField(max_length=16, choices=Category.choices)
+    alliance = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="corporations",
+        limit_choices_to={"category": "alliance"},
+    )
+    standing_auto = models.SmallIntegerField(
+        choices=Standing.choices,
+        null=True,
+        blank=True,
+        help_text="Standing from our alliance contacts, set automatically",
+    )
+    standing_override = models.SmallIntegerField(
+        choices=Standing.choices,
+        null=True,
+        blank=True,
+        help_text="Standing set by a recon coordinator, wins over the automatic one",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def display_name(self) -> str:
+        if self.alliance_id:
+            return f"{self.name} [{self.alliance.name}]"
+        return self.name
+
+
 class DiscordWebhook(models.Model):
     """A Discord webhook"""
 
@@ -457,6 +513,15 @@ class Timer(models.Model):
     objective = models.CharField(
         max_length=2, choices=Objective.choices, default=Objective.UNDEFINED
     )
+    owner_corporation = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        limit_choices_to={"category": "corporation"},
+        help_text="Player corporation owning the structure",
+    )
     owner_name = models.CharField(
         max_length=254,
         default=None,
@@ -533,7 +598,19 @@ class Timer(models.Model):
         self._original_timer_type = self.timer_type
 
     def save(self, *args, **kwargs):
-        """Make sure every scheduled timer points to a database record."""
+        """Keep the owner name in sync and make sure every scheduled timer
+        points to a database record.
+        """
+        if self.owner_corporation_id:
+            self.owner_name = self.owner_corporation.name
+        elif self.owner_name:
+            # Timers from other apps only bring a name; link known owners.
+            self.owner_corporation = Organization.objects.filter(
+                category=Organization.Category.CORPORATION,
+                name__iexact=self.owner_name.strip(),
+            ).first()
+            if self.owner_corporation:
+                self.owner_name = self.owner_corporation.name
         if self.timer_type == Timer.Type.PRELIMINARY:
             self.database_entry = None
             self.structures_structure_id = None
