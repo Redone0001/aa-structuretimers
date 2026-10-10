@@ -232,7 +232,7 @@
             (this.data.edges||[]).filter(e=>e.kind!=='gate'||this.showGates).forEach(edge=>{const key=[edge.source,edge.target].sort((a,b)=>a-b).join('-');if(!pairs.has(key))pairs.set(key,[]);pairs.get(key).push(edge);});
             pairs.forEach(edges=>edges.sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach((edge,index)=>{
                 const a=this.nodes.get(edge.source),b=this.nodes.get(edge.target);if(!a||!b)return;
-                const lane=(index-(edges.length-1)/2)*(edge.source<edge.target?1:-1);
+                const lane=(edge.curve||0)+(index-(edges.length-1)/2)*(edge.source<edge.target?1:-1);
                 const color=edge.color||'var(--st-map-gate, var(--bs-secondary-color))';
                 const path=svg('path',{d:connectionPath(a,b,lane),fill:'none',stroke:color,'stroke-width':edge.width||1,'vector-effect':'non-scaling-stroke',class:`st-map-edge${edge.crossing?' st-map-edge-'+edge.crossing:''}`});
                 if(edge.dashed)path.setAttribute('stroke-dasharray','6 4');

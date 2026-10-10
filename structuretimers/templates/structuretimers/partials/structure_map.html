@@ -10,7 +10,7 @@
     <div class="collapse" id="st-map-collapse">
         <div class="card-body">
 {# data-forces="off" hides fleet tokens; a future tab can turn them on with data-forces="on". #}
-<section id="st-regional-map" data-bs-theme="dark" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+<section id="st-regional-map" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
 
     {# Above the map: only the time and the region. #}

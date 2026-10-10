@@ -103,9 +103,12 @@ def validate(params):
         raise ValueError("Unknown range preset.")
 
 
-def geography_payload(region, systems, gate_model):
-    """Normalize the complete SDE region identically for every map consumer."""
-    ids = {s.id for s in systems}
+#: Space between the regions of a merged map, in map units (systems are ~150 apart).
+MERGED_REGION_GAP = 90
+
+
+def _region_layout(systems):
+    """Positions of one region's systems, top-left at 0,0, scaled by its own density."""
     positioned = [s for s in systems if finite(s.x_2d, s.y_2d)]
     # Determined from the full region, never from filters or the selected system.
     ox = min((s.x_2d for s in positioned), default=0)
@@ -121,6 +124,46 @@ def geography_payload(region, systems, gate_model):
         if positive:
             nearest.append(min(positive))
     scale = sorted(nearest)[len(nearest) // 2] / 150 if nearest else 1
+    positions = {s.pk: [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale] for s in positioned}
+    return positions, (ox, oy), scale
+
+
+def _merged_layout(systems):
+    """Regions of a merged map side by side, west to east, centred vertically.
+
+    Each region keeps its own shape and density, so the regions sit tight
+    together instead of being stretched apart by their true distance.
+    """
+    groups = defaultdict(list)
+    for s in systems:
+        groups[s.constellation.region_id if s.constellation else None].append(s)
+    layouts = []
+    for members in groups.values():
+        positions, _, _ = _region_layout(members)
+        if not positions:
+            continue
+        xs = [p[0] for p in positions.values()]
+        ys = [p[1] for p in positions.values()]
+        west = sum(s.x_2d for s in members if finite(s.x_2d, s.y_2d)) / len(positions)
+        layouts.append((west, positions, max(xs) - min(xs), min(ys), max(ys)))
+    layouts.sort(key=lambda item: item[0])
+    height = max((bottom - top for _, _, _, top, bottom in layouts), default=0)
+    merged, offset = {}, 0
+    for _, positions, width, top, bottom in layouts:
+        shift_y = (height - (bottom - top)) / 2 - top
+        for pk, (x, y) in positions.items():
+            merged[pk] = [x + offset, y + shift_y]
+        offset += width + MERGED_REGION_GAP
+    return merged
+
+
+def geography_payload(region, systems, gate_model):
+    """Normalize the complete SDE region identically for every map consumer."""
+    ids = {s.id for s in systems}
+    if len(getattr(region, "ids", [region.pk])) > 1:
+        positions, (ox, oy), scale = _merged_layout(systems), (0, 0), 1
+    else:
+        positions, (ox, oy), scale = _region_layout(systems)
     pairs = sorted(
         {
             tuple(sorted((a, b)))
@@ -148,11 +191,7 @@ def geography_payload(region, systems, gate_model):
                 "name": s.name,
                 "constellation": (s.constellation.name if s.constellation else ""),
                 "region_id": s.constellation.region_id if s.constellation else None,
-                "position": (
-                    [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale]
-                    if finite(s.x_2d, s.y_2d)
-                    else None
-                ),
+                "position": positions.get(s.pk),
             }
             for s in systems
         ],
@@ -163,9 +202,12 @@ def geography_payload(region, systems, gate_model):
                 "target": b,
                 "kind": "gate",
                 "crossing": crossing(a, b),
+                # Gates between regions arc outward, alternating sides, so they
+                # read as links between the two maps rather than cutting across.
+                **({"curve": 5 if index % 2 else -5} if crossing(a, b) == "region" else {}),
                 "directed": False,
             }
-            for a, b in pairs
+            for index, (a, b) in enumerate(pairs)
         ],
     }
 
