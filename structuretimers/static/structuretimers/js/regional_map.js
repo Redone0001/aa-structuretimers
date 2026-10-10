@@ -28,7 +28,7 @@
     }
     function filters(){return {region:$('region').value,relationship:$('relationship').value,window:$('window').value,range:$('range').value,source:$('source').value};}
     function error(message){$('status').textContent=message+' Use Refresh to retry.';$('status').className='text-danger';}
-    const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember,onIndicator:(_id,item)=>{if(item.tokenId){const token=battle.tokens.find(t=>t.id===item.tokenId);if(token?.can_edit)battle.edit(token);}}});
+    const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember,onIndicatorDrop:(source,destination,item)=>battle.moveToken(source,destination,item),onIndicator:(_id,item)=>{if(item.tokenId){const token=battle.tokens.find(t=>t.id===item.tokenId);if(token?.can_edit)battle.edit(token);}}});
     const battle=new window.StructureBattleMap(root,{paint,select,refresh,inRange:id=>{
         if($('range').value==='none')return true;
         const d=state.distances.get(id);return state.rangeReady&&d!==null&&d!==undefined&&d<=state.limit;

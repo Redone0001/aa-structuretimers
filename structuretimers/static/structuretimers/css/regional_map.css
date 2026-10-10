@@ -59,3 +59,11 @@
 .st-battle-status[data-state="paused"] { color: var(--bs-warning-text-emphasis, var(--bs-warning)); font-weight: 600; }
 .st-battle-status[data-state="won"] { color: var(--bs-success); font-weight: 600; }
 @media (max-width: 480px) { .st-battle-fields { grid-template-columns: 1fr; } }
+
+#st-regional-map .st-map-fleet-ring { fill: var(--st-category); fill-opacity: .08; stroke: var(--st-category); stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+#st-regional-map .st-map-fleet-token .st-map-icon-bg { stroke-width: 3; }
+#st-regional-map .st-map-fleet-token.is-draggable { cursor: grab; touch-action: none; }
+#st-regional-map .st-map-token-ghost { pointer-events: none; opacity: .8; }
+#st-map-canvas.is-token-dragging, #st-map-canvas.is-token-dragging * { cursor: grabbing; }
+#st-regional-map .st-map-drop-target { fill: none; stroke: var(--bs-body-color); stroke-width: 4; stroke-dasharray: 6 3; vector-effect: non-scaling-stroke; pointer-events: none; visibility: hidden; }
+#st-regional-map .st-map-drop-target.is-drop-target { visibility: visible; }

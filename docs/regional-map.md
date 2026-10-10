@@ -153,3 +153,11 @@ Fleet intelligence is shared with **everyone who can access the regional map**, 
 The `map/battle/snapshot` GET endpoint returns permission-filtered scheduled timers with battle event histories and regional fleets. `map/battle/lookup` supplies local autocomplete. `map/battle/timer` and `map/battle/fleet` accept CSRF-protected POSTs. Revision checks reject stale updates (409); row locks serialize mutations. All endpoints require login/basic access and disable caching. Snapshot and editor errors preserve an explicit retry path; an open editor is not overwritten by background refresh.
 
 Verification: `tests/test_battle_map.py` covers visibility, authorization, CSRF, invalid counts/choices, optional fields, shared visibility, ship lookup, revision conflicts, pause/resume/kill/undo, and paused carryovers. `tests/js/test_battle_timeline.cjs` covers exact boundaries, multiple pauses across midnight, historical kill outcomes, UTC grouping and instant events. The feature was also exercised in a disposable AA5 browser preview with synthetic data.
+
+### Fleet placement and drag controls
+
+Fleet tokens render separately above the system box at half its measured width, with stance-colored rings around occupied systems (both rings for mixed forces). Multiple tokens occupy separate rows; the small structure indicators retain their layout. Fit includes token bounds. Alliance logos and ship art can appear together, with ship art inset over the logo.
+
+Creators/managers can drag a fleet onto a system box or its surrounding ring. A dashed target ring previews the destination. Coordinates account for map zoom, pan and spacing. Dropping outside a system, releasing on the source, cancelling the pointer, or pressing Escape cancels without saving. A normal click or Enter still opens the editor; Edit / move remains the keyboard alternative and supports systems without map coordinates. Overlay refreshes are deferred during a drag so they cannot remove the token being moved.
+
+The fleet POST endpoint accepts `action: "move"` with `id`, `revision`, and `system_id`. It validates access and destination, changes only location/revision/update time, and rejects stale revisions. The token moves after the server confirms the save; failures leave its prior displayed position and show a retry message. No migration is needed for these drag controls.

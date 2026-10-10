@@ -35,7 +35,7 @@
         <button class="btn btn-outline-secondary btn-sm" id="st-map-refresh" type="button">{% translate 'Refresh' %}</button>
     </div>
     <div class="st-map-legend mb-2" aria-label="{% translate 'Map legend' %}">
-        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
+        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span>◯ {% translate 'Ring: fleet present' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
     </div>
     <p id="st-map-status" role="status" aria-live="polite">{% translate 'Loading regions…' %}</p>
     <div class="st-map-layout">
@@ -46,7 +46,7 @@
                 <button class="btn btn-secondary" id="st-map-fit" type="button">{% translate 'Fit map' %}</button><button class="btn btn-outline-secondary" id="st-map-clear" type="button">{% translate 'Clear selection' %}</button>
             </div>
             <div id="st-map-canvas"></div>
-            <p class="small text-muted mt-2">{% translate 'Drag to pan. Wheel or +/− to zoom. Tab to a system, Enter/Space to select. Arrow keys pan when the map is focused; Home fits the map.' %}</p>
+            <p class="small text-muted mt-2">{% translate 'Drag the map to pan; drag fleet tokens onto systems to move them. Wheel or +/− to zoom. Tab to a system, Enter/Space to select. Arrow keys pan when the map is focused; Home fits the map.' %}</p>
         </div>
         <aside class="card st-map-sidebar" aria-labelledby="st-map-detail-title"><div class="card-body"><h2 id="st-map-detail-title" class="h5">{% translate 'Select a system' %}</h2><div id="st-map-details" aria-live="polite">{% translate 'Select a system on the map or in the selector to see its permitted timers.' %}</div></div></aside>
     </div>

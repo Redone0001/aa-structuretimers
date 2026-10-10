@@ -40,19 +40,37 @@
         });
         return result;
     }
+    function tokenSlots(items, width) {
+        const size = width / 2, gap = 8, rows = Math.ceil(items.length / 2);
+        return items.map((item, index) => {
+            const row = Math.floor(index / 2), count = Math.min(2, items.length - row * 2);
+            return {item, size, x: (index % 2 - (count - 1) / 2) * (size + gap) - size / 2,
+                y: -41 - (rows - row) * (size + gap)};
+        });
+    }
+    function dropTarget(nodes, point) {
+        let target = null, nearest = Infinity;
+        for (const [id, node] of nodes) {
+            const distance = ((point.x-node.x)/(node.width/2+14))**2 + ((point.y-node.y)/(node.height/2+14))**2;
+            if (distance <= 1 && distance < nearest) {target = id; nearest = distance;}
+        }
+        return target;
+    }
     class SystemMap {
         constructor(host, options = {}) {
             this.host = host; this.options = options; this.spacing = 1; this.selected = null; this.highlighted = new Set(); this.overlays = new Map(); this.showGates = true; this.showLabels = false; this.uid = `system-map-${++instance}`;
             this.svg = svg('svg', {class: 'st-system-map', role: 'group', 'aria-label': 'Regional system map', tabindex: 0});
             this.tooltip = document.createElement('div'); this.tooltip.className = 'st-map-tooltip'; this.tooltip.hidden = true;
-            host.append(this.svg, this.tooltip);
-            this.svg.addEventListener('wheel', event => {event.preventDefault(); this.zoom(event.deltaY < 0 ? 0.85 : 1/0.85, this.point(event));}, {passive: false});
+            this.announcement = document.createElement('div'); this.announcement.className = 'visually-hidden'; this.announcement.setAttribute('role', 'status');
+            host.append(this.svg, this.tooltip, this.announcement);
+            this.svg.addEventListener('wheel', event => {event.preventDefault(); if(!this.tokenDrag)this.zoom(event.deltaY < 0 ? 0.85 : 1/0.85, this.point(event));}, {passive: false});
             this.svg.addEventListener('pointerdown', event => {
                 if (event.button !== 0 || event.target.closest('[data-indicator-action]')) return;
                 this.drag = {x: event.clientX, y: event.clientY, start: this.point(event), box: {...this.box}, moved: false, node: event.target.closest('[data-node]')?.dataset.node};
                 this.svg.setPointerCapture(event.pointerId);
             });
             this.svg.addEventListener('pointermove', event => {
+                if (this.tokenDrag) {this.moveTokenDrag(event); return;}
                 if (!this.drag) return;
                 if (Math.hypot(event.clientX-this.drag.x, event.clientY-this.drag.y) > 5) this.drag.moved = true;
                 if (!this.drag.moved) return;
@@ -61,13 +79,16 @@
                 this.host.classList.add('is-panning');
             });
             this.svg.addEventListener('pointerup', event => {
+                if (this.tokenDrag) {if(event.pointerId===this.tokenDrag.pointerId)this.finishTokenDrag(false);return;}
                 const drag = this.drag; this.drag = null; this.host.classList.remove('is-panning');
                 if (this.svg.hasPointerCapture(event.pointerId)) this.svg.releasePointerCapture(event.pointerId);
                 if (drag && !drag.moved && drag.node) this.select(Number(drag.node));
             });
-            this.svg.addEventListener('pointercancel', () => {this.drag = null; this.host.classList.remove('is-panning');});
+            this.svg.addEventListener('lostpointercapture', () => {if(this.tokenDrag)this.finishTokenDrag(true);});
+            this.svg.addEventListener('pointercancel', () => {if(this.tokenDrag)this.finishTokenDrag(true);this.drag = null; this.host.classList.remove('is-panning');});
             this.svg.addEventListener('keydown', event => {
-                if (event.target !== this.svg) return;
+                if(event.key==='Escape' && this.tokenDrag){event.preventDefault();this.finishTokenDrag(true);return;}
+                if (event.target !== this.svg || this.tokenDrag) return;
                 if (event.key === '+' || event.key === '=') this.zoom(.85);
                 else if (event.key === '-') this.zoom(1/.85);
                 else if (event.key === 'Home') this.fit();
@@ -78,9 +99,48 @@
             this.resizeObserver = new ResizeObserver(() => { if (this.fitted && this.nodes) this.fit(); });
             this.resizeObserver.observe(host);
         }
+        startTokenDrag(event, node, item, icon, size) {
+            if(event.button!==0 || !event.isPrimary || !item.draggable || this.tokenDrag || this.drag)return;
+            event.stopPropagation(); event.preventDefault();
+            this.tokenDrag={pointerId:event.pointerId, x:event.clientX, y:event.clientY, source:node.id, item, icon, size, moved:false, target:null};
+            this.svg.setPointerCapture(event.pointerId);
+        }
+        moveTokenDrag(event) {
+            const drag=this.tokenDrag;
+            if(event.pointerId!==drag.pointerId)return;
+            if(!drag.moved && Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<=5)return;
+            if(!drag.moved){
+                drag.moved=true; drag.ghost=drag.icon.cloneNode(true);
+                drag.ghost.removeAttribute('tabindex');drag.ghost.removeAttribute('data-focus-key');
+                drag.ghost.setAttribute('aria-hidden','true');drag.ghost.classList.add('st-map-token-ghost');
+                this.svg.append(drag.ghost);this.host.classList.add('is-token-dragging');
+            }
+            this.tooltip.hidden=true;
+            const point=this.point(event);drag.ghost.setAttribute('transform',`translate(${point.x-drag.size/2} ${point.y-drag.size/2})`);
+            const target=dropTarget(this.nodes,point);
+            if(target!==drag.target){
+                drag.target=target;this.svg.querySelectorAll('[data-drop-target]').forEach(el=>el.classList.toggle('is-drop-target',Number(el.dataset.dropTarget)===target));
+                this.announcement.textContent=target===null?'Drop on a system to move; Escape cancels.':`Move to ${this.data.nodes.find(n=>n.id===target)?.name}`;
+            }
+        }
+        finishTokenDrag(cancelled) {
+            const drag=this.tokenDrag;if(!drag)return;
+            this.tokenDrag=null;drag.ghost?.remove();this.host.classList.remove('is-token-dragging');
+            if(this.svg.hasPointerCapture(drag.pointerId))this.svg.releasePointerCapture(drag.pointerId);
+            this.svg.querySelectorAll('.is-drop-target').forEach(el=>el.classList.remove('is-drop-target'));
+            if(drag.moved || cancelled)this.suppressClick={id:drag.item.id,until:Date.now()+500};
+            if(this.pendingRender){this.pendingRender=false;this.render();}
+            if(!cancelled && drag.moved && drag.target!==null && drag.target!==drag.source){
+                this.options.onIndicatorDrop?.(drag.source,drag.target,drag.item);
+            }else if(!cancelled && !drag.moved){
+                this.suppressClick={id:drag.item.id,until:Date.now()+500};
+                this.select(drag.source);this.options.onIndicator?.(drag.source,drag.item);
+            }else if(drag.moved || cancelled){this.announcement.textContent='Move cancelled; token stays in its original system.';}
+        }
         point(event) { const p = this.svg.createSVGPoint(); p.x = event.clientX; p.y = event.clientY; return p.matrixTransform(this.svg.getScreenCTM().inverse()); }
         applyView() { this.fitted = false; if (this.box) this.svg.setAttribute('viewBox', `${this.box.x} ${this.box.y} ${this.box.width} ${this.box.height}`); this.options.onViewport?.(this.box); }
         zoom(factor, point) {
+            if(this.tokenDrag)return;
             if (!this.box) return;
             const width = this.box.width*factor;
             if (width < 80 || width > (this.bounds?.width || 1000)*8) return;
@@ -88,13 +148,14 @@
             this.box = {x: point.x-(point.x-this.box.x)*factor, y: point.y-(point.y-this.box.y)*factor, width, height: this.box.height*factor}; this.applyView();
         }
         fit() {
+            if(this.tokenDrag)return;
             if (!this.bounds) return;
             const ratio = Math.max(this.host.clientWidth, 1)/Math.max(this.host.clientHeight, 1);
             const width = Math.max(this.bounds.width, this.bounds.height*ratio), height = width/ratio;
             this.box = {x: this.bounds.x-(width-this.bounds.width)/2, y: this.bounds.y-(height-this.bounds.height)/2, width, height}; this.applyView(); this.fitted = true;
         }
-        setData(data) {this.data = data; this.render(); this.fit();}
-        setSpacing(value) {this.spacing = value; this.render(); this.fit();}
+        setData(data) {this.finishTokenDrag(true);this.data = data; this.render(); this.fit();}
+        setSpacing(value) {this.finishTokenDrag(true);this.spacing = value; this.render(); this.fit();}
         setOverlays(overlays, highlighted) {this.overlays = overlays; this.highlighted = highlighted; this.render();}
         setLayers(gates, labels) {const changed = this.showLabels !== labels; this.showGates = gates; this.showLabels = labels; this.render(); if(changed)this.fit();}
         setViewport(box) {
@@ -115,6 +176,7 @@
         }
         render() {
             if (!this.data) return;
+            if(this.tokenDrag){this.pendingRender=true;return;}
             const focused = document.activeElement?.getAttribute('data-focus-key');
             this.tooltip.hidden = true; this.svg.replaceChildren();
             const defs = svg('defs'); this.svg.append(defs);
@@ -137,20 +199,31 @@
                 const indicators=this.overlays.get(node.id)||[];
                 this.hint(group, `${node.name}${this.highlighted.has(node.id)?' · Matches filters':''}`);
                 const grid=svg('g',{transform:`translate(${x} ${y})`}); layers[4].append(grid);
-                let bottom=30, extent=width/2+16;
-                const slots=indicatorSlots(indicators);
-                slots.forEach(({item,x:ix,y:iy})=>{
-                    const icon=svg('g',{transform:`translate(${ix} ${iy})`,class:'st-map-indicator','data-category':item.category,tabindex:0,'data-focus-key':`${node.id}-${item.id}`,role:item.overflow||item.action?'button':'img','aria-label':item.tooltip||item.label});
-                    icon.append(svg('rect',{width:20,height:20,rx:3,class:'st-map-icon-bg'}));
-                    const fallback=svg('text',{x:10,y:14,'text-anchor':'middle',class:'st-map-icon-fallback'},item.overflow?item.label:(item.symbol||'?'));icon.append(fallback);
-                    if(item.alliance_id){const image=svg('image',{x:1,y:1,width:18,height:18,href:`https://images.evetech.net/alliances/${Number(item.alliance_id)}/logo?size=64`});image.addEventListener('error',()=>image.remove());icon.append(image);}
-                    if(item.type_id){const image=svg('image',{x:item.alliance_id?10:1,y:item.alliance_id?10:1,width:item.alliance_id?12:18,height:item.alliance_id?12:18,href:`https://images.evetech.net/types/${Number(item.type_id)}/icon?size=64`});image.addEventListener('error',()=>image.remove());icon.append(image);}
-                    if(item.count>1){icon.append(svg('rect',{x:9,y:11,width:Math.max(12,String(item.count).length*6+4),height:12,rx:3,class:'st-map-count-bg'}),svg('text',{x:11,y:20,class:'st-map-count'},item.count));}
-                    if(item.overflow||item.action){icon.setAttribute('data-indicator-action','true'); const act=()=>{this.select(node.id);this.options.onIndicator?.(node.id,item);};icon.addEventListener('click',e=>{e.stopPropagation();act();});icon.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();act();}});}
-                    this.hint(icon,item.tooltip||item.label);grid.append(icon);bottom=Math.max(bottom,iy+28);
+                let bottom=30, top=32, extent=width/2+16;
+                const tokens=indicators.filter(item=>item.large);
+                if(tokens.length){
+                    [...new Set(tokens.map(item=>item.category))].forEach((category,index)=>{
+                        outlines.prepend(svg('ellipse',{cx:0,cy:0,rx:width/2+14+index*5,ry:height/2+14+index*5,class:'st-map-fleet-ring','data-category':category}));
+                        extent=Math.max(extent,width/2+20+index*5);bottom=Math.max(bottom,height/2+20+index*5);
+                    });
+                }
+                outlines.append(svg('ellipse',{cx:0,cy:0,rx:width/2+14,ry:height/2+14,class:'st-map-drop-target','data-drop-target':node.id}));
+                const slots=[...indicatorSlots(indicators.filter(item=>!item.large)),...tokenSlots(tokens,width)];
+                slots.forEach(({item,x:ix,y:iy,size=20})=>{
+                    const icon=svg('g',{transform:`translate(${ix} ${iy})`,class:item.large?'st-map-indicator st-map-fleet-token':'st-map-indicator','data-category':item.category,tabindex:0,'data-focus-key':`${node.id}-${item.id}`,role:item.overflow||item.action?'button':'img','aria-label':item.tooltip||item.label});
+                    const artwork=svg('g',{transform:`scale(${size/20})`});icon.append(artwork);
+                    artwork.append(svg('rect',{width:20,height:20,rx:3,class:'st-map-icon-bg'}));
+                    const fallback=svg('text',{x:10,y:14,'text-anchor':'middle',class:'st-map-icon-fallback'},item.overflow?item.label:(item.symbol||'?'));artwork.append(fallback);
+                    if(item.alliance_id){const image=svg('image',{x:1,y:1,width:18,height:18,href:`https://images.evetech.net/alliances/${Number(item.alliance_id)}/logo?size=64`});image.addEventListener('error',()=>image.remove());artwork.append(image);}
+                    if(item.type_id){const image=svg('image',{x:item.alliance_id?10:1,y:item.alliance_id?10:1,width:item.alliance_id?12:18,height:item.alliance_id?12:18,href:`https://images.evetech.net/types/${Number(item.type_id)}/icon?size=64`});image.addEventListener('error',()=>image.remove());artwork.append(image);}
+                    if(item.count>1){artwork.append(svg('rect',{x:9,y:11,width:Math.max(12,String(item.count).length*6+4),height:12,rx:3,class:'st-map-count-bg'}),svg('text',{x:11,y:20,class:'st-map-count'},item.count));}
+                    if(item.overflow||item.action){icon.setAttribute('data-indicator-action','true'); const act=()=>{this.select(node.id);this.options.onIndicator?.(node.id,item);};icon.addEventListener('click',e=>{e.stopPropagation();if(this.suppressClick?.id===item.id && Date.now()<this.suppressClick.until){this.suppressClick=null;return;}act();});icon.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();act();}});}
+                    if(item.draggable){icon.classList.add('is-draggable');icon.addEventListener('pointerdown',event=>this.startTokenDrag(event,node,item,icon,size));}
+                    this.hint(icon,(item.tooltip||item.label)+(item.draggable?' · Drag to another system; click or Enter to edit.':''));grid.append(icon);
+                    bottom=Math.max(bottom,iy+size+8);top=Math.max(top,-iy+8);extent=Math.max(extent,Math.abs(ix)+size+8);
                 });
                 if(this.showLabels){slots.forEach(({item},i)=>{const text=svg('text',{x:0,y:bottom+14+i*16,'text-anchor':'middle',class:'st-map-indicator-label'},`${item.label}${item.count?' ×'+item.count:''}`);grid.append(text);extent=Math.max(extent,text.getComputedTextLength()/2+8);});bottom+=slots.length*16+16;}
-                this.nodes.set(node.id,{x,y,width,height});xmin=Math.min(xmin,x-extent);xmax=Math.max(xmax,x+extent);ymin=Math.min(ymin,y-32);ymax=Math.max(ymax,y+bottom);
+                this.nodes.set(node.id,{x,y,width,height});xmin=Math.min(xmin,x-extent);xmax=Math.max(xmax,x+extent);ymin=Math.min(ymin,y-top);ymax=Math.max(ymax,y+bottom);
             });
             const pairs=new Map();
             (this.data.edges||[]).filter(e=>e.kind!=='gate'||this.showGates).forEach(edge=>{const key=[edge.source,edge.target].sort((a,b)=>a-b).join('-');if(!pairs.has(key))pairs.set(key,[]);pairs.get(key).push(edge);});
@@ -168,8 +241,8 @@
             if(!this.box)this.fit();else this.applyView();
             if(focused){const target=Array.from(this.svg.querySelectorAll('[data-focus-key]')).find(e=>e.dataset.focusKey===focused);target?.focus({preventScroll:true});}
         }
-        destroy(){this.resizeObserver.disconnect();this.svg.remove();this.tooltip.remove();}
+        destroy(){this.finishTokenDrag(true);this.announcement.remove();this.resizeObserver.disconnect();this.svg.remove();this.tooltip.remove();}
     }
-    if(typeof module!=='undefined'&&module.exports)module.exports={boundary,connectionPath,indicatorSlots};
+    if(typeof module!=='undefined'&&module.exports)module.exports={boundary,connectionPath,indicatorSlots,tokenSlots,dropTarget};
     else root.StructureSystemMap=SystemMap;
 })(typeof window!=='undefined'?window:globalThis);

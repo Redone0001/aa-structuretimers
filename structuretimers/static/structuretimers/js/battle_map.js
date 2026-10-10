@@ -9,7 +9,7 @@
     const relationshipCodes = {friendly:'FR',hostile:'HO',neutral:'NE',undefined:'UN'};
     class BattleMap {
         constructor(root, hooks) {
-            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;
+            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();
             $('day').value=utc(Date.now()).slice(0,10);
             $('enabled').addEventListener('change',()=>{this.updateControls();hooks.refresh();});
             $('day').addEventListener('change',()=>{if(!$('day').value)return;this.live=false;this.load();});
@@ -97,7 +97,7 @@
             if(this.enabled&&document.getElementById('st-map-structures').checked){
                 for(const t of this.filtered())if(timeline.onMap(t,this.instant()))add(t.system_id,{id:'battle-'+t.id,type_id:t.type_id,category:t.relationship,label:t.name,symbol:timeline.stateAt(t,this.instant()).name==='paused'?'Ⅱ':'!',tooltip:`${t.name} · ${t.timer_label} · ${timeline.stateAt(t,this.instant()).name}`,action:'timer'});
             }else for(const [id,items] of base)result.set(id,[...items]);
-            if($('fleets').checked)for(const t of this.tokens)add(t.system_id,{id:'fleet-'+t.id,tokenId:t.id,category:t.stance==='friend'?'friendly':'hostile',label:this.tokenName(t),symbol:t.stance==='friend'?'F':'H',type_id:t.ship_id,alliance_id:t.alliance_id,tooltip:`${this.tokenName(t)} · ${t.stance} · DPS ${t.dps??'?'} / Logi ${t.logi??'?'} · ${t.mobility} · latest intelligence`,action:'fleet'});
+            if($('fleets').checked)for(const t of this.tokens)add(t.system_id,{id:'fleet-'+t.id,tokenId:t.id,revision:t.revision,large:true,draggable:t.can_edit&&!this.moving.has(t.id),category:t.stance==='friend'?'friendly':'hostile',label:this.tokenName(t),symbol:t.stance==='friend'?'F':'H',type_id:t.ship_id,alliance_id:t.alliance_id,tooltip:`${this.tokenName(t)} · ${t.stance} · DPS ${t.dps??'?'} / Logi ${t.logi??'?'} · ${t.mobility} · latest intelligence`,action:'fleet'});
             return result;
         }
         highlights(){return new Set(this.filtered().filter(t=>timeline.onMap(t,this.instant())).map(t=>t.system_id));}
@@ -153,6 +153,24 @@
             $('editor-title').textContent=token?'Edit fleet token':'Add fleet token';$('editor').showModal();$('alliance').focus();
         }
         async post(layer,body){return this.api(layer,{}, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':this.root.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(body)});}
+        async moveToken(source,destination,item){
+            const token=this.tokens.find(t=>t.id===item.tokenId);
+            if(!token?.can_edit||this.moving.has(token.id)||source===destination)return;
+            const region=this.data?.region.id;
+            this.moving.add(token.id);this.hooks.paint();
+            $('move-status').textContent=`Moving ${this.tokenName(token)}…`;
+            try{
+                const result=await this.post('fleet',{action:'move',id:token.id,revision:item.revision,system_id:destination});
+                if(this.data?.region.id!==region)return;
+                // Cancel an older snapshot before applying the server-confirmed move.
+                this.abort?.abort();this.abort=null;
+                this.tokens=this.tokens.map(t=>t.id===token.id?result.token:t);
+                this.renderFleets();this.hooks.select(destination);
+                $('move-status').textContent=`${this.tokenName(result.token)} moved to ${this.data.nodes.find(n=>n.id===destination)?.name||destination}.`;
+            }catch(e){
+                if(this.data?.region.id===region)$('move-status').textContent=`Move not saved: ${e.message} Use Refresh to check the latest position.`;
+            }finally{this.moving.delete(token.id);this.hooks.paint();}
+        }
         async saveToken(remove){
             $('save').disabled=true;$('delete').disabled=true;$('form-error').textContent='';
             const body=Object.fromEntries(new FormData($('form')));if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';

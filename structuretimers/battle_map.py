@@ -272,6 +272,15 @@ def update_fleet(user, body):
             raise ValueError("Choose a token to delete.")
         token.delete()
         return JsonResponse({"ok": True})
+    if body.get("action") == "move":
+        if not token_id:
+            raise ValueError("Choose a token to move.")
+        _, system_model, _ = sde_models()
+        destination = get_object_or_404(system_model, pk=int(body.get("system_id", 0)))
+        token.system_id = destination.pk
+        token.revision += 1
+        token.save(update_fields=["system_id", "revision", "updated_at"])
+        return JsonResponse({"token": token_payload(token, user)})
     form = FleetForm({"mobility": "gate", "stance": "foe", **body}, instance=token)
     if not form.is_valid():
         return JsonResponse(

@@ -187,3 +187,82 @@ class BattleMapTests(RegionalMapTests):
         self.assertEqual(self.snapshot().status_code, 403)
         self.client.logout()
         self.assertEqual(self.snapshot().status_code, 302)
+
+    def test_move_token_preserves_intelligence_and_requires_revision_and_permission(
+        self,
+    ):
+        result = self.post(
+            "fleet",
+            system_id=self.a.pk,
+            alliance_name="Uncertain",
+            dps=20,
+            logi=3,
+            mobility="blops",
+            stance="friend",
+            note="Keep this note",
+            dscan="raw scan",
+        )
+        token = result.json()["token"]
+        moved = self.post(
+            "fleet",
+            action="move",
+            id=token["id"],
+            revision=token["revision"],
+            system_id=self.b.pk,
+            note="Must not overwrite",
+        )
+        self.assertEqual(moved.status_code, 200, moved.content)
+        updated = moved.json()["token"]
+        self.assertEqual(updated["system_id"], self.b.pk)
+        for key in [
+            "alliance_name",
+            "dps",
+            "logi",
+            "mobility",
+            "stance",
+            "note",
+            "dscan",
+        ]:
+            self.assertEqual(updated[key], token[key])
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=token["revision"],
+                system_id=self.a.pk,
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id=999999,
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id="bad",
+            ).status_code,
+            400,
+        )
+        self.assertEqual(MapFleetToken.objects.get(pk=token["id"]).system_id, self.b.pk)
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id=self.a.pk,
+            ).status_code,
+            403,
+        )
