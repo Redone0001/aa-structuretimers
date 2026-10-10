@@ -29,7 +29,7 @@
     function filters(){return {region:$('region').value,relationship:$('relationship').value,window:$('window').value,range:$('range').value,source:$('source').value};}
     function error(message){$('status').textContent=message+' Use Refresh to retry.';$('status').className='text-danger';}
     const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember,onIndicatorDrop:(source,destination,item)=>battle.moveToken(source,destination,item),onIndicator:(_id,item)=>{if(item.tokenId){const token=battle.tokens.find(t=>t.id===item.tokenId);if(token?.can_edit)battle.edit(token);}}});
-    const battle=new window.StructureBattleMap(root,{paint,select,refresh,inRange:id=>{
+    const battle=new window.StructureBattleMap(root,{paint,select,refresh,fetchRange:(token,preset)=>request('range',{region:state.data.region.id,source:token.system_id,range:preset},'fleet-range-'+token.id),inRange:id=>{
         if($('range').value==='none')return true;
         const d=state.distances.get(id);return state.rangeReady&&d!==null&&d!==undefined&&d<=state.limit;
     }});
@@ -37,6 +37,7 @@
         const highlighted=battle.enabled&&$('structures').checked?battle.highlights():new Set();const needsRange=$('range').value!=='none';
         if(state.structuresReady){for(const id of state.structures.keys()) {const distance=state.distances.get(id);if(!needsRange||(state.rangeReady&&distance!==null&&distance!==undefined&&distance<=state.limit))highlighted.add(id);}}
         map.nodeStates=battle.nodeStates();
+        map.forceRanges=battle.forceRanges();
         map.setOverlays(battle.overlays($('structures').checked?state.structures:new Map()),battle.enabled&&$('structures').checked?battle.highlights():highlighted);
         const missing=state.data?.nodes.filter(n=>!n.position).length||0;
         $('status').className='text-muted';

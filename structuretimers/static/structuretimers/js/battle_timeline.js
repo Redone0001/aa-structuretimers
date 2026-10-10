@@ -34,8 +34,15 @@
         if(state.name==='upcoming'&&state.seconds<=900)return {category:'warning',pulse:false};
         return null;
     }
+    // Gate forces do not restrict a jump-range intersection.
+    function fleetRangeOverlay(entries) {
+        const active=entries.filter(entry=>entry.mobility!=='gate');
+        if(!active.length||active.some(entry=>!entry.systems))return new Map();
+        const color=active.length>1?'intersection':active[0].stance==='friend'?'friendly':'hostile';
+        return new Map([...active[0].systems].filter(id=>active.every(entry=>entry.systems.has(id))).map(id=>[id,color]));
+    }
     function hourKey(timer) { return timer.date ? new Date(timer.date).toISOString().slice(0,13)+':00Z' : 'Unscheduled'; }
-    const api = {stateAt, onMap, hourKey, signal};
+    const api = {stateAt, onMap, hourKey, signal, fleetRangeOverlay};
     if (typeof module !== 'undefined') module.exports = api;
     else root.StructureBattleTimeline = api;
 })(typeof window === 'undefined' ? globalThis : window);

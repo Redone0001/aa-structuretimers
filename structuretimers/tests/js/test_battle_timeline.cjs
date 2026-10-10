@@ -54,3 +54,15 @@ test('warning and final five-minute pulse boundaries, with paused corrections',(
     assert.deepEqual(stateAt(t,start+700000),{name:'open',seconds:360});
     assert.equal(signal(t,start+1060000),null);
 });
+test('force ranges intersect, ignore gate mobility, and wait for every selected range',()=>{
+    const {fleetRangeOverlay}=require('../../static/structuretimers/js/battle_timeline.js');
+    const friend={mobility:'carrier',stance:'friend',systems:new Set([1,2,3])};
+    const foe={mobility:'blops',stance:'foe',systems:new Set([2,3,4])};
+    assert.deepEqual([...fleetRangeOverlay([friend])],[[1,'friendly'],[2,'friendly'],[3,'friendly']]);
+    assert.deepEqual([...fleetRangeOverlay([foe])],[[2,'hostile'],[3,'hostile'],[4,'hostile']]);
+    assert.deepEqual([...fleetRangeOverlay([friend,foe])],[[2,'intersection'],[3,'intersection']]);
+    assert.deepEqual([...fleetRangeOverlay([friend,{mobility:'gate'}])],[...fleetRangeOverlay([friend])]);
+    assert.equal(fleetRangeOverlay([friend,{mobility:'super'}]).size,0);
+    assert.equal(fleetRangeOverlay([friend,{...foe,systems:new Set([4])}]).size,0);
+    assert.equal(fleetRangeOverlay([]).size,0);
+});

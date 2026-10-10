@@ -76,3 +76,8 @@
 #st-regional-map .st-map-timer-pulse .st-map-box { animation: st-timer-pulse 1.5s ease-in-out infinite; }
 @keyframes st-timer-pulse { 50% { fill: var(--bs-danger); stroke-width: 6; } }
 @media (prefers-reduced-motion: reduce) { #st-regional-map .st-map-timer-pulse .st-map-box { animation: none; stroke-width: 5; } }
+
+#st-regional-map .st-map-force-range { stroke-width: 3; stroke-dasharray: 7 4; }
+#st-regional-map .st-map-force-range[data-force-color="friendly"] { stroke: var(--st-friendly); }
+#st-regional-map .st-map-force-range[data-force-color="hostile"] { stroke: var(--st-hostile); }
+#st-regional-map .st-map-force-range[data-force-color="intersection"] { stroke: var(--bs-warning); }

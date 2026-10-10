@@ -9,7 +9,7 @@
     const relationshipCodes = {friendly:'FR',hostile:'HO',neutral:'NE',undefined:'UN'};
     class BattleMap {
         constructor(root, hooks) {
-            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();
+            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();this.rangeSelected=new Set();this.rangeCache=new Map();this.rangeGeneration=0;
             $('day').value=utc(Date.now()).slice(0,10);
             $('enabled').addEventListener('change',()=>{this.updateControls();hooks.refresh();});
             $('day').addEventListener('change',()=>{if(!$('day').value)return;this.live=false;this.load();});
@@ -35,7 +35,7 @@
             $('hours-panel').hidden=!this.enabled;
             document.getElementById('st-map-window').disabled=this.enabled;
         }
-        reset(){this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
+        reset(){this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
         async setRegion(data){this.data=data;$('token-system').replaceChildren(...data.nodes.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(n=>new Option(n.name,n.id)));await this.load();}
         async api(layer, params={}, options={}){
             const url=new URL(this.root.dataset.battleApi.replace('LAYER',layer),location.origin);
@@ -55,7 +55,7 @@
                 const data=await this.api('snapshot',{region,day},{signal:controller.signal});
                 if(this.abort!==controller)return;
                 this.timers=data.timers;this.tokens=data.tokens;this.offset=Date.parse(data.server_time)-Date.now();this.ready=true;
-                this.loaded=Date.parse(data.server_time);this.loadedDay=day;this.signature=null;this.renderHours();this.renderFleets();this.tick();
+                this.loaded=Date.parse(data.server_time);this.loadedDay=day;this.syncForceRanges();this.signature=null;this.renderHours();this.renderFleets();this.tick();
                 if(this.selected!==null)this.hooks.select(this.selected);
             }catch(e){if(e.name!=='AbortError')$('error').textContent=e.message+' Use Refresh to retry.';}
         }
@@ -140,7 +140,53 @@
             if(this.enabled){const records=this.filtered().filter(t=>t.system_id===id);if(document.getElementById('st-map-structures').checked){for(const timer of records)container.append(this.timerCard(timer));if(!records.length)container.append(el('p','No scheduled timers for this system on the loaded day.'));}}
             const tokens=this.tokens.filter(t=>t.system_id===id);
             if(tokens.length){container.append(el('h3','Latest forces','h6'));tokens.forEach(t=>container.append(this.fleetCard(t)));}
-            this.tick();
+            this.updateRangeButtons();this.tick();
+        }
+        forceRanges(){
+            return timeline.fleetRangeOverlay(this.tokens.filter(t=>this.rangeSelected.has(t.id)).map(t=>({
+                ...t,systems:this.rangeCache.get(this.rangeKey(t))?.systems
+            })));
+        }
+        rangeKey(token){return `${this.data?.region.id}:${token.system_id}:${token.mobility}`;}
+        updateRangeButtons(){
+            for(const button of this.root.querySelectorAll('[data-force-range]')){
+                const token=this.tokens.find(t=>t.id===Number(button.dataset.forceRange));
+                if(!token)continue;
+                const selected=this.rangeSelected.has(token.id), entry=this.rangeCache.get(this.rangeKey(token));
+                button.setAttribute('aria-pressed',String(selected));
+                button.textContent=selected?(entry?.error?'Hide ranges (failed)':entry?.systems?'Hide ranges':'Loading ranges…'):'Show ranges';
+                button.classList.toggle('btn-outline-secondary',!selected);button.classList.toggle('btn-primary',selected);
+            }
+        }
+        async syncForceRanges(){
+            const generation=++this.rangeGeneration;
+            const tokens=this.tokens.filter(t=>this.rangeSelected.has(t.id)&&t.mobility!=='gate');
+            this.rangeSelected=new Set(tokens.map(t=>t.id));
+            this.updateRangeButtons();this.hooks.paint();
+            await Promise.all(tokens.map(async token=>{
+                const key=this.rangeKey(token);
+                if(this.rangeCache.get(key)?.systems)return;
+                try{
+                    const preset=token.mobility==='conduit'?'command':token.mobility;
+                    const data=await this.hooks.fetchRange(token,preset);
+                    if(generation!==this.rangeGeneration||!data)return;
+                    this.rangeCache.set(key,{systems:new Set(data.systems.filter(s=>s.distance_ly!==null&&s.distance_ly<=data.limit_ly).map(s=>s.id))});
+                }catch(error){
+                    if(generation!==this.rangeGeneration)return;
+                    this.rangeCache.set(key,{error:true});
+                    $('move-status').textContent=`Range unavailable: ${error.message} Toggle the range off and on to retry.`;
+                }
+            }));
+            if(generation!==this.rangeGeneration)return;
+            this.updateRangeButtons();this.hooks.paint();
+            if(tokens.length&&!tokens.some(t=>this.rangeCache.get(this.rangeKey(t))?.error)){
+                $('move-status').textContent=`${this.forceRanges().size} systems ${tokens.length>1?'in the intersection of '+tokens.length+' force ranges':'in force range'}. Dashed ${tokens.length>1?'yellow':tokens[0].stance==='friend'?'blue':'red'} boxes; geometric jump distance.`;
+            }else if(!tokens.length)$('move-status').textContent='Force range overlay cleared.';
+        }
+        toggleForceRange(token){
+            if(this.rangeSelected.has(token.id))this.rangeSelected.delete(token.id);
+            else {this.rangeSelected.add(token.id);this.rangeCache.delete(this.rangeKey(token));}
+            this.syncForceRanges();
         }
         tokenName(token){return [token.alliance_name,token.ship_name].filter(Boolean).join(' · ')||'Unknown force';}
         fleetCard(token){
@@ -152,10 +198,15 @@
             if(token.note)card.append(el('p',token.note,'small st-battle-note'));
             if(token.dscan){const details=el('details');details.append(el('summary','D-scan text'),el('pre',token.dscan,'st-battle-note'));card.append(details);}
             card.append(el('p',`Updated ${utc(Date.parse(token.updated_at)).replace('T',' ').slice(0,19)} UTC`,'small text-muted mb-1'));
-            if(token.can_edit){const edit=el('button','Edit / move','btn btn-sm btn-outline-secondary');edit.type='button';edit.addEventListener('click',()=>this.edit(token));card.append(edit);}
+            const actions=el('div',undefined,'d-flex gap-2 flex-wrap');
+            if(token.can_edit){const edit=el('button','Edit / move','btn btn-sm btn-outline-secondary');edit.type='button';edit.addEventListener('click',()=>this.edit(token));actions.append(edit);}
+            const ranges=el('button',this.rangeSelected.has(token.id)?'Hide ranges':'Show ranges','btn btn-sm btn-outline-secondary');
+            ranges.type='button';ranges.dataset.forceRange=token.id;ranges.setAttribute('aria-pressed',String(this.rangeSelected.has(token.id)));
+            ranges.disabled=token.mobility==='gate';ranges.title=token.mobility==='gate'?'Gate mobility has no jump-range filter':'Show systems within this force’s mobility range';
+            ranges.addEventListener('click',()=>this.toggleForceRange(token));actions.append(ranges);card.append(actions);
             return card;
         }
-        renderFleets(){const list=$('fleet-list');list.replaceChildren(...this.tokens.map(t=>this.fleetCard(t)));if(!this.tokens.length)list.append(el('p','No fleet tokens in this region.','text-muted'));}
+        renderFleets(){const list=$('fleet-list');list.replaceChildren(...this.tokens.map(t=>this.fleetCard(t)));if(!this.tokens.length)list.append(el('p','No fleet tokens in this region.','text-muted'));this.updateRangeButtons();}
         edit(token=null){
             if(!this.data)return;
             this.editing=token;$('form').reset();$('form-error').textContent='';$('delete').hidden=!token;
@@ -176,7 +227,7 @@
                 // Cancel an older snapshot before applying the server-confirmed move.
                 this.abort?.abort();this.abort=null;
                 this.tokens=this.tokens.map(t=>t.id===token.id?result.token:t);
-                this.renderFleets();this.hooks.select(destination);
+                this.renderFleets();this.syncForceRanges();this.hooks.select(destination);
                 $('move-status').textContent=`${this.tokenName(result.token)} moved to ${this.data.nodes.find(n=>n.id===destination)?.name||destination}.`;
             }catch(e){
                 if(this.data?.region.id===region)$('move-status').textContent=`Move not saved: ${e.message} Use Refresh to check the latest position.`;

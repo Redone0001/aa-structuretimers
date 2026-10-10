@@ -191,13 +191,15 @@
                 const box=svg('rect', {x:-width/2, y:-17, width, height, rx:6, class:'st-map-box'});group.prepend(box);
                 const outlines=svg('g', {transform:`translate(${x} ${y})`}); layers[2].append(outlines);
                 const highlight=svg('rect', {x:-width/2-8,y:-25,width:width+16,height:50,rx:10,class:'st-map-highlight'}); highlight.classList.toggle('is-highlighted', this.highlighted.has(node.id));
+                const forceRange=this.forceRanges?.get(node.id);
+                if(forceRange)outlines.append(svg('rect',{x:-width/2-17,y:-34,width:width+34,height:68,rx:12,class:'st-map-highlight st-map-force-range is-highlighted','data-force-color':forceRange}));
                 const selected=svg('rect', {x:-width/2-4,y:-21,width:width+8,height:42,rx:8,class:'st-map-selection','data-selection':node.id}); selected.classList.toggle('is-selected',this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id);
                 const focus=svg('rect', {x:-width/2-12,y:-29,width:width+24,height:58,rx:12,class:'st-map-focus'});outlines.append(highlight,selected,focus);
                 ['mouseenter','focus'].forEach(name=>group.addEventListener(name,()=>focus.classList.add('is-focused')));
                 ['mouseleave','blur'].forEach(name=>group.addEventListener(name,()=>focus.classList.remove('is-focused')));
                 group.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();event.stopPropagation();this.select(node.id);}});
                 const indicators=this.overlays.get(node.id)||[];
-                this.hint(group, `${node.name}${this.highlighted.has(node.id)?' · Matches filters':''}`);
+                this.hint(group, `${node.name}${this.highlighted.has(node.id)?' · Matches filters':''}${forceRange?' · '+(forceRange==='intersection'?'In selected force range intersection':'In force range'):''}`);
                 const grid=svg('g',{transform:`translate(${x} ${y})`}); layers[4].append(grid);
                 let bottom=30, top=32, extent=width/2+16;
                 const tokens=indicators.filter(item=>item.large);
