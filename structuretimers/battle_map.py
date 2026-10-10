@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
-from allianceauth.eveonline.models import EveAllianceInfo
+from .alliance_directory import lookup_alliances, resolve_alliance
 
 from .models import MapFleetToken, MapTimerState, Timer
 from .regional_map import RELATIONSHIPS, sde_models
@@ -94,11 +94,7 @@ def token_payload(token, user):
 
 def lookup(kind, term):
     if kind == "alliance":
-        return list(
-            EveAllianceInfo.objects.filter(alliance_name__icontains=term)
-            .order_by("alliance_name")
-            .values("alliance_id", "alliance_name")[:30]
-        )
+        return lookup_alliances(term)
     # The complete installed SDE supplies ships, even if eveuniverse has not loaded them.
     from django.apps import apps
 
@@ -295,13 +291,7 @@ def update_fleet(user, body):
     get_object_or_404(system_model, pk=form.cleaned_data["system_id"])
     token = form.save(commit=False)
     # Resolve images from names on the server; arbitrary IDs cannot spoof a match.
-    token.alliance_id = (
-        EveAllianceInfo.objects.filter(alliance_name__iexact=token.alliance_name)
-        .values_list("alliance_id", flat=True)
-        .first()
-        if token.alliance_name
-        else None
-    )
+    token.alliance_id = resolve_alliance(token.alliance_name)
     token.ship_id = None
     if token.ship_name:
         from django.apps import apps

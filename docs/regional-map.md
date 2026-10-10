@@ -146,7 +146,7 @@ Scheduled timers open at their timestamp and close after 15 minutes for Armor, F
 
 **Pause** freezes remaining repair time; **Resume** continues it. **Mark killed** records Won for hostile timers, Lost for friendly timers, and Killed for neutral/undefined timers. **Undo killed** corrects a mistaken observation. These controls are available in Live mode only, use the existing timer edit permissions, and are checked again on the server. Timestamped observations replay when inspecting earlier times. Changing the underlying scheduled date invalidates observations tied to the old date. These are manual battle-map observations, not killboard integration or changes to the main timer/notification lifecycle. History follows the timer’s existing deletion/retention policy (30 days by default).
 
-**Add token** opens a keyboard-accessible dialog, preselecting the selected system. System placement is required; all intelligence fields are optional. Blank counts mean unknown, distinct from zero. Gate and Foe are the defaults. Alliance autocomplete uses alliances already known to Auth; ship autocomplete uses ship types from the installed SDE. Both accept unmatched text and retain it. Exact matches resolve official alliance logos/ship icons; unmatched names use symbols. D-scan is stored and shown verbatim as text, with no parsing. Edit/move/delete are available from the fleet list or by clicking an editable token on the map.
+**Add token** opens a keyboard-accessible dialog, preselecting the selected system. System placement is required; all intelligence fields are optional. Blank counts mean unknown, distinct from zero. Gate and Foe are the defaults. Alliance autocomplete uses the public EVE Universe alliance name cache plus alliances already known to Auth; ship autocomplete uses ship types from the installed SDE. Both accept unmatched text and retain it. Exact matches resolve official alliance logos/ship icons; unmatched names use symbols. D-scan is stored and shown verbatim as text, with no parsing. Edit/move/delete are available from the fleet list or by clicking an editable token on the map.
 
 Fleet intelligence is shared with **everyone who can access the regional map**, independent of private timer visibility. A token's creator and users with `manage_timer` may edit/delete it. Fleets show **latest intelligence**, not historical fleet movements, even when inspecting an earlier timer time. Updates appear locally immediately and on other clients at the next refresh. There is no presence/live collaboration push channel. Unknown positions are accessible from the system selector/list.
 
@@ -161,3 +161,24 @@ Fleet tokens render separately above the system box at half its measured width, 
 Creators/managers can drag a fleet onto a system box or its surrounding ring. A dashed target ring previews the destination. Coordinates account for map zoom, pan and spacing. Dropping outside a system, releasing on the source, cancelling the pointer, or pressing Escape cancels without saving. A normal click or Enter still opens the editor; Edit / move remains the keyboard alternative and supports systems without map coordinates. Overlay refreshes are deferred during a drag so they cannot remove the token being moved.
 
 The fleet POST endpoint accepts `action: "move"` with `id`, `revision`, and `system_id`. It validates access and destination, changes only location/revision/update time, and rejects stale revisions. The token moves after the server confirms the save; failures leave its prior displayed position and show a retry message. No migration is needed for these drag controls.
+
+### Public alliance directory
+
+Run after upgrading to populate fleet suggestions for all active player alliances, including those with no members in Auth:
+
+```shell
+python manage.py structuretimers_sync_alliances
+```
+
+This reads CCP ESI's public `/v1/alliances/` list and resolves missing names in batches through Eve Universe. No character token or additional scope is needed. Names/IDs are stored in `eveuniverse.EveEntity` (`eveuniverse_eveentity`, category `alliance`), not Auth's membership records. Suggestions and exact-name logo resolution use local queries only; unknown text remains accepted. Existing records remain usable during an ESI outage, and historical names are retained. This does not import tickers or standings. Existing tokens with unresolved names get their logo when saved again after the import.
+
+To discover newly created alliances daily, add this entry to your existing `CELERYBEAT_SCHEDULE` in Auth settings and restart Celery workers and Beat:
+
+```python
+CELERYBEAT_SCHEDULE["structuretimers-sync-alliances"] = {
+    "task": "structuretimers.tasks.sync_alliance_directory",
+    "schedule": 86400.0,
+}
+```
+
+Failed refreshes leave the local directory available; rerun the command or wait for the next scheduled run. No additional migration is needed.

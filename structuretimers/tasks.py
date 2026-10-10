@@ -358,3 +358,13 @@ def refresh_discord_timerboard(self, board_pk):
             error = exc
     if error is not None:
         raise self.retry(exc=error, countdown=60)
+
+
+@shared_task(base=QueueOnce, acks_late=True)
+def sync_alliance_directory():
+    """Refresh public fleet autocomplete; schedule daily in Celery Beat."""
+    from .alliance_directory import sync_alliances
+
+    count = sync_alliances()
+    logger.info("Alliance directory refreshed: %s active alliances resolved", count)
+    return count

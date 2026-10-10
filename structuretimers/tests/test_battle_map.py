@@ -167,6 +167,24 @@ class BattleMapTests(RegionalMapTests):
         result = self.post("fleet", system_id=self.a.pk, ship_name="Rifter")
         self.assertEqual(result.json()["token"]["ship_id"], ship.pk)
 
+    def test_public_alliance_autocomplete_and_logo_resolve(self):
+        from eveuniverse.models import EveEntity
+
+        alliance = EveEntity.objects.create(
+            id=99000001, name="Public Alliance", category="alliance"
+        )
+        data = self.client.get(
+            self.url("lookup"), {"kind": "alliance", "q": "Public"}
+        ).json()
+        self.assertEqual(
+            data["results"],
+            [{"alliance_id": alliance.pk, "alliance_name": alliance.name}],
+        )
+        result = self.post(
+            "fleet", system_id=self.a.pk, alliance_name="public alliance"
+        )
+        self.assertEqual(result.json()["token"]["alliance_id"], alliance.pk)
+
     def test_csrf_access_and_bad_inputs(self):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.user)
