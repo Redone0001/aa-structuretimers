@@ -99,6 +99,70 @@ class TimerQuerySet(models.QuerySet):
 
 
 class TimerManagerBase(models.Manager):
+    # Fields a new database record copies from the timer that created it.
+    DATABASE_ENTRY_FIELDS = (
+        "eve_solar_system_id",
+        "location_details",
+        "structure_type_id",
+        "structure_name",
+        "owner_name",
+        "eve_corporation_id",
+        "eve_alliance_id",
+        "objective",
+        "visibility",
+        "is_opsec",
+        "user_id",
+        "eve_character_id",
+        "reinforcement_time",
+    )
+    # Blank fields on a matched record that a new timer may fill in.
+    DATABASE_ENTRY_FILL_FIELDS = (
+        "location_details",
+        "owner_name",
+        "eve_corporation_id",
+        "eve_alliance_id",
+        "reinforcement_time",
+    )
+
+    def find_or_create_database_entry(self, timer: models.Model) -> models.Model:
+        """Return the database record matching a timer, creating one if needed.
+
+        A record matches when solar system, structure type and name (ignoring
+        case) are the same. Timers without a name or type always get a new record,
+        so unrelated structures are never merged by guesswork.
+        """
+        name = (timer.structure_name or "").strip()
+        entry = None
+        if name and timer.structure_type_id:
+            entry = (
+                self.filter(
+                    timer_type=self.model.Type.PRELIMINARY,
+                    eve_solar_system_id=timer.eve_solar_system_id,
+                    structure_type_id=timer.structure_type_id,
+                    structure_name__iexact=name,
+                )
+                .order_by("-last_updated_at")
+                .first()
+            )
+        if entry is None:
+            entry = self.model(
+                timer_type=self.model.Type.PRELIMINARY,
+                date=None,
+                discord_timerboard=False,
+                **{f: getattr(timer, f) for f in self.DATABASE_ENTRY_FIELDS},
+            )
+            entry.save()
+            return entry
+        updates = {
+            field: getattr(timer, field)
+            for field in self.DATABASE_ENTRY_FILL_FIELDS
+            if getattr(timer, field) not in (None, "")
+            and getattr(entry, field) in (None, "")
+        }
+        # A new timer is fresh intel that the structure still exists.
+        self.filter(pk=entry.pk).update(last_updated_at=now(), **updates)
+        return entry
+
     def delete_obsolete(self) -> int:
         """delete all timers that are considered obsolete"""
         if STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS:

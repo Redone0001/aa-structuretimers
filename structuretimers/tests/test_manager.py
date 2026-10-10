@@ -62,7 +62,11 @@ class TestTimer_Manger(NoSocketsTestCase):
         TimerFactory(date=now() - dt.timedelta(days=1, seconds=1))
         result = Timer.objects.delete_obsolete()
         self.assertEqual(result, 1)
-        self.assertSetEqual(queryset_pks(Timer.objects.all()), {timer_1.pk})
+        # Database records have no date and are never obsolete.
+        self.assertSetEqual(
+            queryset_pks(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY)),
+            {timer_1.pk},
+        )
 
     def test_can_handle_no_timers(self):
         result = Timer.objects.delete_obsolete()

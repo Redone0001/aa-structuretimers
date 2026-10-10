@@ -250,8 +250,8 @@ class TestTimerListData(NoSocketsTestCase):
 
     def test_should_return_preliminary_timers(self):
         # given
-        TimerFactory()
         timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
+        TimerFactory(database_entry=timer)
         self.client.force_login(UserWithAccessFactory())
 
         # when

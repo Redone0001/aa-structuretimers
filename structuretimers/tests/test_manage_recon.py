@@ -40,7 +40,7 @@ class TestManageRecon(NoSocketsTestCase):
         )
 
     def test_data_contains_only_visible_preliminary_timers(self):
-        current = TimerFactory(timer_type=Timer.Type.HULL)
+        current = TimerFactory(timer_type=Timer.Type.HULL, database_entry=self.timer)
         hidden = TimerFactory(timer_type=Timer.Type.PRELIMINARY, is_opsec=True)
         data = self.client.get(self.url).json()
         self.assertEqual([row["id"] for row in data], [self.timer.pk])

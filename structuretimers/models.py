@@ -468,6 +468,15 @@ class Timer(models.Model):
         EveType, on_delete=models.CASCADE, related_name="+", null=True, blank=True
     )
     structure_name = models.CharField(max_length=254, default="", blank=True)
+    database_entry = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="timers",
+        limit_choices_to={"timer_type": "PL"},
+        help_text="Database record of the structure this timer belongs to",
+    )
     timer_type = models.CharField(max_length=2, choices=Type.choices, default=Type.NONE)
     user = models.ForeignKey(
         User,
@@ -513,6 +522,17 @@ class Timer(models.Model):
         self._original_eve_solar_system_id = self.eve_solar_system_id
         self._original_date = self.date
         self._original_timer_type = self.timer_type
+
+    def save(self, *args, **kwargs):
+        """Make sure every scheduled timer points to a database record."""
+        if self.timer_type == Timer.Type.PRELIMINARY:
+            self.database_entry = None
+        elif not self.database_entry_id and self.eve_solar_system_id:
+            self.database_entry = Timer.objects.find_or_create_database_entry(self)
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = {*update_fields, "database_entry"}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         if self.timer_type != Timer.Type.PRELIMINARY and self.date:

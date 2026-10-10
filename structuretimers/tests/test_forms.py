@@ -533,7 +533,7 @@ class TestTimerFormSave(NoSocketsTestCase):
         # when
         form.save()
         # then
-        timer = Timer.objects.first()
+        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
         self.assertEqual(timer.timer_type, Timer.Type.ARMOR)
         self.assertIsNotNone(timer.date)
 
@@ -555,7 +555,7 @@ class TestTimerFormSave(NoSocketsTestCase):
         # when
         form.save()
         # then
-        timer = Timer.objects.first()
+        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
         self.assertEqual(timer.timer_type, Timer.Type.NONE)
         self.assertIsNotNone(timer.date)
 

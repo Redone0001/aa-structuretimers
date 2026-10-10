@@ -63,8 +63,8 @@ class TestMigrateTimers(NoSocketsTestCase):
         call_command("structuretimers_migrate_timers", stdout=self.out)
 
         # then
-        self.assertEqual(Timer.objects.count(), 1)
-        new_timer = Timer.objects.first()
+        self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1)
+        new_timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
         self.assertEqual(new_timer.date, auth_timer.eve_time)
         self.assertEqual(new_timer.details_notes, auth_timer.details)
         self.assertEqual(new_timer.eve_character, character_1)
@@ -89,7 +89,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 call_command("structuretimers_migrate_timers", stdout=self.out)
 
                 # then
-                self.assertEqual(Timer.objects.count(), 1, msg=timer_type)
+                self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1, msg=timer_type)
 
     def test_should_handle_all_objectives(self):
         for objective in AuthTimer.Objective.values:
@@ -104,7 +104,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 call_command("structuretimers_migrate_timers", stdout=self.out)
 
                 # then
-                self.assertEqual(Timer.objects.count(), 1, msg=objective)
+                self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1, msg=objective)
 
     def test_should_handle_all_structure_types(self):
         supported_values = set(AuthTimer.Structure.values) - {AuthTimer.Structure.OTHER}
@@ -120,7 +120,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 call_command("structuretimers_migrate_timers", stdout=self.out)
 
                 # then
-                self.assertEqual(Timer.objects.count(), 1, msg=structure)
+                self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1, msg=structure)
 
     def test_final_corp_timer(self):
         # given
@@ -133,8 +133,8 @@ class TestMigrateTimers(NoSocketsTestCase):
         call_command("structuretimers_migrate_timers", stdout=self.out)
 
         # then
-        self.assertEqual(Timer.objects.count(), 1)
-        new_timer = Timer.objects.first()
+        self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1)
+        new_timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
         self.assertEqual(new_timer.visibility, Timer.Visibility.CORPORATION)
 
     def test_moon_mining(self):
@@ -149,7 +149,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         call_command("structuretimers_migrate_timers", stdout=self.out)
 
         # then
-        new_timer = Timer.objects.first()
+        new_timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
         self.assertEqual(new_timer.timer_type, Timer.Type.MOONMINING)
         self.assertEqual(new_timer.structure_type.id, EveTypeId.ATHANOR)
 
@@ -186,4 +186,4 @@ class TestMigrateTimers(NoSocketsTestCase):
         call_command("structuretimers_migrate_timers", stdout=self.out)
 
         # then
-        self.assertEqual(Timer.objects.all().count(), 1)
+        self.assertEqual(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).count(), 1)

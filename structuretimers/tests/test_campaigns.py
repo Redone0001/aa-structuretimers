@@ -179,7 +179,7 @@ class TestCampaigns(NoSocketsTestCase):
         other_region = ReconCampaignSystem.objects.create(
             campaign=self.campaign, solar_system=EveSolarSystemFactory()
         )
-        TimerFactory(
+        record = TimerFactory(
             eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.PRELIMINARY
         )
         TimerFactory(
@@ -188,7 +188,9 @@ class TestCampaigns(NoSocketsTestCase):
             is_opsec=True,
         )
         TimerFactory(
-            eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.HULL
+            eve_solar_system=self.entry.solar_system,
+            timer_type=Timer.Type.HULL,
+            database_entry=record,
         )
         for entry in [self.entry, same_region, other_region]:
             system = entry.solar_system

@@ -466,6 +466,21 @@ class TimerForm(forms.ModelForm):
         timer.structure_type_id = self.cleaned_data.get("structure_type_2") or None
         timer.eve_solar_system_id = self.cleaned_data.get("eve_solar_system_2")
 
+        if (
+            timer.pk
+            and timer._original_timer_type == Timer.Type.PRELIMINARY
+            and timer.timer_type != Timer.Type.PRELIMINARY
+        ):
+            # Giving a database record a date schedules a new timer for that
+            # structure; the record itself stays in the database.
+            record_pk = timer.pk
+            timer.pk = None
+            timer._state.adding = True
+            timer.database_entry_id = record_pk
+            timer.user = self.user
+            if commit:
+                Timer.objects.filter(pk=record_pk).update(last_updated_at=now())
+
         if commit:
             timer.save()
         return timer
