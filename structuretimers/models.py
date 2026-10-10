@@ -146,6 +146,22 @@ class Organization(models.Model):
         return self.name
 
 
+class StandingsSource(models.Model):
+    """A character whose alliance contacts provide the automatic standings."""
+
+    token = models.ForeignKey("esi.Token", on_delete=models.CASCADE, related_name="+")
+    alliance_id = models.PositiveBigIntegerField()
+    alliance_name = models.CharField(max_length=254, default="", blank=True)
+    added_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=254, default="", blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.alliance_name} via {self.token.character_name}"
+
+
 class DiscordWebhook(models.Model):
     """A Discord webhook"""
 

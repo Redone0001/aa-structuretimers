@@ -68,6 +68,13 @@ urlpatterns = [
     ),
     path("select2_owners/", views.Select2OwnersView.as_view(), name="select2_owners"),
     path(
+        "standings/<int:pk>/",
+        views.StandingSetView.as_view(),
+        name="standing_set",
+    ),
+    path("standings/sync/", views.StandingsSyncView.as_view(), name="standings_sync"),
+    path("standings/source/", views.add_standings_source, name="standings_source"),
+    path(
         "select2_database_entries/",
         views.Select2DatabaseEntriesView.as_view(),
         name="select2_database_entries",

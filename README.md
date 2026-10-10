@@ -100,7 +100,13 @@ CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
     'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
     'schedule': 60,
 }
+CELERYBEAT_SCHEDULE['structuretimers_sync_standings'] = {
+    'task': 'structuretimers.tasks.sync_standings',
+    'schedule': 3600,  # 1 hour
+}
 ```
+
+> **Standings**: owner standings come from your alliance's contacts. A recon coordinator adds a character with the `esi-alliances.read_contacts.v1` scope on the Standings tab; `structuretimers_sync_standings` keeps them current. Coordinators can override any standing there.
 
 > **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
 

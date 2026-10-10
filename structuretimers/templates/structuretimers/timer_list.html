@@ -25,6 +25,13 @@
                 {% translate "Past" %}
             </button>
         </li>
+        {% if perms.structuretimers.recon_coordinator %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-standings" type="button" aria-selected="false" data-bs-target="#standings" aria-controls="standings" role="tab" data-bs-toggle="tab">
+                Standings
+            </button>
+        </li>
+        {% endif %}
         {% if perms.structuretimers.recon_member %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-recon-campaigns" type="button" aria-selected="false" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
@@ -68,6 +75,12 @@
                     <p class="text-muted">
                         {% translate "This page contains potential future timers." %}
                     </p>
+                </div>
+                {% endif %}
+
+                {% if perms.structuretimers.recon_coordinator %}
+                <div role="tabpanel" class="tab-pane" id="standings" aria-labelledby="tab-standings">
+                    {% include 'structuretimers/partials/standings.html' %}
                 </div>
                 {% endif %}
 

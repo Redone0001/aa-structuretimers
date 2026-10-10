@@ -361,6 +361,14 @@ def refresh_discord_timerboard(self, board_pk):
 
 
 @shared_task(base=QueueOnce, acks_late=True)
+def sync_standings():
+    """Refresh automatic owner standings from the alliance contacts."""
+    from . import standings  # pylint: disable=import-outside-toplevel
+
+    standings.sync_all()
+
+
+@shared_task(base=QueueOnce, acks_late=True)
 def sync_alliance_directory():
     """Refresh public fleet autocomplete; schedule daily in Celery Beat."""
     from .alliance_directory import sync_alliances

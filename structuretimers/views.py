@@ -6,12 +6,15 @@ import math
 from copy import deepcopy
 from typing import Iterable
 
+import requests
+
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
@@ -28,7 +31,8 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
-from eveuniverse.models import EveSolarSystem, EveType
+from esi.decorators import token_required
+from eveuniverse.models import EveEntity, EveSolarSystem, EveType
 
 from allianceauth.eveonline.evelinks import dotlan
 from allianceauth.services.hooks import get_extension_logger
@@ -38,7 +42,7 @@ from app_utils.views import (
     yesno_str,
 )
 
-from structuretimers import __title__, owners, structures_bridge
+from structuretimers import __title__, owners, standings, structures_bridge
 from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
@@ -46,7 +50,14 @@ from structuretimers.app_settings import (
 from structuretimers.constants import EveTypeId
 from structuretimers.distance_ranges import distance_range
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
-from structuretimers.models import DistancesFromStaging, ReconCampaign, StagingSystem, Timer
+from structuretimers.models import (
+    DistancesFromStaging,
+    Organization,
+    ReconCampaign,
+    StagingSystem,
+    StandingsSource,
+    Timer,
+)
 from structuretimers.selectors import supported_eve_types
 
 logger = get_extension_logger(__name__)
@@ -79,11 +90,29 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = "structuretimers/timer_list.html"
     permission_required = "structuretimers.basic_access"
 
+    def _standings_context(self) -> dict:
+        if not self.request.user.has_perm("structuretimers.recon_coordinator"):
+            return {}
+        organizations = list(Organization.objects.select_related("alliance"))
+        for organization in organizations:
+            organization.effective = standings.standing_label(
+                standings.effective_standing(organization)
+            )
+        return {
+            "organizations": organizations,
+            "standing_choices": Organization.Standing.choices,
+            "standings_source": StandingsSource.objects.select_related("token").first(),
+        }
+
     def _selected_tab(self) -> str:
         tab = self.request.GET.get("tab", "current")
         tab = {"manage-recon": "preliminary"}.get(tab, tab)
         if tab in ("preliminary", "recon-campaigns") and not self.request.user.has_perm(
             "structuretimers.recon_member"
+        ):
+            return "current"
+        if tab == "standings" and not self.request.user.has_perm(
+            "structuretimers.recon_coordinator"
         ):
             return "current"
         return tab
@@ -117,6 +146,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
                 "tab": self._selected_tab(),
+                **self._standings_context(),
                 "campaigns": ReconCampaign.objects.all(),
                 "recon_translations": {
                     "noMatches": _("No matching recon"),
@@ -797,6 +827,76 @@ class Select2SolarSystemsView(JSONResponseMixin, ListView):
 
     def render_to_response(self, context, **response_kwargs):
         return self.render_to_json_response(context, **response_kwargs)
+
+
+class StandingSetView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Recon coordinators override the standing of a corporation or alliance."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_coordinator",
+    )
+
+    def post(self, request, pk):
+        organization = get_object_or_404(Organization, pk=pk)
+        value = request.POST.get("standing", "")
+        if value == "":
+            organization.standing_override = None
+        elif value.lstrip("-").isdigit() and int(value) in standings.STANDING_VALUES:
+            organization.standing_override = int(value)
+        else:
+            return JsonResponse({"error": "Unknown standing"}, status=400)
+        organization.save(update_fields=["standing_override", "updated_at"])
+        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+
+
+class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Refresh automatic standings now instead of waiting for the schedule."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_coordinator",
+    )
+
+    def post(self, request):
+        standings.sync_all()
+        messages.info(request, "Standings refreshed from alliance contacts.")
+        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+
+
+@login_required
+@permission_required(
+    ("structuretimers.basic_access", "structuretimers.recon_coordinator"),
+    raise_exception=True,
+)
+@token_required(scopes=[standings.CONTACTS_SCOPE])
+def add_standings_source(request, token):
+    """Use a character's alliance contacts as the automatic standings."""
+    character = requests.get(
+        f"{owners.ESI_URL}/characters/{token.character_id}/",
+        headers={"User-Agent": owners.USER_AGENT},
+        timeout=(5, 30),
+    ).json()
+    alliance_id = character.get("alliance_id")
+    if not alliance_id:
+        messages.error(request, f"{token.character_name} is not in an alliance.")
+        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+    StandingsSource.objects.all().delete()
+    source = StandingsSource.objects.create(
+        token=token,
+        alliance_id=alliance_id,
+        alliance_name=EveEntity.objects.resolve_name(alliance_id),
+        added_by=request.user,
+    )
+    try:
+        count = standings.sync_source(source)
+    except Exception as ex:  # pylint: disable=broad-exception-caught
+        messages.error(request, f"Could not read alliance contacts: {ex}")
+    else:
+        messages.info(
+            request, f"Loaded {count} standings for {source.alliance_name}."
+        )
+    return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
 
 
 class Select2OwnersView(LoginRequiredMixin, PermissionRequiredMixin, View):

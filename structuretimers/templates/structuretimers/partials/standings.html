@@ -1,0 +1,75 @@
+<div class="d-flex flex-wrap gap-3 align-items-start justify-content-between mb-3">
+    <div>
+        <h5 class="mb-1">Standings</h5>
+        <p class="small text-muted mb-0">
+            Owners get the standing of their corporation, or else of their alliance. Unknown owners are 0.
+            An override set here wins over the automatic standing from alliance contacts.
+        </p>
+    </div>
+    <div class="text-end small">
+        {% if standings_source %}
+            <div>Automatic standings: <strong>{{ standings_source.alliance_name }}</strong> contacts via {{ standings_source.token.character_name }}</div>
+            <div class="text-muted">
+                {% if standings_source.last_sync_at %}Last synced {{ standings_source.last_sync_at|date:"Y-m-d H:i" }} UTC{% else %}Not synced yet{% endif %}
+                {% if standings_source.last_error %}<span class="text-danger"> · {{ standings_source.last_error }}</span>{% endif %}
+            </div>
+            <form class="d-inline" method="post" action="{% url 'structuretimers:standings_sync' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-secondary mt-1" type="submit">Sync now</button>
+            </form>
+        {% else %}
+            <div class="text-muted mb-1">No automatic standings yet.</div>
+        {% endif %}
+        <a class="btn btn-sm btn-primary mt-1" href="{% url 'structuretimers:standings_source' %}">
+            {% if standings_source %}Use another character{% else %}Add a character for alliance standings{% endif %}
+        </a>
+    </div>
+</div>
+
+<input id="standings-search" class="form-control mb-2" type="search" placeholder="Filter by name" aria-label="Filter standings by name">
+<div class="table-responsive">
+    <table class="table table-striped table-sm align-middle" id="tbl_standings">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Alliance</th>
+                <th>Automatic</th>
+                <th>Override</th>
+                <th>Standing</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for organization in organizations %}
+                <tr data-name="{{ organization.name|lower }} {{ organization.alliance.name|default:''|lower }}">
+                    <td>{{ organization.name }}</td>
+                    <td>{{ organization.get_category_display }}</td>
+                    <td>{{ organization.alliance.name|default:"—" }}</td>
+                    <td>{{ organization.get_standing_auto_display|default:"—" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'structuretimers:standing_set' organization.pk %}">
+                            {% csrf_token %}
+                            <select name="standing" class="form-select form-select-sm" aria-label="Override standing of {{ organization.name }}" onchange="this.form.submit()">
+                                <option value="" {% if organization.standing_override is None %}selected{% endif %}>Automatic</option>
+                                {% for value, label in standing_choices %}
+                                    <option value="{{ value }}" {% if organization.standing_override == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </td>
+                    <td><strong>{{ organization.effective }}</strong></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-muted">No owners yet. They appear here as structures get owners.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    document.getElementById('standings-search').addEventListener('input', function () {
+        const term = this.value.trim().toLowerCase();
+        document.querySelectorAll('#tbl_standings tbody tr[data-name]').forEach(function (row) {
+            row.hidden = term !== '' && !row.dataset.name.includes(term);
+        });
+    });
+</script>
