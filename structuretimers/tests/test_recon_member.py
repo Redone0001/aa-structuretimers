@@ -8,6 +8,7 @@ from django.urls import reverse
 from app_utils.testing import NoSocketsTestCase
 from structuretimers.models import Timer
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     TimerFactory,
     UserMainFactory,
     UserWithAccessFactory,
@@ -26,10 +27,8 @@ class TestReconMember(NoSocketsTestCase):
             ]
         )
         self.client.force_login(self.user)
-        self.recon = TimerFactory(
+        self.recon = StructureFactory(
             user=self.user,
-            timer_type=Timer.Type.PRELIMINARY,
-            date=None,
             reinforcement_time=time(12, 0),
         )
 
@@ -63,14 +62,9 @@ class TestReconMember(NoSocketsTestCase):
 
     def test_recon_timers_are_invisible(self):
         response = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["preliminary"])
+            reverse("structuretimers:structure_detail", args=[self.recon.pk])
         )
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertEqual(response.json(), [])
-        response = self.client.get(
-            reverse("structuretimers:detail", args=[self.recon.pk])
-        )
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
 
     def test_recon_member_restores_everything(self):
         user = UserWithAccessFactory()

@@ -104,6 +104,25 @@
         </div>
     </div>
 
+    <!-- modal to show a structure's fitting -->
+    <div class="modal" id="modalFit" tabindex="-1" role="dialog" aria-labelledby="modalFitLabel">
+        <div class="modal-dialog modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="modalFitLabel">Fitting</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% translate 'Close' %}"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="modalFitText" class="form-control font-monospace" rows="14" readonly aria-label="Fitting"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="modalFitCopy">Copy fit</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% translate "Close" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- modal to show timer details -->
     <div class="modal" id="modalTimerDetails" tabindex="-1" role="dialog" aria-labelledby="gridSystemModalLabel">
         <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">

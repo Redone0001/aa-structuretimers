@@ -22,6 +22,8 @@ from structuretimers.models import (
     NotificationRule,
     ScheduledNotification,
     StagingSystem,
+    Structure,
+    StructureDistance,
     Timer,
 )
 
@@ -282,11 +284,27 @@ def housekeeping() -> None:
 
 @shared_task
 def calc_staging_system(staging_system_pk: int, force_update: bool = False) -> None:
-    """Recalc distances from a staging system for all timers."""
+    """Recalc distances from a staging system for all timers and structures."""
     for timer_pk in Timer.objects.values_list("pk", flat=True):
         calc_timer_distances_for_staging_system.delay(
             timer_pk, staging_system_pk, force_update
         )
+    for structure_pk in Structure.objects.values_list("pk", flat=True):
+        calc_structure_distances.delay(structure_pk, force_update)
+
+
+@shared_task
+@rate_limit_retry_task
+def calc_structure_distances(structure_pk: int, force_update: bool = False) -> None:
+    """Calc distances of a Database record from every staging system."""
+    structure = Structure.objects.get(pk=structure_pk)
+    for staging_system in StagingSystem.objects.all():
+        obj, created = StructureDistance.objects.get_or_create(
+            structure=structure, staging_system=staging_system
+        )
+        if force_update or created:
+            obj.calculate()
+            obj.save()
 
 
 @shared_task

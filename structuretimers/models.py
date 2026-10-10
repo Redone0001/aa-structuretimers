@@ -40,6 +40,7 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_NOTIFICATIONS_ENABLED,
 )
 from structuretimers.managers import (
+    StructureManager,
     DistancesFromStagingManager,
     NotificationRuleManager,
     TimerManager,
@@ -57,6 +58,12 @@ def _task_calc_staging_system():
     from .tasks import calc_staging_system
 
     return calc_staging_system
+
+
+def _task_calc_structure_distances():
+    from .tasks import calc_structure_distances
+
+    return calc_structure_distances
 
 
 def _task_calc_timer_distances_for_all_staging_systems():
@@ -376,9 +383,189 @@ class DiscordWebhook(models.Model):
         return __title__
 
 
+class StructureDetails(models.Model):
+    """What we know about a structure, shared by Database records and timers.
+
+    Timers keep a copy of their structure's details, because other apps such as
+    aa-structures create timers directly with these fields.
+    """
+
+    class Objective(models.TextChoices):
+        """A timer objective."""
+
+        UNDEFINED = "UN", _("undefined")
+        HOSTILE = "HO", _("hostile")
+        FRIENDLY = "FR", _("friendly")
+        NEUTRAL = "NE", _("neutral")
+
+    class Visibility(models.TextChoices):
+        """A timer visibility."""
+
+        UNRESTRICTED = "UN", _("unrestricted")
+        ALLIANCE = "AL", _("Alliance only")
+        CORPORATION = "CO", _("Corporation only")
+
+    reinforcement_time = models.TimeField(
+        verbose_name=_("Vulnerability windows"), null=True, blank=True
+    )
+
+    details_notes = models.TextField(
+        default="",
+        blank=True,
+        help_text="Notes with additional information about this timer",
+    )
+
+    eve_alliance = models.ForeignKey(
+        EveAllianceInfo,
+        on_delete=models.SET_DEFAULT,
+        default=None,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Alliance of the user who created this timer",
+    )
+
+    eve_character = models.ForeignKey(
+        EveCharacter,
+        on_delete=models.SET_DEFAULT,
+        default=None,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Main character of the user who created this timer",
+    )
+
+    eve_corporation = models.ForeignKey(
+        EveCorporationInfo,
+        on_delete=models.SET_DEFAULT,
+        default=None,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Corporation of the user who created this timer",
+    )
+
+    eve_solar_system = models.ForeignKey(
+        EveSolarSystem,
+        on_delete=models.CASCADE,
+        default=None,
+        null=True,
+        related_name="+",
+    )
+
+    is_opsec = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            "Limit access to users with OPSEC clearance. "
+            "Can be combined with visibility."
+        ),
+    )
+
+    location_details = models.CharField(
+        max_length=254,
+        default="",
+        blank=True,
+        help_text=(
+            "Additional information about the location of this structure, "
+            "e.g. name of nearby planet / moon / gate"
+        ),
+    )
+
+    objective = models.CharField(
+        max_length=2, choices=Objective.choices, default=Objective.UNDEFINED
+    )
+
+    owner_corporation = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        limit_choices_to={"category": "corporation"},
+        help_text="Player corporation owning the structure",
+    )
+
+    owner_name = models.CharField(
+        max_length=254,
+        default=None,
+        blank=True,
+        null=True,
+        help_text="Name of the corporation owning the structure",
+    )
+
+    structure_type = models.ForeignKey(
+        EveType, on_delete=models.CASCADE, related_name="+", null=True, blank=True
+    )
+
+    structure_name = models.CharField(max_length=254, default="", blank=True)
+
+    user = models.ForeignKey(
+        User,
+        null=True,
+        on_delete=models.SET_NULL,
+        blank=True,
+        related_name="+",
+    )
+
+    visibility = models.CharField(
+        max_length=2,
+        choices=Visibility.choices,
+        default=Visibility.UNRESTRICTED,
+        db_index=True,
+        help_text=(
+            "The visibility of this timer can be limited to members"
+            " of your organization"
+        ),
+    )
+
+    last_updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def structure_display_name(self) -> str:
+        """Return structure name for display."""
+        type_name = self.structure_type.name if self.structure_type else _("(unknown)")
+        structure_name = f' "{self.structure_name}"' if self.structure_name else ""
+        solar_system = self.eve_solar_system.name if self.eve_solar_system else ""
+        location = (
+            " " + _("near %(location)s") % {"location": self.location_details}
+            if self.location_details
+            else ""
+        )
+        return _("%(type)s%(name)s in %(system)s%(location)s") % {
+            "type": type_name,
+            "name": structure_name,
+            "system": solar_system,
+            "location": location,
+        }
+
+    def user_can_edit(self, user: User) -> bool:
+        """Checks if the given user can edit this timer. Returns True or False"""
+        return user.has_perm("structuretimers.manage_timer") or (
+            self.user == user and user.has_perm("structuretimers.create_timer")
+        )
+
+    def label_type_for_objective(self) -> str:
+        """returns the Boostrap label type for objective"""
+        label_types_map = {
+            self.Objective.FRIENDLY: "primary",
+            self.Objective.HOSTILE: "danger",
+            self.Objective.NEUTRAL: "info",
+            self.Objective.UNDEFINED: "secondary",
+        }
+        if self.objective in label_types_map:
+            label_type = label_types_map[self.objective]
+        else:
+            label_type = "secondary"
+        return label_type
+
+
 # pylint: disable=too-many-locals
-class Timer(models.Model):
-    """A structure timer"""
+class Timer(StructureDetails):
+    """A reinforcement timer of a structure in the Database."""
 
     # TODO: Old constants needed to maintain compatibility with other apps
     # during transition only. REMOVE as soon as possible.
@@ -418,21 +605,6 @@ class Timer(models.Model):
             """Subset of choices suitable for creating notification rules."""
             return [choice for choice in cls.choices if choice[0] != cls.PRELIMINARY]
 
-    class Objective(models.TextChoices):
-        """A timer objective."""
-
-        UNDEFINED = "UN", _("undefined")
-        HOSTILE = "HO", _("hostile")
-        FRIENDLY = "FR", _("friendly")
-        NEUTRAL = "NE", _("neutral")
-
-    class Visibility(models.TextChoices):
-        """A timer visibility."""
-
-        UNRESTRICTED = "UN", _("unrestricted")
-        ALLIANCE = "AL", _("Alliance only")
-        CORPORATION = "CO", _("Corporation only")
-
     class SpaceType(models.TextChoices):
         """A timer space type."""
 
@@ -464,9 +636,6 @@ class Timer(models.Model):
         null=True,
         help_text="Date when this timer happens",
     )
-    reinforcement_time = models.TimeField(
-        verbose_name=_("Vulnerability windows"), null=True, blank=True
-    )
     details_image_url = models.CharField(
         max_length=1024,
         default=None,
@@ -477,45 +646,6 @@ class Timer(models.Model):
             "e.g. https://www.example.com/route/image.jpg"
         ),
     )
-    details_notes = models.TextField(
-        default="",
-        blank=True,
-        help_text="Notes with additional information about this timer",
-    )
-    eve_alliance = models.ForeignKey(
-        EveAllianceInfo,
-        on_delete=models.SET_DEFAULT,
-        default=None,
-        null=True,
-        blank=True,
-        related_name="+",
-        help_text="Alliance of the user who created this timer",
-    )
-    eve_character = models.ForeignKey(
-        EveCharacter,
-        on_delete=models.SET_DEFAULT,
-        default=None,
-        null=True,
-        blank=True,
-        related_name="+",
-        help_text="Main character of the user who created this timer",
-    )
-    eve_corporation = models.ForeignKey(
-        EveCorporationInfo,
-        on_delete=models.SET_DEFAULT,
-        default=None,
-        null=True,
-        blank=True,
-        related_name="+",
-        help_text="Corporation of the user who created this timer",
-    )
-    eve_solar_system = models.ForeignKey(
-        EveSolarSystem,
-        on_delete=models.CASCADE,
-        default=None,
-        null=True,
-        related_name="+",
-    )
     discord_timerboard = models.BooleanField(
         default=False, help_text="Include this timer on flag-only Discord timerboards."
     )
@@ -523,59 +653,18 @@ class Timer(models.Model):
         default=False,
         help_text="Mark this timer as is_important",
     )
-    is_opsec = models.BooleanField(
-        default=False,
-        db_index=True,
-        help_text=(
-            "Limit access to users with OPSEC clearance. "
-            "Can be combined with visibility."
-        ),
-    )
-    location_details = models.CharField(
-        max_length=254,
-        default="",
-        blank=True,
-        help_text=(
-            "Additional information about the location of this structure, "
-            "e.g. name of nearby planet / moon / gate"
-        ),
-    )
     notification_rules = models.ManyToManyField(
         "NotificationRule",
         through="ScheduledNotification",
         through_fields=("timer", "notification_rule"),
         help_text="Notification rules conforming with this timer",
     )
-    objective = models.CharField(
-        max_length=2, choices=Objective.choices, default=Objective.UNDEFINED
-    )
-    owner_corporation = models.ForeignKey(
-        Organization,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="+",
-        limit_choices_to={"category": "corporation"},
-        help_text="Player corporation owning the structure",
-    )
-    owner_name = models.CharField(
-        max_length=254,
-        default=None,
-        blank=True,
-        null=True,
-        help_text="Name of the corporation owning the structure",
-    )
-    structure_type = models.ForeignKey(
-        EveType, on_delete=models.CASCADE, related_name="+", null=True, blank=True
-    )
-    structure_name = models.CharField(max_length=254, default="", blank=True)
-    database_entry = models.ForeignKey(
-        "self",
+    structure = models.ForeignKey(
+        "Structure",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="timers",
-        limit_choices_to={"timer_type": "PL"},
         help_text="Database record of the structure this timer belongs to",
     )
     structures_structure_id = models.BigIntegerField(
@@ -588,13 +677,6 @@ class Timer(models.Model):
         ),
     )
     timer_type = models.CharField(max_length=2, choices=Type.choices, default=Type.NONE)
-    user = models.ForeignKey(
-        User,
-        null=True,
-        on_delete=models.SET_NULL,
-        blank=True,
-        related_name="+",
-    )
     assigned_to = models.ForeignKey(
         User,
         null=True,
@@ -613,18 +695,6 @@ class Timer(models.Model):
         character = getattr(profile, "main_character", None)
         return character.character_name if character else self.assigned_to.get_username()
 
-    visibility = models.CharField(
-        max_length=2,
-        choices=Visibility.choices,
-        default=Visibility.UNRESTRICTED,
-        db_index=True,
-        help_text=(
-            "The visibility of this timer can be limited to members"
-            " of your organization"
-        ),
-    )
-    last_updated_at = models.DateTimeField(auto_now=True)
-
     objects = TimerManager()
 
     def __init__(self, *args, **kwargs):
@@ -634,45 +704,31 @@ class Timer(models.Model):
         self._original_timer_type = self.timer_type
 
     def save(self, *args, **kwargs):
-        """Keep the owner name in sync and make sure every scheduled timer
-        points to a database record.
+        """Keep the timer in line with the structure it belongs to.
+
+        A timer without a structure is linked to the matching Database record,
+        or to the aa-structures structure, or a new record is created for it.
         """
-        if self.owner_corporation_id:
-            self.owner_name = self.owner_corporation.name
-        elif self.owner_name:
-            # Timers from other apps only bring a name; link known owners.
-            self.owner_corporation = Organization.objects.filter(
-                category=Organization.Category.CORPORATION,
-                name__iexact=self.owner_name.strip(),
-            ).first()
-            if self.owner_corporation:
-                self.owner_name = self.owner_corporation.name
-        if self.owner_corporation_id:
-            # The owner's standing decides friend or foe.
-            self.objective = Organization.objective_for_standing(
-                self.owner_corporation.effective_standing
-            )
-        if self.timer_type == Timer.Type.PRELIMINARY:
-            self.database_entry = None
-            self.structures_structure_id = None
-        elif (
-            not self.database_entry_id
-            and not self.structures_structure_id
-            and self.eve_solar_system_id
-        ):
-            # Friendly structures known to aa-structures stay in that app.
-            self.structures_structure_id = structures_bridge.find_structure_id(self)
-            if not self.structures_structure_id:
-                self.database_entry = Timer.objects.find_or_create_database_entry(
+        sync_owner(self)
+        if not self.structure_id and not self.structures_structure_id:
+            if self.eve_solar_system_id:
+                # Friendly structures known to aa-structures stay in that app.
+                self.structures_structure_id = structures_bridge.find_structure_id(
                     self
                 )
-            update_fields = kwargs.get("update_fields")
-            if update_fields is not None:
-                kwargs["update_fields"] = {
-                    *update_fields,
-                    "database_entry",
-                    "structures_structure_id",
-                }
+                if not self.structures_structure_id:
+                    self.structure = Structure.objects.find_or_create_for_timer(self)
+        if self.structure_id:
+            for field in TIMER_COPY_FIELDS:
+                setattr(self, field, getattr(self.structure, field))
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = {
+                *update_fields,
+                "structure",
+                "structures_structure_id",
+                *[f.removesuffix("_id") for f in TIMER_COPY_FIELDS],
+            }
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -690,41 +746,12 @@ class Timer(models.Model):
 
     def get_absolute_url(self) -> str:
         """Returns the absolute URL of a timer."""
-        url = reverse("structuretimers:timer_list")
-        return (
-            f"{url}?tab=preliminary"
-            if self.timer_type == self.Type.PRELIMINARY
-            else url
-        )
-
-    @property
-    def structure_display_name(self) -> str:
-        """Return structure name for display."""
-        type_name = self.structure_type.name if self.structure_type else _("(unknown)")
-        structure_name = f' "{self.structure_name}"' if self.structure_name else ""
-        solar_system = self.eve_solar_system.name if self.eve_solar_system else ""
-        location = (
-            " " + _("near %(location)s") % {"location": self.location_details}
-            if self.location_details
-            else ""
-        )
-        return _("%(type)s%(name)s in %(system)s%(location)s") % {
-            "type": type_name,
-            "name": structure_name,
-            "system": solar_system,
-            "location": location,
-        }
+        return reverse("structuretimers:timer_list")
 
     @property
     def space_type(self) -> "SpaceType":
         """Return space type of a timer."""
         return self.SpaceType.from_eve_solar_system(self.eve_solar_system)
-
-    def user_can_edit(self, user: User) -> bool:
-        """Checks if the given user can edit this timer. Returns True or False"""
-        return user.has_perm("structuretimers.manage_timer") or (
-            self.user == user and user.has_perm("structuretimers.create_timer")
-        )
 
     def label_type_for_timer_type(self) -> str:
         """returns the Boostrap label type for a timer_type"""
@@ -740,20 +767,6 @@ class Timer(models.Model):
         }
         if self.timer_type in label_types_map:
             label_type = label_types_map[self.timer_type]
-        else:
-            label_type = "secondary"
-        return label_type
-
-    def label_type_for_objective(self) -> str:
-        """returns the Boostrap label type for objective"""
-        label_types_map = {
-            self.Objective.FRIENDLY: "primary",
-            self.Objective.HOSTILE: "danger",
-            self.Objective.NEUTRAL: "info",
-            self.Objective.UNDEFINED: "secondary",
-        }
-        if self.objective in label_types_map:
-            label_type = label_types_map[self.objective]
         else:
             label_type = "secondary"
         return label_type
@@ -843,6 +856,96 @@ class Timer(models.Model):
             embeds=[embed],
             username=username,
             avatar_url=avatar_url,
+        )
+
+
+class Structure(StructureDetails):
+    """A structure in the Database: everything we know about it.
+
+    Its reinforcement timers are kept as Timer rows linked to it, so a structure
+    keeps the history of every time it was reinforced.
+    """
+
+    fitting = models.TextField(
+        default="",
+        blank=True,
+        help_text="Fitting of the structure, e.g. copied from EVE",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    objects = StructureManager()
+
+    # Database records behave like unscheduled timers in shared table code.
+    date = None
+    details_image_url = None
+    is_important = False
+    assigned_to_id = None
+    assigned_character_name = ""
+    timer_type = "PL"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_eve_solar_system_id = self.eve_solar_system_id
+
+    def __str__(self) -> str:
+        return str(self.structure_display_name)
+
+    def save(self, *args, **kwargs):
+        sync_owner(self)
+        created = self._state.adding
+        super().save(*args, **kwargs)
+        # Timers keep a copy of their structure's details.
+        self.timers.update(**{f: getattr(self, f) for f in TIMER_COPY_FIELDS})
+        if created or self.eve_solar_system_id != self._original_eve_solar_system_id:
+            self.distances.all().delete()
+            _task_calc_structure_distances().apply_async(args=[self.pk], priority=4)
+            if not created:
+                # Its timers moved with it.
+                for timer_pk in self.timers.values_list("pk", flat=True):
+                    DistancesFromStaging.objects.filter(timer_id=timer_pk).delete()
+                    _task_calc_timer_distances_for_all_staging_systems().apply_async(
+                        args=[timer_pk], priority=4
+                    )
+            self._original_eve_solar_system_id = self.eve_solar_system_id
+
+    def get_absolute_url(self) -> str:
+        return reverse("structuretimers:timer_list") + "?tab=preliminary"
+
+    def get_timer_type_display(self) -> str:
+        return "Database"
+
+    def label_type_for_timer_type(self) -> str:
+        return "secondary"
+
+
+#: Structure details a timer copies from its Database record.
+TIMER_COPY_FIELDS = (
+    "eve_solar_system_id",
+    "location_details",
+    "structure_type_id",
+    "structure_name",
+    "owner_corporation_id",
+    "owner_name",
+    "objective",
+    "reinforcement_time",
+)
+
+
+def sync_owner(obj) -> None:
+    """Keep owner name and friend or foe in line with the owner corporation."""
+    if obj.owner_corporation_id:
+        obj.owner_name = obj.owner_corporation.name
+    elif obj.owner_name:
+        # Entries from other apps only bring a name; link known owners.
+        obj.owner_corporation = Organization.objects.filter(
+            category=Organization.Category.CORPORATION,
+            name__iexact=obj.owner_name.strip(),
+        ).first()
+        if obj.owner_corporation:
+            obj.owner_name = obj.owner_corporation.name
+    if obj.owner_corporation_id:
+        obj.objective = Organization.objective_for_standing(
+            obj.owner_corporation.effective_standing
         )
 
 
@@ -1298,6 +1401,40 @@ class DistancesFromStaging(models.Model):
             self.jumps = self.staging_system.eve_solar_system.jumps_to(
                 self.timer.eve_solar_system
             )
+
+
+class StructureDistance(models.Model):
+    """Distance of a Database record from a staging system."""
+
+    structure = models.ForeignKey(
+        Structure, on_delete=models.CASCADE, related_name="distances"
+    )
+    staging_system = models.ForeignKey(
+        StagingSystem, on_delete=models.CASCADE, related_name="structure_distances"
+    )
+    light_years = models.FloatField(null=True, default=None, blank=True)
+    jumps = models.PositiveIntegerField(null=True, default=None, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["structure", "staging_system"],
+                name="fpk_structure_distances_from_staging",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.structure}-{self.staging_system}"
+
+    def calculate(self):
+        """Calculate all distances."""
+        origin = self.staging_system.eve_solar_system
+        if origin and self.structure.eve_solar_system:
+            self.light_years = meters_to_ly(
+                origin.distance_to(self.structure.eve_solar_system)
+            )
+            self.jumps = origin.jumps_to(self.structure.eve_solar_system)
 
 
 class ReconCampaign(models.Model):

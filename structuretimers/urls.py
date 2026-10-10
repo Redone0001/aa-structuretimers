@@ -62,6 +62,21 @@ urlpatterns = [
     ),
     path("detail/<str:pk>", views.TimerDetailDataView.as_view(), name="detail"),
     path(
+        "structure/<int:pk>/",
+        views.StructureDetailView.as_view(),
+        name="structure_detail",
+    ),
+    path(
+        "structure/<int:pk>/edit/",
+        views.EditStructureView.as_view(),
+        name="edit_structure",
+    ),
+    path(
+        "structure/<int:pk>/remove/",
+        views.RemoveStructureView.as_view(),
+        name="delete_structure",
+    ),
+    path(
         "select2_solar_systems/",
         views.Select2SolarSystemsView.as_view(),
         name="select2_solar_systems",

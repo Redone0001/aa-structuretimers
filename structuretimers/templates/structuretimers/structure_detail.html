@@ -1,0 +1,38 @@
+{% load i18n %}
+
+<h5>Structure</h5>
+<p>{{ object.structure_display_name }}</p>
+
+<h5>Owner</h5>
+<p>
+    {% if object.owner_corporation %}{{ object.owner_corporation.display_name }}{% else %}{{ object.owner_name|default:"Unknown" }}{% endif %}
+    <span class="badge text-bg-{{ object.label_type_for_objective }}">{{ standing }}</span>
+</p>
+
+{% if object.reinforcement_time != None %}
+    <h5>{% translate "Vulnerability windows" %}</h5>
+    <p>{{ object.reinforcement_time|time:"H:i" }} UTC</p>
+{% endif %}
+
+<h5>Reinforcement history</h5>
+{% if linked_timers %}
+    <ul>
+        {% for timer in linked_timers %}
+            <li>{{ timer.get_timer_type_display }} · {{ timer.date|date:"Y-m-d H:i" }} UTC{% if timer.date and timer.date < now %} <span class="text-muted">(past)</span>{% endif %}</li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="text-muted">Never reinforced</p>
+{% endif %}
+
+<h5>Fitting</h5>
+{% if object.fitting %}
+    <textarea class="form-control font-monospace mb-1" rows="8" readonly aria-label="Fitting">{{ object.fitting }}</textarea>
+    <button type="button" class="btn btn-sm btn-secondary st-copy-fit mb-3" data-fit="{{ object.fitting }}">Copy fit</button>
+{% else %}
+    <p class="text-muted">No fitting</p>
+{% endif %}
+
+<label class="h5" for="structureNotes">{% translate "Notes" %}</label>
+<textarea id="structureNotes" class="form-control" rows="3" readonly>{{ object.details_notes }}</textarea>
+<p class="small text-muted mt-2">Last updated {{ object.last_updated_at|date:"Y-m-d H:i" }} UTC</p>

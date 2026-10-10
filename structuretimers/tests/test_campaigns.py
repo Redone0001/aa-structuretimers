@@ -9,9 +9,10 @@ from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
 from app_utils.testing import NoSocketsTestCase
 
-from structuretimers.models import ReconCampaign, ReconCampaignSystem, Timer
+from structuretimers.models import ReconCampaign, ReconCampaignSystem, Structure, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     CitadelTypeFactory,
     TimerFactory,
     UserWithAccessFactory,
@@ -112,10 +113,8 @@ class TestCampaigns(NoSocketsTestCase):
         queue.assert_called_once_with(args=[campaign.pk, "systems", False], retry=False)
 
     def test_reserved_user_can_manage_existing_recon_but_not_hidden(self):
-        timer = TimerFactory(
+        timer = StructureFactory(
             eve_solar_system=self.entry.solar_system,
-            timer_type=Timer.Type.PRELIMINARY,
-            date=None,
         )
         url = reverse(
             "structuretimers:campaign_recon_edit",
@@ -139,12 +138,12 @@ class TestCampaigns(NoSocketsTestCase):
         self.assertEqual(timer.structure_name, "Scouted structure")
         self.assertEqual(timer.eve_solar_system_id, self.entry.solar_system_id)
         self.assertEqual(self.client.post(url, {"action": "refresh"}).status_code, 302)
-        Timer.objects.filter(pk=timer.pk).update(is_opsec=True)
+        Structure.objects.filter(pk=timer.pk).update(is_opsec=True)
         self.assertEqual(self.client.post(url, {"action": "destroy"}).status_code, 404)
         self.assertNotContains(self.client.get(self.url), "Scouted structure")
-        Timer.objects.filter(pk=timer.pk).update(is_opsec=False)
+        Structure.objects.filter(pk=timer.pk).update(is_opsec=False)
         self.assertEqual(self.client.post(url, {"action": "destroy"}).status_code, 302)
-        self.assertFalse(Timer.objects.filter(pk=timer.pk).exists())
+        self.assertFalse(Structure.objects.filter(pk=timer.pk).exists())
 
     def test_add_is_locked_to_reserved_system_and_completed_is_read_only(self):
         self.act("reserve")
@@ -161,9 +160,8 @@ class TestCampaigns(NoSocketsTestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        timer = Timer.objects.get(structure_name="New recon")
+        timer = Structure.objects.get(structure_name="New recon")
         self.assertEqual(timer.eve_solar_system_id, self.entry.solar_system_id)
-        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
         self.act("complete")
         self.assertEqual(
             self.client.post(url, {"structure_name": "Too late"}).status_code, 403
@@ -197,18 +195,17 @@ class TestCampaigns(NoSocketsTestCase):
         other_region = ReconCampaignSystem.objects.create(
             campaign=self.campaign, solar_system=EveSolarSystemFactory()
         )
-        record = TimerFactory(
-            eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.PRELIMINARY
-        )
-        TimerFactory(
+        record = StructureFactory(
             eve_solar_system=self.entry.solar_system,
-            timer_type=Timer.Type.PRELIMINARY,
+        )
+        StructureFactory(
+            eve_solar_system=self.entry.solar_system,
             is_opsec=True,
         )
         TimerFactory(
             eve_solar_system=self.entry.solar_system,
             timer_type=Timer.Type.HULL,
-            database_entry=record,
+            structure=record,
         )
         for entry in [self.entry, same_region, other_region]:
             system = entry.solar_system

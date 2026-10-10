@@ -9,9 +9,10 @@ from django.utils.timezone import now
 from app_utils.testing import NoSocketsTestCase
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import ReconForm
-from structuretimers.models import Timer
+from structuretimers.models import Structure, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     CitadelTypeFactory,
     TimerFactory,
     UserWithAccessFactory,
@@ -27,10 +28,8 @@ class TestManageRecon(NoSocketsTestCase):
     def setUp(self):
         self.user = UserWithCreateFactory()
         self.client.force_login(self.user)
-        self.timer = TimerFactory(
+        self.timer = StructureFactory(
             user=self.user,
-            timer_type=Timer.Type.PRELIMINARY,
-            date=None,
             reinforcement_time=time(12, 0),
         )
         self.url = reverse("structuretimers:recon_data")
@@ -41,12 +40,13 @@ class TestManageRecon(NoSocketsTestCase):
         )
 
     def test_data_contains_only_visible_preliminary_timers(self):
-        current = TimerFactory(timer_type=Timer.Type.HULL, database_entry=self.timer)
-        hidden = TimerFactory(timer_type=Timer.Type.PRELIMINARY, is_opsec=True)
+        current = TimerFactory(timer_type=Timer.Type.HULL, structure=self.timer)
+        hidden = StructureFactory(is_opsec=True)
         data = self.client.get(self.url).json()
         self.assertEqual([row["id"] for row in data], [self.timer.pk])
-        self.assertNotIn(current.pk, [row["id"] for row in data])
+        self.assertEqual(data[0]["timer_count"], 1)
         self.assertNotIn(hidden.pk, [row["id"] for row in data])
+        self.assertEqual(current.structure, self.timer)
         self.assertIn("Still there", data[0]["actions"])
         self.assertIn("Destroyed", data[0]["actions"])
         self.assertEqual(data[0]["reinforcement_time"], "12:00")
@@ -79,7 +79,7 @@ class TestManageRecon(NoSocketsTestCase):
 
     def test_destroy_removes_timer(self):
         self.assertEqual(self.client.post(self.action_url("destroy")).status_code, 200)
-        self.assertFalse(Timer.objects.filter(pk=self.timer.pk).exists())
+        self.assertFalse(Structure.objects.filter(pk=self.timer.pk).exists())
 
     def test_mutations_require_post_and_csrf(self):
         self.assertEqual(self.client.get(self.action_url("refresh")).status_code, 405)
@@ -87,7 +87,7 @@ class TestManageRecon(NoSocketsTestCase):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.user)
         self.assertEqual(client.post(self.action_url("destroy")).status_code, 403)
-        self.assertTrue(Timer.objects.filter(pk=self.timer.pk).exists())
+        self.assertTrue(Structure.objects.filter(pk=self.timer.pk).exists())
 
     def test_read_only_user_can_view_but_not_change(self):
         self.client.force_login(UserWithAccessFactory())
@@ -102,15 +102,14 @@ class TestManageRecon(NoSocketsTestCase):
         self.assertEqual(self.client.post(self.action_url("refresh")).status_code, 200)
 
     def test_hidden_and_nonpreliminary_timers_cannot_be_changed(self):
-        for timer in [
-            TimerFactory(timer_type=Timer.Type.HULL),
-            TimerFactory(timer_type=Timer.Type.PRELIMINARY, is_opsec=True),
-        ]:
-            for action in ["refresh", "destroy"]:
-                self.assertEqual(
-                    self.client.post(self.action_url(action, timer)).status_code, 404
-                )
-                self.assertTrue(Timer.objects.filter(pk=timer.pk).exists())
+        hidden = StructureFactory(is_opsec=True)
+        for action in ["refresh", "destroy"]:
+            self.assertEqual(
+                self.client.post(self.action_url(action, hidden)).status_code, 404
+            )
+            self.assertTrue(Structure.objects.filter(pk=hidden.pk).exists())
+            missing = reverse("structuretimers:recon_action", args=[999999, action])
+            self.assertEqual(self.client.post(missing).status_code, 404)
 
     def test_recon_type_can_be_saved_and_missing_type_is_supported(self):
         structure_type = CitadelTypeFactory(id=EveTypeId.ANSIBLEX)
@@ -144,7 +143,7 @@ class TestManageRecon(NoSocketsTestCase):
         self.timer.structure_type = None
         self.timer.save()
         url = (
-            reverse("structuretimers:edit", args=[self.timer.pk]) + "?tab=manage-recon"
+            reverse("structuretimers:edit_structure", args=[self.timer.pk])
         )
         response = self.client.post(
             url,

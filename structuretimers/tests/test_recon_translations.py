@@ -9,7 +9,7 @@ from django.utils import translation
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
-from structuretimers.tests.testdata.factory import TimerFactory, UserWithCreateFactory
+from structuretimers.tests.testdata.factory import StructureFactory, TimerFactory, UserWithCreateFactory
 from structuretimers.models import Timer
 from structuretimers.views import TimerListView
 
@@ -62,15 +62,13 @@ class TestReconTranslations(NoSocketsTestCase):
                 )
 
     def test_recon_details_description_is_translated(self):
-        timer = TimerFactory(
-            timer_type=Timer.Type.PRELIMINARY,
+        timer = StructureFactory(
             structure_type=None,
             structure_name="Recon target",
             location_details="Moon 2",
         )
         with translation.override("fr"):
             description = str(timer)
-            self.assertIn("Timer Préliminaire pour", description)
             self.assertIn("(inconnu)", description)
             self.assertIn("près de Moon 2", description)
             self.assertIn("Recon target", description)

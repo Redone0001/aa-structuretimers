@@ -59,7 +59,7 @@ class TestOwners(NoSocketsTestCase):
         self.assertEqual(timer.owner_name, "Owner Corp")
         from_other_app = TimerFactory(owner_name="owner corp")
         self.assertEqual(from_other_app.owner_corporation, corp)
-        self.assertEqual(from_other_app.database_entry.owner_corporation, corp)
+        self.assertEqual(from_other_app.structure.owner_corporation, corp)
         self.assertEqual(
             Timer.objects.get(pk=from_other_app.pk).owner_name, "Owner Corp"
         )

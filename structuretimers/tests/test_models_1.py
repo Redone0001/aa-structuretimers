@@ -189,13 +189,17 @@ class TestTimer_CalcDistancesOnSave(NoSocketsTestCase):
     ):
         # given
         timer: Timer = TimerFactory(date=now() + dt.timedelta(hours=4))
+        mock_calc_distances.reset_mock()
 
-        # when
-        timer.eve_solar_system = EveSolarSystemFactory()
-        timer.save()
+        # when the structure moves, its timers move with it
+        structure = timer.structure
+        structure.eve_solar_system = EveSolarSystemFactory()
+        structure.save()
 
         # then
         self.assertTrue(mock_calc_distances.called)
+        timer.refresh_from_db()
+        self.assertEqual(timer.eve_solar_system, structure.eve_solar_system)
 
     @patch(MODULE_PATH + "._task_calc_timer_distances_for_all_staging_systems")
     def test_should_not_recalc_distances_when_other_fields_changed(
@@ -425,15 +429,6 @@ class TestTimer_ScheduleNotification(NoSocketsTestCase):
             existing.notification_date, timer.date - dt.timedelta(minutes=30)
         )
         self.assertEqual(ScheduledNotification.objects.count(), 1)
-
-    def test_should_raise_error_for_preliminary_timer(self):
-        # given
-        timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
-        rule = NotificationRuleFactory(scheduled_time=NotificationRule.MINUTES_30)
-
-        # when/then
-        with self.assertRaises(ValueError):
-            timer.schedule_notification(notification_rule=rule)
 
     def test_should_raise_error_when_timer_has_no_date(self):
         # given

@@ -28,6 +28,7 @@ from structuretimers.models import (
     NotificationRule,
     ScheduledNotification,
     StagingSystem,
+    Structure,
     Timer,
     post_save,
 )
@@ -192,6 +193,19 @@ class TimerFactory(factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[
             start_dt=now() + dt.timedelta(days=1), end_dt=now() + dt.timedelta(days=7)
         ).fuzz()
         return x
+
+
+class StructureFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[Structure]
+):
+    """A structure in the Database."""
+
+    class Meta:
+        model = Structure
+
+    eve_solar_system = factory.SubFactory(EveSolarSystemFactory)
+    objective = factory.fuzzy.FuzzyChoice(Timer.Objective.values)
+    structure_type = factory.SubFactory(CitadelTypeFactory)
 
 
 class ScheduledNotificationFactory(

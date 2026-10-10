@@ -8,8 +8,8 @@ from app_utils.testdata_factories import UserFactory
 from app_utils.testing import NoSocketsTestCase
 from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
-from structuretimers.models import ReconCampaign, ReconCampaignSystem, Timer
-from structuretimers.tests.testdata.factory import TimerFactory
+from structuretimers.models import ReconCampaign, ReconCampaignSystem, Structure, Timer
+from structuretimers.tests.testdata.factory import StructureFactory, TimerFactory
 
 
 class TestCampaignAdmin(NoSocketsTestCase):
@@ -88,8 +88,8 @@ class TestCampaignAdmin(NoSocketsTestCase):
         Mock(),
     )
     def test_campaign_delete_keeps_timers_and_universe(self):
-        timer = TimerFactory(
-            eve_solar_system=self.entry.solar_system, timer_type=Timer.Type.PRELIMINARY
+        timer = StructureFactory(
+            eve_solar_system=self.entry.solar_system,
         )
         system = self.entry.solar_system
         url = reverse(
@@ -99,7 +99,7 @@ class TestCampaignAdmin(NoSocketsTestCase):
         self.assertEqual(self.client.post(url, {"post": "yes"}).status_code, 302)
         self.assertFalse(ReconCampaign.objects.filter(pk=self.campaign.pk).exists())
         self.assertFalse(ReconCampaignSystem.objects.filter(pk=self.entry.pk).exists())
-        self.assertTrue(Timer.objects.filter(pk=timer.pk).exists())
+        self.assertTrue(Structure.objects.filter(pk=timer.pk).exists())
         system.refresh_from_db()
 
     def test_failed_import_retry_action(self):

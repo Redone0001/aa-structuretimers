@@ -11,6 +11,7 @@ from structuretimers import structures_bridge
 from structuretimers.forms import TimerForm
 from structuretimers.models import Timer
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     TimerFactory,
     UserMainFactory,
     UserWithCreateFactory,
@@ -28,7 +29,7 @@ class TestStructuresBridge(NoSocketsTestCase):
     def setUpTestData(cls):
         from structures.models import Owner, Structure
 
-        cls.home = TimerFactory(timer_type=Timer.Type.PRELIMINARY, date=None)
+        cls.home = StructureFactory()
         corporation = EveCorporationInfo.objects.create(
             corporation_id=2001,
             corporation_name="Friendly Corp",
@@ -67,7 +68,7 @@ class TestStructuresBridge(NoSocketsTestCase):
             structure_name="friendly keep",
         )
         self.assertEqual(timer.structures_structure_id, self.structure.id)
-        self.assertIsNone(timer.database_entry)
+        self.assertIsNone(timer.structure)
         self.assertEqual(Timer.objects.filter(timer_type="PL").count(), records_before)
 
     def test_database_lists_structures_only_for_allowed_users(self):
@@ -113,7 +114,7 @@ class TestStructuresBridge(NoSocketsTestCase):
         self.assertTrue(form.is_valid(), form.errors)
         timer = form.save()
         self.assertEqual(timer.structures_structure_id, self.structure.id)
-        self.assertIsNone(timer.database_entry)
+        self.assertIsNone(timer.structure)
 
     def test_picker_rejects_structures_the_user_cannot_see(self):
         form = TimerForm(

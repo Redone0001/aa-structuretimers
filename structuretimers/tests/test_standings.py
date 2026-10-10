@@ -144,7 +144,7 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
         )
         timer = TimerFactory(owner_corporation=corp, objective=Timer.Objective.FRIENDLY)
         self.assertEqual(timer.objective, Timer.Objective.HOSTILE)
-        self.assertEqual(timer.database_entry.objective, Timer.Objective.HOSTILE)
+        self.assertEqual(timer.structure.objective, Timer.Objective.HOSTILE)
 
         coordinator = UserMainFactory(
             permissions__=[
@@ -160,6 +160,6 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
         timer.refresh_from_db()
         self.assertEqual(timer.objective, Timer.Objective.FRIENDLY)
         self.assertEqual(
-            Timer.objects.get(pk=timer.database_entry_id).objective,
+            Timer.objects.get(pk=timer.structure_id).objective,
             Timer.Objective.FRIENDLY,
         )

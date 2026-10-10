@@ -11,6 +11,7 @@ from structuretimers.battle_map import timer_status
 from structuretimers.models import MapFleetToken, MapTimerState, Timer
 from structuretimers.tests.test_regional_map import RegionalMapTests
 from structuretimers.tests.testdata.factory import (
+    TimerFactory,
     UserWithAccessFactory,
     UserNoAccessFactory,
 )
@@ -32,12 +33,15 @@ class BattleMapTests(RegionalMapTests):
         )
 
     def active_timer(self, **params):
-        timer = self.timer(**params)
-        Timer.objects.filter(pk=timer.pk).update(
-            date=now() - timedelta(minutes=5), timer_type="AR"
+        structure = self.timer(**params)
+        return TimerFactory(
+            structure=structure,
+            user=self.user,
+            visibility=structure.visibility,
+            is_opsec=structure.is_opsec,
+            date=now() - timedelta(minutes=5),
+            timer_type="AR",
         )
-        timer.refresh_from_db()
-        return timer
 
     def test_paused_minute_adjustments_are_validated_and_replayed(self):
         from structuretimers.battle_map import timer_clock, timer_events

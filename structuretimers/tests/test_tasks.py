@@ -18,6 +18,7 @@ from structuretimers.tasks import (
     send_scheduled_notification,
 )
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     DiscordWebhookFactory,
     NotificationRuleFactory,
     ScheduledNotificationFactory,
@@ -91,17 +92,6 @@ class TestScheduleNotificationForTimer(TestCase):
 
         # then
         self.assertTrue(timer.scheduled_notifications.filter(notification_rule=rule))
-
-    def test_should_not_create_notification_for_preliminary_timer(
-        self, mock_send_notification, mock_send_notification_for_timer
-    ):
-        # given
-        timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
-        NotificationRuleFactory(trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED)
-
-        # when/then
-        with self.assertRaises(ValueError):
-            schedule_notifications_for_timer(timer_pk=timer.pk, is_new=True)
 
     def test_should_remove_old_notifications(
         self, mock_send_notification, mock_send_notification_for_timer

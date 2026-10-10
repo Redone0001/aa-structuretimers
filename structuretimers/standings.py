@@ -40,10 +40,24 @@ def refresh_objectives() -> None:
     ):
         objective = Organization.objective_for_standing(owner.effective_standing)
         by_objective.setdefault(objective, []).append(owner.pk)
+    from .models import Structure  # pylint: disable=import-outside-toplevel
+
+    owner_ids = set(owner_ids) | set(
+        Structure.objects.filter(owner_corporation__isnull=False).values_list(
+            "owner_corporation_id", flat=True
+        )
+    )
+    by_objective = {}
+    for owner in Organization.objects.filter(pk__in=owner_ids).select_related(
+        "alliance"
+    ):
+        objective = Organization.objective_for_standing(owner.effective_standing)
+        by_objective.setdefault(objective, []).append(owner.pk)
     for objective, ids in by_objective.items():
-        Timer.objects.filter(owner_corporation_id__in=ids).exclude(
-            objective=objective
-        ).update(objective=objective)
+        for model in (Structure, Timer):
+            model.objects.filter(owner_corporation_id__in=ids).exclude(
+                objective=objective
+            ).update(objective=objective)
 
 
 def standing_label(value: Optional[int]) -> str:

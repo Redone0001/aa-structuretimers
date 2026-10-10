@@ -9,7 +9,12 @@ from django.urls import reverse
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
-from structuretimers.models import Organization, ScheduledNotification, Timer
+from structuretimers.models import (
+    Organization,
+    ScheduledNotification,
+    Structure,
+    Timer,
+)
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -58,23 +63,23 @@ class TestRecon(NoSocketsTestCase):
         self.assertRedirects(
             response, reverse("structuretimers:timer_list") + "?tab=preliminary"
         )
-        timer = Timer.objects.get(structure_name="Recon target")
-        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
+        timer = Structure.objects.get(structure_name="Recon target")
+        self.assertFalse(timer.timers.exists())
         self.assertEqual(timer.objective, Timer.Objective.NEUTRAL)
         self.assertEqual(timer.reinforcement_time, time(23, 45))
         self.assertEqual(timer.user, self.user)
         self.assertIsNone(timer.date)
         self.assertEqual(timer.structure_type, self.structure_type)
         self.assertEqual(timer.owner_name, "Owner corp")
-        self.assertFalse(ScheduledNotification.objects.filter(timer=timer).exists())
-        response = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["preliminary"])
-        )
+        self.assertFalse(ScheduledNotification.objects.exists())
+        response = self.client.get(reverse("structuretimers:recon_data"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Recon target")
-        response = self.client.get(reverse("structuretimers:detail", args=[timer.pk]))
+        response = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.pk])
+        )
         self.assertContains(response, "23:45")
-        edit_url = reverse("structuretimers:edit", args=[timer.pk])
+        edit_url = reverse("structuretimers:edit_structure", args=[timer.pk])
         response = self.client.get(edit_url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -103,11 +108,11 @@ class TestRecon(NoSocketsTestCase):
             user=self.user,
         )
         self.assertTrue(form.is_valid(), form.errors)
-        timer = form.save()
+        timer = form.save().timers.get()
         self.assertEqual(timer.timer_type, Timer.Type.HULL)
         self.assertIsNotNone(timer.date)
-        self.assertEqual(timer.database_entry.structure_name, "Recon target")
-        self.assertEqual(timer.database_entry.reinforcement_time, time(23, 45))
+        self.assertEqual(timer.structure.structure_name, "Recon target")
+        self.assertEqual(timer.structure.reinforcement_time, time(23, 45))
 
     def test_optional_fields_can_be_blank(self):
         form = ReconForm(data={**self.data, "reinforcement_time": ""}, user=self.user)

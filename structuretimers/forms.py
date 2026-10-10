@@ -23,7 +23,7 @@ from allianceauth.services.hooks import get_extension_logger
 
 from .constants import EveGroupId, EveTypeId
 from . import owners, structures_bridge
-from .models import Timer
+from .models import Structure, Timer
 
 logger = get_extension_logger(__name__)
 
@@ -163,6 +163,12 @@ class TimerForm(forms.ModelForm):
         ),
         widget=forms.Select(attrs={"class": "select2-owners"}),
     )
+    fitting = forms.CharField(
+        required=False,
+        label="Fitting",
+        help_text="Paste the structure's fitting, e.g. copied from EVE.",
+        widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
+    )
     assigned_to = AssigneeChoiceField(
         queryset=get_user_model().objects.filter(
             is_active=True, profile__main_character__isnull=False
@@ -224,6 +230,7 @@ class TimerForm(forms.ModelForm):
             "timer_type",
             "reinforcement_time",
             "location_details",
+            "fitting",
             "assigned_to",
             "details_image_url",
             "details_notes",
@@ -272,22 +279,23 @@ class TimerForm(forms.ModelForm):
             )
         if my_instance and my_instance.owner_corporation_id:
             self.initial.setdefault("owner_2", str(my_instance.owner_corporation_id))
-        if my_instance and my_instance.timer_type == Timer.Type.PRELIMINARY:
-            self.initial["timer_type"] = ""
+        if isinstance(my_instance, Timer) and my_instance.structure_id:
+            self.initial.setdefault("fitting", my_instance.structure.fitting)
 
         if (
             not self.user
             or not self.user.has_perm("structuretimers.recon_member")
-            or (my_instance and my_instance.timer_type == Timer.Type.PRELIMINARY)
+            or isinstance(my_instance, Structure)
         ):
             self.fields.pop("database_entry_2", None)
-        elif my_instance and my_instance.database_entry_id:
+        elif my_instance and my_instance.structure_id:
             self.fields["database_entry_2"].widget.choices = [
                 (
-                    str(my_instance.database_entry_id),
-                    my_instance.database_entry.structure_display_name,
+                    str(my_instance.structure_id),
+                    my_instance.structure.structure_display_name,
                 )
             ]
+            self.initial.setdefault("database_entry_2", str(my_instance.structure_id))
         elif my_instance and my_instance.structures_structure_id:
             structure = structures_bridge.get_structure(
                 self.user, my_instance.structures_structure_id
@@ -335,6 +343,8 @@ class TimerForm(forms.ModelForm):
         # No date means "not reinforced": the entry is only a Database record.
         timer_type = cleaned_data.get("timer_type")
         if cleaned_data.get("date") is None:
+            if isinstance(self.instance, Timer) and self.instance.pk:
+                self.add_error("date", "A timer needs the date it ends.")
             cleaned_data["timer_type"] = Timer.Type.PRELIMINARY.value
         elif not timer_type or timer_type == Timer.Type.PRELIMINARY:
             cleaned_data["timer_type"] = Timer.Type.NONE.value
@@ -466,9 +476,7 @@ class TimerForm(forms.ModelForm):
         except (TypeError, ValueError):
             entry_pk = None
         entry = (
-            Timer.objects.visible_to_user(self.user)
-            .filter(pk=entry_pk, timer_type=Timer.Type.PRELIMINARY)
-            .first()
+            Structure.objects.visible_to_user(self.user).filter(pk=entry_pk).first()
             if entry_pk
             else None
         )
@@ -478,76 +486,130 @@ class TimerForm(forms.ModelForm):
             return
         cleaned_data["database_entry_2"] = entry
 
+    def _creator(self) -> dict:
+        """Character, corporation and alliance on whose behalf this is saved."""
+        character = self.user.profile.main_character
+        try:
+            alliance = character.alliance
+        except EveAllianceInfo.DoesNotExist:
+            alliance = EveAllianceInfo.objects.create_alliance(character.alliance_id)
+        try:
+            corporation = character.corporation
+        except EveCorporationInfo.DoesNotExist:
+            corporation = EveCorporationInfo.objects.create_corporation(
+                character.corporation_id
+            )
+        logger.debug(
+            "Determined save request is on behalf of character %s corporation %s",
+            character,
+            corporation,
+        )
+        return {
+            "eve_character": character,
+            "eve_corporation": corporation,
+            "eve_alliance": alliance,
+            "user": self.user,
+        }
+
+    def _apply_structure_fields(self, structure) -> None:
+        """Copy the structure part of the form onto a Database record."""
+        data = self.cleaned_data
+        structure.structure_name = data.get("structure_name", structure.structure_name)
+        structure.eve_solar_system_id = data.get("eve_solar_system_2")
+        structure.structure_type_id = data.get("structure_type_2") or None
+        owner = data.get("owner_2")
+        if isinstance(owner, owners.Organization):
+            structure.owner_corporation = owner
+            structure.owner_name = owner.name
+        if "reinforcement_time" in self.fields:
+            structure.reinforcement_time = data.get("reinforcement_time")
+        for field in ("location_details", "fitting"):
+            if field in self.fields:
+                setattr(structure, field, data.get(field) or "")
+
+    def _new_timer_for(self, structure) -> Timer:
+        """A reinforcement timer for a structure, from the timer part of the form."""
+        return Timer(
+            structure=structure,
+            date=self.cleaned_data["date"],
+            timer_type=self.cleaned_data.get("timer_type") or Timer.Type.NONE,
+            visibility=structure.visibility,
+            is_opsec=structure.is_opsec,
+            **self._creator(),
+        )
+
     def save(self, commit=True):
-        timer = super().save(commit=False)
+        """Save the structure, and its reinforcement timer when there is a date.
+
+        Returns the timer, or the Database record when no timer was entered.
+        """
+        obj = super().save(commit=False)
+        if isinstance(obj, Structure):
+            structure = obj
+            if self.is_new:
+                for key, value in self._creator().items():
+                    setattr(structure, key, value)
+            self._apply_structure_fields(structure)
+            if not commit:
+                return structure
+            structure.save()
+            if self.cleaned_data.get("date"):
+                self._new_timer_for(structure).save()
+            return structure
+
+        timer = obj
+        if self.is_new:
+            for key, value in self._creator().items():
+                setattr(timer, key, value)
+        timer.date = self.cleaned_data.get("date")
+        timer.structure_type_id = self.cleaned_data.get("structure_type_2") or None
+        timer.eve_solar_system_id = self.cleaned_data.get("eve_solar_system_2")
         owner = self.cleaned_data.get("owner_2")
         if isinstance(owner, owners.Organization):
             timer.owner_corporation = owner
             timer.owner_name = owner.name
-        if "database_entry_2" in self.fields:
-            # Empty means "match or add automatically" when the timer is saved.
-            picked = self.cleaned_data.get("database_entry_2") or None
-            if isinstance(picked, Timer) or picked is None:
-                timer.database_entry = picked
-                timer.structures_structure_id = None
-            else:
-                timer.database_entry = None
-                timer.structures_structure_id = picked.id
 
-        # character / corporation / alliance
-        if self.is_new:
-            character = self.user.profile.main_character
-            try:
-                alliance = character.alliance
-            except EveAllianceInfo.DoesNotExist:
-                alliance = EveAllianceInfo.objects.create_alliance(
-                    character.alliance_id
-                )
-            try:
-                corporation = character.corporation
-            except EveCorporationInfo.DoesNotExist:
-                corporation = EveCorporationInfo.objects.create_corporation(
-                    character.corporation_id
-                )
-            logger.debug(
-                (
-                    "Determined timer save request is on behalf of "
-                    "character %s corporation %s"
-                ),
-                character,
-                corporation,
-            )
-            timer.eve_character = character
-            timer.eve_corporation = corporation
-            timer.eve_alliance = alliance
-            timer.user = self.user
-
-        timer.date = self.cleaned_data.get("date")
-
-        if timer.timer_type == Timer.Type.PRELIMINARY:
-            timer.discord_timerboard = False
-
-        # structure type
-        timer.structure_type_id = self.cleaned_data.get("structure_type_2") or None
-        timer.eve_solar_system_id = self.cleaned_data.get("eve_solar_system_2")
-
-        if (
-            timer.pk
-            and timer._original_timer_type == Timer.Type.PRELIMINARY
-            and timer.timer_type != Timer.Type.PRELIMINARY
+        picked = self.cleaned_data.get("database_entry_2") or None
+        if "database_entry_2" in self.fields and picked is not None and not isinstance(
+            picked, Structure
         ):
-            # Giving a database record a date schedules a new timer for that
-            # structure; the record itself stays in the database.
-            record_pk = timer.pk
-            timer.pk = None
-            timer._state.adding = True
-            timer.database_entry_id = record_pk
-            timer.user = self.user
-            if commit:
-                Timer.objects.filter(pk=record_pk).update(last_updated_at=now())
+            # A friendly structure from aa-structures: it stays in that app.
+            timer.structure = None
+            timer.structures_structure_id = picked.id
+            if commit and timer.date:
+                timer.save()
+            return timer
 
-        if commit:
-            timer.save()
+        structure = (
+            picked
+            if isinstance(picked, Structure)
+            else timer.structure
+            if timer.structure_id
+            else Structure.objects.find_matching(
+                timer.eve_solar_system_id,
+                timer.structure_type_id,
+                timer.structure_name,
+            )
+        )
+        if structure is None:
+            structure = Structure(
+                visibility=timer.visibility,
+                is_opsec=timer.is_opsec,
+                **{
+                    key: getattr(timer, key)
+                    for key in ("eve_character", "eve_corporation", "eve_alliance", "user")
+                },
+            )
+        self._apply_structure_fields(structure)
+        if not commit:
+            return timer
+        structure.save()
+        if timer.date is None:
+            # Not reinforced: only the Database record is kept.
+            return structure
+        timer.structure = structure
+        timer.structures_structure_id = None
+        timer.save()
         return timer
 
 
@@ -647,7 +709,7 @@ class FastTimerForm(TimerForm):
 
     def save(self, commit=True):
         timer = super().save(commit=False)
-        timer.discord_timerboard = timer.timer_type != Timer.Type.PRELIMINARY
+        timer.discord_timerboard = True
         if commit:
             timer.save()
         return timer
@@ -670,7 +732,9 @@ class FastTimerForm(TimerForm):
 
 
 class ReconForm(TimerForm):
-    """Add a structure to the Database, optionally with its reinforcement timer."""
+    """Add or edit a structure in the Database, optionally with a reinforcement
+    timer that is added to its history.
+    """
 
     recon_fields = (
         "structure_name",
@@ -681,8 +745,24 @@ class ReconForm(TimerForm):
         "timer_type",
         "reinforcement_time",
         "location_details",
+        "fitting",
         "details_notes",
     )
+
+    class Meta:
+        model = Structure
+        fields = (
+            "structure_name",
+            "eve_solar_system_2",
+            "structure_type_2",
+            "owner_2",
+            "date",
+            "timer_type",
+            "reinforcement_time",
+            "location_details",
+            "fitting",
+            "details_notes",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

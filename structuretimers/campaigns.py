@@ -17,7 +17,7 @@ from django.views import View
 from eveuniverse.models import EveRegion, EveSolarSystem
 
 from .forms import ReconForm
-from .models import ReconCampaign, ReconCampaignSystem, Timer
+from .models import ReconCampaign, ReconCampaignSystem, Structure
 from .regional_map import geography_payload, sde_models, structure_payload
 
 
@@ -221,11 +221,8 @@ class CampaignDetailView(CampaignAccess, View):
         )
         timers = defaultdict(list)
         for timer in (
-            Timer.objects.visible_to_user(request.user)
-            .filter(
-                timer_type=Timer.Type.PRELIMINARY,
-                eve_solar_system_id__in=[e.solar_system_id for e in entries],
-            )
+            Structure.objects.visible_to_user(request.user)
+            .filter(eve_solar_system_id__in=[e.solar_system_id for e in entries])
             .select_related("structure_type")
         ):
             timers[timer.eve_solar_system_id].append(timer)
@@ -387,10 +384,9 @@ class CampaignReconView(CampaignAccess, View):
             raise PermissionDenied()
         timer = (
             get_object_or_404(
-                Timer.objects.visible_to_user(request.user),
+                Structure.objects.visible_to_user(request.user),
                 pk=timer_pk,
                 eve_solar_system_id=entry.solar_system_id,
-                timer_type=Timer.Type.PRELIMINARY,
             )
             if timer_pk
             else None
@@ -404,7 +400,7 @@ class CampaignReconView(CampaignAccess, View):
             if request.POST["action"] == "destroy":
                 timer.delete()
             else:
-                Timer.objects.filter(pk=timer.pk).update(last_updated_at=now())
+                Structure.objects.filter(pk=timer.pk).update(last_updated_at=now())
             return redirect(entry.campaign)
         form = ReconForm(
             request.POST if request.method == "POST" else None,

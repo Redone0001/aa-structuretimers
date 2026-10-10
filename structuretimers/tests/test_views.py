@@ -22,6 +22,7 @@ from app_utils.testing import (
 from structuretimers.models import Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     CitadelTypeFactory,
     DistancesFromStagingFactory,
     EveSolarSystemFactory,
@@ -76,8 +77,7 @@ class TestViewBase(NoSocketsTestCase):
             eve_solar_system=cls.system_enaluri,
             structure_type=cls.type_astrahus,
         )
-        cls.timer_4 = TimerFactory(
-            timer_type=Timer.Type.PRELIMINARY,
+        cls.timer_4 = StructureFactory(
             structure_name="Timer 4",
             eve_character=cls.character_1,
             eve_corporation=cls.corporation_1,
@@ -212,10 +212,11 @@ class TestTimerListData(NoSocketsTestCase):
 
     def test_preliminary_reinforcement_column_midnight_and_unknown(self):
         timers = [
-            TimerFactory(timer_type=Timer.Type.PRELIMINARY, reinforcement_time=value)
+            StructureFactory(reinforcement_time=value)
             for value in [dt.time(0, 0), dt.time(18, 45), None]
         ]
-        response = self._get_timer_list_data("preliminary", UserWithAccessFactory())
+        self.client.force_login(UserWithAccessFactory())
+        response = self.client.get(reverse("structuretimers:recon_data"))
         self.assertEqual(response.status_code, 200)
         rows = {row["id"]: row for row in response.json()}
         for timer, expected in zip(timers, ["00:00", "18:45", None]):
@@ -251,12 +252,12 @@ class TestTimerListData(NoSocketsTestCase):
 
     def test_should_return_preliminary_timers(self):
         # given
-        timer = TimerFactory(timer_type=Timer.Type.PRELIMINARY)
-        TimerFactory(database_entry=timer)
+        timer = StructureFactory()
+        TimerFactory(structure=timer)
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get(reverse(self.view_name, args=["preliminary"]))
+        response = self.client.get(reverse("structuretimers:recon_data"))
 
         # then
         self.assertSetEqual(json_response_pks(response), {timer.id})
@@ -453,15 +454,18 @@ class TestDetailView(NoSocketsTestCase):
 
     def test_should_show_preliminary_timer(self):
         # given
-        timer = TimerFactory(structure_name="Alpha", timer_type=Timer.Type.PRELIMINARY)
+        timer = StructureFactory(structure_name="Alpha", fitting="[Astrahus, Alpha]")
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get(reverse(self.view_name, args=[timer.pk]))
+        response = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.pk])
+        )
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTemplateUsed(response, "structuretimers/timer_detail.html")
+        self.assertTemplateUsed(response, "structuretimers/structure_detail.html")
+        self.assertIn("[Astrahus, Alpha]", response.rendered_content)
         self.assertIn("Alpha", response.rendered_content)
 
     def test_should_not_show_details_when_no_access(self):

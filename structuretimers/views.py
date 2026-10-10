@@ -56,6 +56,8 @@ from structuretimers.models import (
     ReconCampaign,
     StagingSystem,
     StandingsSource,
+    Structure,
+    StructureDistance,
     Timer,
 )
 from structuretimers.selectors import supported_eve_types
@@ -81,6 +83,20 @@ def timer_action_button_html(url, icon, style, label):
         '<a href="{}" class="btn btn-{}" title="{}" aria-label="{}">'
         '<i class="{}" aria-hidden="true"></i></a>',
         url, style, _(label), _(label), icon,
+    )
+
+
+def fit_buttons_html(fitting: str) -> str:
+    """View fit / Copy fit buttons for a structure's fitting, if it has one."""
+    if not fitting:
+        return ""
+    return format_html(
+        '<button type="button" class="btn btn-info st-view-fit" title="View fit" '
+        'aria-label="View fit" data-fit="{}"><i class="fas fa-list"></i></button>'
+        '<button type="button" class="btn btn-secondary st-copy-fit" title="Copy fit" '
+        'aria-label="Copy fit" data-fit="{}"><i class="fas fa-clipboard"></i></button>',
+        fitting,
+        fitting,
     )
 
 
@@ -231,6 +247,7 @@ class TimerListDataView(
             "eve_corporation",
             "eve_alliance",
             "owner_corporation__alliance",
+            "structure",
         )
         return timers_qs
 
@@ -445,7 +462,7 @@ class TimerListDataView(
             or timer.details_notes
             or timer.assigned_to_id
             or (
-                (timer.database_entry_id or timer.structures_structure_id)
+                (timer.structure_id or timer.structures_structure_id)
                 and self.request.user.has_perm("structuretimers.recon_member")
             )
         ):
@@ -498,6 +515,7 @@ class TimerListDataView(
                 "success",
                 "Copy this timer",
             )
+        actions += fit_buttons_html(getattr(timer.structure, "fitting", ""))
         return format_html(
             '<div class="st-timer-actions d-flex flex-wrap justify-content-center gap-1">{}</div>',
             mark_safe(actions.replace("&nbsp;", "")),
@@ -505,8 +523,9 @@ class TimerListDataView(
 
 
 class ManageReconDataView(TimerListDataView):
-    """All preliminary timers visible to this user, with recon actions."""
+    """All Database records visible to this user, with recon actions."""
 
+    model = Structure
     permission_required = (
         "structuretimers.basic_access",
         "structuretimers.recon_member",
@@ -514,16 +533,23 @@ class ManageReconDataView(TimerListDataView):
 
     def get_queryset(self):
         self.kwargs["tab_name"] = "preliminary"
-        return super().get_queryset()
+        return Structure.objects.visible_to_user(self.request.user).select_related(
+            "eve_solar_system__eve_constellation__eve_region",
+            "structure_type__eve_group",
+            "eve_character",
+            "eve_corporation",
+            "eve_alliance",
+            "owner_corporation__alliance",
+        )
 
     def get_data(self, context):
         data = super().get_data(context)
         counts = dict(
             Timer.objects.visible_to_user(self.request.user)
-            .filter(database_entry__in=[row["id"] for row in data])
-            .values("database_entry")
+            .filter(structure__in=[row["id"] for row in data])
+            .values("structure")
             .annotate(count=Count("id"))
-            .values_list("database_entry", "count")
+            .values_list("structure", "count")
         )
         for row in data:
             row["timer_count"] = count = counts.get(row["id"], 0)
@@ -549,13 +575,45 @@ class ManageReconDataView(TimerListDataView):
         )
         return data
 
+    def _calc_distance_for_timer(self, timer):
+        staging_system_pk = self.request.GET.get("staging")
+        if not hasattr(self, "_distances_map"):
+            self._distances_map = (
+                {
+                    obj.structure_id: obj
+                    for obj in StructureDistance.objects.filter(
+                        staging_system__pk=staging_system_pk
+                    )
+                }
+                if staging_system_pk
+                else {}
+            )
+        distances = self._distances_map.get(timer.id)
+        if distances is None:
+            return None, "?"
+        light_years_text = (
+            f"{math.ceil(distances.light_years * 10) / 10} ly"
+            if distances.light_years is not None
+            else "N/A"
+        )
+        jumps_text = f"{distances.jumps} jumps" if distances.jumps is not None else "N/A"
+        range_badge = distance_range_badge_html(distances.light_years)
+        if range_badge:
+            return distances, format_html(
+                "{}<br>{}<br>{}", light_years_text, jumps_text, range_badge
+            )
+        return distances, format_html("{}<br>{}", light_years_text, jumps_text)
+
+    def _calc_assignment(self, timer):
+        return ""
+
     def _get_data_actions(self, timer):
         return render_to_string(
             "structuretimers/partials/recon_actions.html",
             {
                 "timer": timer,
                 "can_edit": timer.user_can_edit(self.request.user),
-                "can_copy": self.request.user.has_perm("structuretimers.create_timer"),
+                "fit_buttons": fit_buttons_html(timer.fitting),
             },
         )
 
@@ -569,25 +627,51 @@ class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
     )
 
     def post(self, request, pk, action):
-        timer = get_object_or_404(
-            Timer.objects.visible_to_user(request.user).filter(
-                timer_type=Timer.Type.PRELIMINARY
-            ),
-            pk=pk,
+        structure = get_object_or_404(
+            Structure.objects.visible_to_user(request.user), pk=pk
         )
-        if not timer.user_can_edit(request.user):
+        if not structure.user_can_edit(request.user):
             raise PermissionDenied()
         if action == "refresh":
             refreshed_at = now()
-            # Update only freshness, without rescheduling notifications or distances.
-            Timer.objects.filter(pk=timer.pk, timer_type=Timer.Type.PRELIMINARY).update(
+            # Update only freshness, without touching distances or timers.
+            Structure.objects.filter(pk=structure.pk).update(
                 last_updated_at=refreshed_at
             )
             return JsonResponse({"last_updated_at": refreshed_at.isoformat()})
         if action == "destroy":
-            timer.delete()
+            structure.delete()
             return JsonResponse({"deleted": True})
         return JsonResponse({"error": "Unknown action"}, status=400)
+
+
+class StructureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    """A Database record with its fitting and reinforcement history."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_member",
+    )
+    model = Structure
+    template_name = "structuretimers/structure_detail.html"
+
+    def get_queryset(self):
+        return Structure.objects.visible_to_user(self.request.user).select_related(
+            "eve_solar_system", "structure_type", "owner_corporation__alliance"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["now"] = now()
+        context["standing"] = standings.standing_label(
+            standings.effective_standing(self.object.owner_corporation)
+        )
+        context["linked_timers"] = (
+            Timer.objects.visible_to_user(self.request.user)
+            .filter(structure=self.object)
+            .order_by("-date")
+        )
+        return context
 
 
 class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -607,15 +691,12 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         context["now"] = now()
         user = self.request.user
         if user.has_perm("structuretimers.recon_member"):
-            visible = Timer.objects.visible_to_user(user)
-            if self.object.timer_type == Timer.Type.PRELIMINARY:
-                context["linked_timers"] = visible.filter(
-                    database_entry=self.object
-                ).order_by("-date")
-            elif self.object.database_entry_id:
-                context["database_entry"] = visible.filter(
-                    pk=self.object.database_entry_id
-                ).first()
+            if self.object.structure_id:
+                context["database_entry"] = (
+                    Structure.objects.visible_to_user(user)
+                    .filter(pk=self.object.structure_id)
+                    .first()
+                )
             elif self.object.structures_structure_id:
                 structure = structures_bridge.get_structure(
                     user, self.object.structures_structure_id
@@ -731,18 +812,68 @@ class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateV
             )
         return context
 
-    def get_form_class(self):
-        if (
-            self.object.timer_type == Timer.Type.PRELIMINARY
-            and not self.object.structure_type_id
-        ):
-            return ReconForm
-        return super().get_form_class()
+    def form_valid(self, form):
+        result = super().form_valid(form)
+        self.send_success_message(_("Updated"))
+        return result
+
+
+class EditStructureView(TimerManagementView, AddUpdateMixin, UpdateView):
+    """Edit a Database record, optionally adding a reinforcement timer."""
+
+    model = Structure
+    form_class = ReconForm
+    template_name = "structuretimers/timer_update_form.html"
+    title = "Edit Database record"
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_member",
+    )
+
+    def get_queryset(self):
+        return Structure.objects.visible_to_user(self.request.user)
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and self.has_permission():
+            if not self.get_object().user_can_edit(request.user):
+                raise PermissionDenied()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["cancel_url"] = reverse("structuretimers:timer_list") + "?tab=preliminary"
+        return context
+
+    def get_success_url(self):
+        return reverse("structuretimers:timer_list") + "?tab=preliminary"
 
     def form_valid(self, form):
         result = super().form_valid(form)
         self.send_success_message(_("Updated"))
         return result
+
+
+class RemoveStructureView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """Delete a Database record."""
+
+    model = Structure
+    template_name = "structuretimers/timer_confirm_delete.html"
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_member",
+    )
+
+    def get_queryset(self):
+        return Structure.objects.visible_to_user(self.request.user)
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and self.has_permission():
+            if not self.get_object().user_can_edit(request.user):
+                raise PermissionDenied()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse("structuretimers:timer_list") + "?tab=preliminary"
 
 
 class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -931,8 +1062,7 @@ class Select2DatabaseEntriesView(
         if len(term) < 2:
             return Timer.objects.none()
         return (
-            Timer.objects.visible_to_user(self.request.user)
-            .filter(timer_type=Timer.Type.PRELIMINARY)
+            Structure.objects.visible_to_user(self.request.user)
             .filter(
                 Q(structure_name__icontains=term)
                 | Q(eve_solar_system__name__istartswith=term)

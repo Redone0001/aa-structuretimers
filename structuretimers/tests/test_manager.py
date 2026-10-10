@@ -59,13 +59,16 @@ class TestTimer_Manger(NoSocketsTestCase):
     @patch("structuretimers.managers.STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS", 1)
     def test_delete_old_timer(self):
         timer_1 = TimerFactory(date=now())
-        TimerFactory(date=now() - dt.timedelta(days=1, seconds=1))
+        old = TimerFactory(date=now() - dt.timedelta(days=1, seconds=1))
+        history = TimerFactory(date=now() - dt.timedelta(days=1, seconds=1))
+        # Only timers without a structure are cleaned up; the rest is history.
+        Timer.objects.filter(pk=old.pk).update(structure=None)
         result = Timer.objects.delete_obsolete()
         self.assertEqual(result, 1)
         # Database records have no date and are never obsolete.
         self.assertSetEqual(
             queryset_pks(Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY)),
-            {timer_1.pk},
+            {timer_1.pk, history.pk},
         )
 
     def test_can_handle_no_timers(self):

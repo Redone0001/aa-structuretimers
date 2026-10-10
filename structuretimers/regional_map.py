@@ -14,7 +14,7 @@ from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from .models import Timer
+from .models import Structure, Timer
 from .distance_ranges import JUMP_RANGES
 
 LIGHT_YEAR = 9_460_000_000_000_000
@@ -42,16 +42,16 @@ def sde_models():
 
 def permitted_timers(user, systems, params):
     """Apply all timer conditions to the same visible record (AND)."""
-    qs = Timer.objects.visible_to_user(user).filter(eve_solar_system_id__in=systems)
+    window = params.get("window", "preliminary")
+    # "preliminary" shows the Database; the other windows show upcoming timers.
+    model = Structure if window == "preliminary" else Timer
+    qs = model.objects.visible_to_user(user).filter(eve_solar_system_id__in=systems)
     relation = params.get("relationship", "all")
     if relation != "all":
         qs = qs.filter(objective=relation)
-    window = params.get("window", "preliminary")
-    if window == "preliminary":
-        qs = qs.filter(timer_type=Timer.Type.PRELIMINARY)
-    else:
+    if model is Timer:
         instant = now()
-        qs = qs.exclude(timer_type=Timer.Type.PRELIMINARY).filter(date__gte=instant)
+        qs = qs.filter(date__gte=instant)
         if window in ("4", "24"):
             qs = qs.filter(date__lte=instant + timedelta(hours=int(window)))
     return qs.select_related("structure_type", "user").order_by(
@@ -299,12 +299,22 @@ def map_data(request, layer):
                             "owner": t.owner_name,
                             "location": t.location_details,
                             "edit_url": (
-                                reverse("structuretimers:edit", args=[t.pk])
+                                reverse(
+                                    "structuretimers:edit_structure"
+                                    if isinstance(t, Structure)
+                                    else "structuretimers:edit",
+                                    args=[t.pk],
+                                )
                                 if t.user_can_edit(request.user)
                                 else None
                             ),
                             "delete_url": (
-                                reverse("structuretimers:delete", args=[t.pk])
+                                reverse(
+                                    "structuretimers:delete_structure"
+                                    if isinstance(t, Structure)
+                                    else "structuretimers:delete",
+                                    args=[t.pk],
+                                )
                                 if t.user_can_edit(request.user)
                                 else None
                             ),
@@ -313,7 +323,7 @@ def map_data(request, layer):
                                     "structuretimers:recon_action",
                                     args=[t.pk, "refresh"],
                                 )
-                                if t.timer_type == Timer.Type.PRELIMINARY
+                                if isinstance(t, Structure)
                                 and t.user_can_edit(request.user)
                                 else None
                             ),

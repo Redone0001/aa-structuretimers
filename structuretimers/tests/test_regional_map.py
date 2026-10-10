@@ -12,6 +12,7 @@ from django.utils.timezone import now
 from structuretimers.models import Timer
 from structuretimers.regional_map import LIGHT_YEAR, distance_ly
 from structuretimers.tests.testdata.factory import (
+    StructureFactory,
     TimerFactory,
     UserNoAccessFactory,
     UserWithAccessFactory,
@@ -79,11 +80,9 @@ class RegionalMapTests(TestCase):
         system = EveSolarSystem.objects.filter(
             pk=self.a.pk
         ).first() or EveSolarSystemFactory(id=self.a.pk)
-        return TimerFactory(
+        return StructureFactory(
             user=self.user,
             eve_solar_system=system,
-            timer_type=Timer.Type.PRELIMINARY,
-            date=None,
             **kwargs,
         )
 
@@ -139,8 +138,12 @@ class RegionalMapTests(TestCase):
         self.assertEqual(
             self.get("structures", relationship="FR", window="4").json()["systems"], []
         )
-        Timer.objects.filter(pk=first.pk).update(
-            timer_type=Timer.Type.ARMOR, date=now() + timedelta(hours=3)
+        # Reinforcing the structure adds a timer to its history.
+        first = TimerFactory(
+            structure=first,
+            user=self.user,
+            timer_type=Timer.Type.ARMOR,
+            date=now() + timedelta(hours=3),
         )
         self.assertEqual(
             len(

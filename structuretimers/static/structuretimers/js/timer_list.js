@@ -295,12 +295,13 @@ $(document).ready(function () {
     /* Update modal with requested timer */
     $("#modalTimerDetails").on("show.bs.modal", function (event) {
         const timer_pk = $(event.relatedTarget).data("timerpk");
+        const detailUrl = $(event.relatedTarget).data("detailUrl");
 
         $("#modalLoadError").html("");
         $("#modalContent").hide();
         $("#modal_div_spinner").show();
         $("#modalContent").load(
-            getTimerDataUrl.replace("pk_dummy", timer_pk),
+            detailUrl || getTimerDataUrl.replace("pk_dummy", timer_pk),
             function (responseText, textStatus, req) {
                 $("#modal_div_spinner").hide();
                 $("#modalContent").show();
@@ -446,4 +447,35 @@ $(document).ready(function () {
 
     // Start timed updates
     setInterval(timedUpdate, 1000);
+});
+
+// View fit / Copy fit buttons on timers and Database records.
+$(document).on("click", ".st-view-fit", function () {
+    $("#modalFitText").val(this.dataset.fit);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("modalFit")).show();
+});
+$(document).on("click", ".st-copy-fit, #modalFitCopy", function () {
+    const button = this;
+    const text = button.id === "modalFitCopy" ? $("#modalFitText").val() : button.dataset.fit;
+    const done = () => {
+        const original = button.getAttribute("title");
+        button.setAttribute("title", "Copied");
+        button.classList.add("btn-success");
+        setTimeout(() => {
+            button.classList.remove("btn-success");
+            if (original) button.setAttribute("title", original);
+        }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done);
+    } else {
+        // Clipboard API needs HTTPS; fall back to a temporary text area.
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+        done();
+    }
 });

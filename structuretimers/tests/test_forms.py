@@ -10,7 +10,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
-from structuretimers.models import Organization, Timer
+from structuretimers.models import Organization, Structure, Timer
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
     EveSolarSystemLowSecFactory,
@@ -398,7 +398,8 @@ class TestTimerFormSave(NoSocketsTestCase):
         assignee = UserWithAccessFactory()
         replacement = UserWithAccessFactory()
         form = TimerForm(
-            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+            user=self.user,
+            data=create_form_data(assigned_to=assignee.pk, date=FUTURE),
         )
         self.assertTrue(form.is_valid(), form.errors)
         timer = form.save()
@@ -416,7 +417,7 @@ class TestTimerFormSave(NoSocketsTestCase):
         for selected in (replacement.pk, ""):
             form = TimerForm(
                 user=self.user, instance=timer,
-                data=create_form_data(assigned_to=selected),
+                data=create_form_data(assigned_to=selected, date=FUTURE),
             )
             self.assertTrue(form.is_valid(), form.errors)
             form.save()
@@ -428,7 +429,8 @@ class TestTimerFormSave(NoSocketsTestCase):
     def test_assignment_rejects_inactive_users(self):
         assignee = UserWithAccessFactory(is_active=False)
         form = TimerForm(
-            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+            user=self.user,
+            data=create_form_data(assigned_to=assignee.pk, date=FUTURE),
         )
         self.assertFalse(form.is_valid())
         self.assertIn("assigned_to", form.errors)
@@ -436,7 +438,8 @@ class TestTimerFormSave(NoSocketsTestCase):
     def test_deleted_assignee_does_not_delete_timer(self):
         assignee = UserWithAccessFactory()
         form = TimerForm(
-            user=self.user, data=create_form_data(assigned_to=assignee.pk)
+            user=self.user,
+            data=create_form_data(assigned_to=assignee.pk, date=FUTURE),
         )
         self.assertTrue(form.is_valid(), form.errors)
         timer = form.save()
@@ -468,16 +471,16 @@ class TestTimerFormSave(NoSocketsTestCase):
         self.assertEqual(timer.timer_type, Timer.Type.ARMOR)
         self.assertIsNotNone(timer.date)
 
-    def test_should_create_new_preliminary_timer(self):
-        # given
-        form_data = create_form_data()
-        form = TimerForm(user=self.user, data=form_data)
-        # when
-        form.save()
-        # then
-        timer = Timer.objects.first()
-        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
-        self.assertIsNone(timer.date)
+    def test_without_date_only_the_database_record_is_saved(self):
+        form = TimerForm(user=self.user, data=create_form_data(fitting="[Astrahus]"))
+        self.assertTrue(form.is_valid(), form.errors)
+        structure = form.save()
+        self.assertIsInstance(structure, Structure)
+        self.assertEqual(structure.structure_name, "Test structure")
+        self.assertEqual(structure.fitting, "[Astrahus]")
+        self.assertEqual(structure.owner_name, "Test Owner Corp")
+        self.assertEqual(structure.user, self.user)
+        self.assertFalse(Timer.objects.exists())
 
     def test_should_promote_preliminary_timer_to_normal_timer(self):
         # given
@@ -512,11 +515,6 @@ class TestTimerFormSave(NoSocketsTestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertTrue(form.save(commit=False).discord_timerboard)
 
-    def test_preliminary_clears_submitted_flag(self):
-        form = TimerForm(user=self.user, data=create_form_data(discord_timerboard=True))
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertFalse(form.save(commit=False).discord_timerboard)
-
     def test_recon_does_not_accept_injected_flag(self):
         form = ReconForm(
             user=self.user,
@@ -526,6 +524,5 @@ class TestTimerFormSave(NoSocketsTestCase):
             ),
         )
         self.assertTrue(form.is_valid(), form.errors)
-        timer = form.save(commit=False)
-        self.assertEqual(timer.timer_type, Timer.Type.PRELIMINARY)
-        self.assertFalse(timer.discord_timerboard)
+        self.assertNotIn("discord_timerboard", form.fields)
+        self.assertIsInstance(form.save(commit=False), Structure)
