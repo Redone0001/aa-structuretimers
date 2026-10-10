@@ -79,6 +79,10 @@ class General(models.Model):
         default_permissions = ()
         permissions = (
             ("basic_access", "Can access this app and see timers"),
+            (
+                "recon_access",
+                "Can see the database, recon campaigns and maps",
+            ),
             ("recon_coordinator", "Can create and coordinate recon campaigns"),
             ("create_timer", "Can create new timers and edit own timers"),
             ("manage_timer", "Can edit and delete any timer"),

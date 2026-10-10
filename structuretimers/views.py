@@ -77,6 +77,15 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = "structuretimers/timer_list.html"
     permission_required = "structuretimers.basic_access"
 
+    def _selected_tab(self) -> str:
+        tab = self.request.GET.get("tab", "current")
+        tab = {"manage-recon": "preliminary"}.get(tab, tab)
+        if tab in ("preliminary", "recon-campaigns") and not self.request.user.has_perm(
+            "structuretimers.recon_access"
+        ):
+            return "current"
+        return tab
+
     def get_context_data(self, **kwargs):
         staging_systems_qs = StagingSystem.objects.select_related(
             "eve_solar_system", "eve_solar_system__eve_constellation__eve_region"
@@ -105,10 +114,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "data_tables_paging": STRUCTURETIMERS_PAGING_ENABLED,
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
-                "tab": {"manage-recon": "preliminary"}.get(
-                    self.request.GET.get("tab", "current"),
-                    self.request.GET.get("tab", "current"),
-                ),
+                "tab": self._selected_tab(),
                 "campaigns": ReconCampaign.objects.all(),
                 "recon_translations": {
                     "noMatches": _("No matching recon"),
@@ -451,6 +457,11 @@ class TimerListDataView(
 class ManageReconDataView(TimerListDataView):
     """All preliminary timers visible to this user, with recon actions."""
 
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_access",
+    )
+
     def get_queryset(self):
         self.kwargs["tab_name"] = "preliminary"
         return super().get_queryset()
@@ -469,7 +480,10 @@ class ManageReconDataView(TimerListDataView):
 class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """POST-only recon mutations; enforce visibility and edit permission."""
 
-    permission_required = "structuretimers.basic_access"
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_access",
+    )
 
     def post(self, request, pk, action):
         timer = get_object_or_404(
@@ -565,6 +579,11 @@ class CreateReconView(CreateTimerView):
     form_class = ReconForm
     template_name = "structuretimers/recon_create_form.html"
     title = _("Add recon")
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.create_timer",
+        "structuretimers.recon_access",
+    )
 
 
 class EditTimerMixin:

@@ -70,6 +70,8 @@ class TimerQuerySet(models.QuerySet):
         )
         if not user.has_perm("structuretimers.opsec_access"):
             timers_qs = timers_qs.exclude(is_opsec=True)
+        if not user.has_perm("structuretimers.recon_access"):
+            timers_qs = timers_qs.exclude(timer_type=self.model.Type.PRELIMINARY)
 
         timers_qs = (
             timers_qs.filter(visibility=self.model.Visibility.UNRESTRICTED)

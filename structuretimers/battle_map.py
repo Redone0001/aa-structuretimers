@@ -73,7 +73,7 @@ def timer_status(timer, events, instant):
 
 
 def visible_tokens(user):
-    # Access to this endpoint already requires regional-map basic_access.
+    # Access to this endpoint already requires regional-map recon_access.
     return MapFleetToken.objects.all()
 
 
@@ -198,7 +198,10 @@ def lookup(kind, term):
 
 
 @login_required
-@permission_required("structuretimers.basic_access", raise_exception=True)
+@permission_required(
+    ("structuretimers.basic_access", "structuretimers.recon_access"),
+    raise_exception=True,
+)
 @require_http_methods(["GET", "POST"])
 @never_cache
 def battle_data(request, layer):
