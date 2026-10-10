@@ -42,7 +42,13 @@ from app_utils.views import (
     yesno_str,
 )
 
-from structuretimers import __title__, owners, standings, structures_bridge
+from structuretimers import (
+    __title__,
+    information,
+    owners,
+    standings,
+    structures_bridge,
+)
 from structuretimers.app_settings import (
     STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
     STRUCTURETIMERS_PAGING_ENABLED,
@@ -781,6 +787,29 @@ class CreateTimerView(TimerManagementView, AddUpdateMixin, CreateView):
         )
         self.send_success_message(_("Added"))
         return result
+
+
+class AddInformationView(CreateTimerView):
+    """One place to add anything: paste, parse, check, save.
+
+    Saving updates the picked or matching Database record instead of creating a
+    duplicate, and adds a reinforcement timer when a date is given.
+    """
+
+    template_name = "structuretimers/add_information.html"
+    title = "Add information"
+
+
+class ParseInformationView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Read a paste and return the form values found, with the matching record."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.create_timer",
+    )
+
+    def post(self, request):
+        return JsonResponse(information.parse(request.POST.get("text", ""), request.user))
 
 
 class FastCreateTimerView(CreateTimerView):

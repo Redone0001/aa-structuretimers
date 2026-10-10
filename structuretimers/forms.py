@@ -144,6 +144,15 @@ class TimerForm(forms.ModelForm):
         ),
         widget=forms.Select(attrs={"class": "select2-database-entries"}),
     )
+    paste_info = forms.CharField(
+        required=False,
+        label="Paste new info",
+        help_text=(
+            "Paste a timer or a fitting from EVE and press Parse: everything it "
+            "can read is filled into the boxes below."
+        ),
+        widget=forms.Textarea(attrs={"rows": 3, "class": "st-paste-info"}),
+    )
     eve_solar_system_2 = forms.CharField(
         required=True,
         label=format_html("{} {}", _("Solar System"), ASTERISK_HTML),
@@ -222,6 +231,7 @@ class TimerForm(forms.ModelForm):
         model = Timer
         fields = (
             "database_entry_2",
+            "paste_info",
             "structure_name",
             "eve_solar_system_2",
             "structure_type_2",

@@ -50,6 +50,12 @@ urlpatterns = [
     ),
     path("add_recon/", views.CreateReconView.as_view(), name="add_recon"),
     path("add/", views.CreateTimerView.as_view(), name="add"),
+    path("add_info/", views.AddInformationView.as_view(), name="add_info"),
+    path(
+        "add_info/parse/",
+        views.ParseInformationView.as_view(),
+        name="add_info_parse",
+    ),
     path("add_fast/", views.FastCreateTimerView.as_view(), name="add_fast"),
     path("remove/<int:pk>", views.RemoveTimerView.as_view(), name="delete"),
     path("assign/<int:pk>/", views.AssignTimerView.as_view(), name="assign"),

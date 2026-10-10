@@ -1,0 +1,23 @@
+{% extends "structuretimers/timer_edit.html" %}
+{% load i18n static %}
+
+{% block form_intro %}
+    <div id="st-add-info" data-parse-url="{% url 'structuretimers:add_info_parse' %}" data-start="{% if form.is_bound %}form{% else %}paste{% endif %}">
+        <p class="text-muted mb-2" id="st-add-info-intro">
+            Paste a timer or a fitting from EVE and press <strong>Parse</strong>, or choose <strong>Manual</strong> to fill in everything yourself.
+            Information about a structure that is already in the Database updates it instead of adding a duplicate.
+        </p>
+        <div id="st-add-info-actions" class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-primary" id="st-add-info-parse"><i class="fa-solid fa-wand-magic-sparkles"></i> Parse</button>
+            <button type="button" class="btn btn-outline-secondary" id="st-add-info-manual">Manual</button>
+        </div>
+        <div id="st-add-info-result" class="mb-3" role="status" aria-live="polite"></div>
+    </div>
+{% endblock %}
+
+{% block submit_button_text %}Save{% endblock %}
+
+{% block extra_javascript %}
+    {{ block.super }}
+    <script src="{% static 'structuretimers/js/add_information.js' %}"></script>
+{% endblock extra_javascript %}
