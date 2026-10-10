@@ -19,7 +19,7 @@
             $('fleets').addEventListener('change',()=>this.hooks.paint());
             $('add').addEventListener('click',()=>this.edit());
             $('close').addEventListener('click',()=>$('editor').close());
-            $('form').addEventListener('submit',event=>{event.preventDefault();this.saveToken(false);});
+            $('form').addEventListener('submit',event=>{event.preventDefault();this.saveToken(false);setTimeout(()=>{if(!this.saving)$('form').classList.remove('is-submitting');},0);});
             $('delete').addEventListener('click',()=>this.saveToken(true));
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
@@ -242,7 +242,7 @@
         renderFleets(){const list=$('fleet-list');list.replaceChildren(...this.tokens.map(t=>this.fleetCard(t)));if(!this.tokens.length)list.append(el('p','No fleet tokens in this region.','text-muted'));this.updateRangeButtons();}
         edit(token=null){
             if(!this.data)return;
-            this.editing=token;$('form').reset();$('form-error').textContent='';$('delete').hidden=!token;
+            this.editing=token;$('form').reset();if(!this.saving)$('form').classList.remove('is-submitting');$('form-error').textContent='';$('delete').hidden=!token;
             for(const field of $('form').elements)if(field.name&&token)field.value=token[field.name]??'';
             const node=this.mapNodes().find(n=>n.id===(token?.system_id||this.selected));
             $('token-system').value=token?.system_id||node?.id||'';
@@ -271,10 +271,12 @@
             }finally{this.moving.delete(token.id);this.hooks.paint();}
         }
         async saveToken(remove){
+            if(this.saving)return;
             if(!remove&&!$('token-system').value){$('form-error').textContent='Choose a valid solar system from the suggestions.';return;}
+            this.saving=true;$('form').setAttribute('aria-busy','true');
             $('save').disabled=true;$('delete').disabled=true;$('form-error').textContent='';
             const body=Object.fromEntries(new FormData($('form')));if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';
-            try{await this.post('fleet',body);$('editor').close();await this.load();}catch(e){$('form-error').textContent=e.message;}finally{$('save').disabled=false;$('delete').disabled=false;}
+            try{await this.post('fleet',body);$('editor').close();await this.load();}catch(e){$('form-error').textContent=e.message;}finally{this.saving=false;$('form').classList.remove('is-submitting');$('form').removeAttribute('aria-busy');$('save').disabled=false;$('delete').disabled=false;}
         }
         autocomplete(kind){
             let timeout,controller;
