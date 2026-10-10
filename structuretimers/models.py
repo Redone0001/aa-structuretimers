@@ -1236,3 +1236,49 @@ class DiscordTimerboardMessage(models.Model):
 
     class Meta:
         ordering = ("position", "pk")
+
+
+class MapTimerState(models.Model):
+    """Manual battle observations; dates and notification schedules stay intact."""
+
+    timer = models.OneToOneField(
+        Timer, on_delete=models.CASCADE, related_name="map_state"
+    )
+    events = models.JSONField(default=list)
+    revision = models.PositiveIntegerField(default=0)
+
+
+class MapFleetToken(models.Model):
+    """Quick battle intelligence shared with regional-map users."""
+
+    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    system_id = models.PositiveIntegerField(db_index=True)
+    alliance_name = models.CharField(max_length=200, blank=True)
+    alliance_id = models.PositiveIntegerField(null=True, blank=True)
+    ship_name = models.CharField(max_length=200, blank=True)
+    ship_id = models.PositiveIntegerField(null=True, blank=True)
+    dps = models.PositiveIntegerField(null=True, blank=True)
+    logi = models.PositiveIntegerField(null=True, blank=True)
+    mobility = models.CharField(
+        max_length=20,
+        default="gate",
+        choices=[
+            ("super", "Super range"),
+            ("carrier", "Carrier"),
+            ("conduit", "Conduit carrier"),
+            ("blops", "Blops"),
+            ("gate", "Gate"),
+        ],
+    )
+    stance = models.CharField(
+        max_length=10, default="foe", choices=[("friend", "Friend"), ("foe", "Foe")]
+    )
+    dscan = models.TextField(blank=True, max_length=50000)
+    note = models.TextField(blank=True, max_length=5000)
+    updated_at = models.DateTimeField(auto_now=True)
+    revision = models.PositiveIntegerField(default=0)
+
+    def user_can_edit(self, user):
+        return self.creator_id == user.pk or user.has_perm(
+            "structuretimers.manage_timer"
+        )

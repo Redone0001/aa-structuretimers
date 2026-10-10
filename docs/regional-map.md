@@ -11,7 +11,7 @@ INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS
 INSTALLED_APPS += ["eve_sde"]
 ```
 
-Do not duplicate either entry if another app already enables it. Run the normal dependency upgrade, `python manage.py migrate`, `python manage.py esde_load_sde`, and `python manage.py collectstatic --noinput`; restart the application. No Structure Timers model migration is introduced. SDE tables and imported data are required. Missing configuration and empty imports have explicit UI states.
+Do not duplicate either entry if another app already enables it. Run the normal dependency upgrade, `python manage.py migrate`, `python manage.py esde_load_sde`, and `python manage.py collectstatic --noinput`; restart the application. The base SDE map introduced no Structure Timers model migration; the experimental battle timeline below requires migration 0016. SDE tables and imported data are required. Missing configuration and empty imports have explicit UI states.
 
 Follow the [SDE package's update-task instructions](https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde#setup) to keep geography current. The adapter was checked against version 0.2.0 and Alliance Auth 5.4.0.
 
@@ -94,7 +94,7 @@ Spacing multiplies only centre coordinates by 1.0, 1.6 or 2.2 and refits. Nodes 
 
 Undirected gates are deduplicated on the server. The renderer groups connections by unordered endpoint pair, sorts by stable edge ID and assigns symmetric curve lanes. Opposite directions use consistent physical offsets. Endpoints intersect each rectangle using its measured width and height with a small arrowhead gap. Curves do not merge types or directions. Self-loops use a separate cubic loop. No such synthetic connections are fabricated by the timer adapter.
 
-Each asynchronous layer has an AbortController and response identity check. Filter generations protect overall status from stale results. Selected details also check system identity. Turning a layer off cancels its requests and clears its display. Refresh runs manually and every 60 seconds while the page is visible and focus is outside the map section; automatic refresh waits while the user is interacting. Explicit refresh retains selection, filters, viewport and available focus targets.
+Each asynchronous layer has an AbortController and response identity check. Filter generations protect overall status from stale results. Selected details also check system identity. Turning a layer off cancels its requests and clears its display. Refresh runs manually and every 15 minutes while the page is visible; local battle countdowns update every second without requests. Explicit refresh retains selection, filters, viewport and available focus targets.
 
 ## Verification
 
@@ -135,3 +135,21 @@ node --test structuretimers/tests/js/*.cjs
 - Item art uses EVE's image service; offline/failed requests retain local symbols. The map layout itself is self-contained in the installed SDE.
 - Dynamic map/controller strings are currently English; the server template uses Django translations. Additional translated catalog entries are not included.
 - Introduced in version 3.5.0 on the `map_view` branch.
+
+## Experimental battle timeline
+
+Branch: `codex/experimental-regional-battle-map`. Apply migration `0016_mapfleettoken_maptimerstate`, collect static files and restart the app before opening the new page. This adds two tables; it does not change scheduled timer dates or notification jobs.
+
+The **Experimental battle timeline** checkbox enables a UTC day picker, minute-resolution slider and time input. **Live** follows server-corrected time once per second in the browser. Timer transitions, countdowns and map highlights use the loaded snapshot; scrubbing does not make requests. A snapshot refreshes every 15 minutes while visible, on returning after a stale interval, on UTC midnight/day/region changes, after a mutation, and on explicit Refresh. Relationship and range filters also apply to the hour-by-hour breakdown. Turning off the experiment restores the previous preliminary/upcoming overlays. Fleet overlays remain independently switchable.
+
+Scheduled timers open at their timestamp and close after 15 minutes for Armor, Final (armor assumption), and Anchoring, or 30 minutes for Hull. Unanchoring is instantaneous: its occurrence is marked on the map for 60 seconds for discoverability, without a repair window. Other timer types have no inferred repair duration. Estimated repair completion is labeled as an estimate. The list includes the selected day's starts and earlier windows still open or paused at midnight.
+
+**Pause** freezes remaining repair time; **Resume** continues it. **Mark killed** records Won for hostile timers, Lost for friendly timers, and Killed for neutral/undefined timers. **Undo killed** corrects a mistaken observation. These controls are available in Live mode only, use the existing timer edit permissions, and are checked again on the server. Timestamped observations replay when inspecting earlier times. Changing the underlying scheduled date invalidates observations tied to the old date. These are manual battle-map observations, not killboard integration or changes to the main timer/notification lifecycle. History follows the timer’s existing deletion/retention policy (30 days by default).
+
+**Add token** opens a keyboard-accessible dialog, preselecting the selected system. System placement is required; all intelligence fields are optional. Blank counts mean unknown, distinct from zero. Gate and Foe are the defaults. Alliance autocomplete uses alliances already known to Auth; ship autocomplete uses ship types from the installed SDE. Both accept unmatched text and retain it. Exact matches resolve official alliance logos/ship icons; unmatched names use symbols. D-scan is stored and shown verbatim as text, with no parsing. Edit/move/delete are available from the fleet list or by clicking an editable token on the map.
+
+Fleet intelligence is shared with **everyone who can access the regional map**, independent of private timer visibility. A token's creator and users with `manage_timer` may edit/delete it. Fleets show **latest intelligence**, not historical fleet movements, even when inspecting an earlier timer time. Updates appear locally immediately and on other clients at the next refresh. There is no presence/live collaboration push channel. Unknown positions are accessible from the system selector/list.
+
+The `map/battle/snapshot` GET endpoint returns permission-filtered scheduled timers with battle event histories and regional fleets. `map/battle/lookup` supplies local autocomplete. `map/battle/timer` and `map/battle/fleet` accept CSRF-protected POSTs. Revision checks reject stale updates (409); row locks serialize mutations. All endpoints require login/basic access and disable caching. Snapshot and editor errors preserve an explicit retry path; an open editor is not overwritten by background refresh.
+
+Verification: `tests/test_battle_map.py` covers visibility, authorization, CSRF, invalid counts/choices, optional fields, shared visibility, ship lookup, revision conflicts, pause/resume/kill/undo, and paused carryovers. `tests/js/test_battle_timeline.cjs` covers exact boundaries, multiple pauses across midnight, historical kill outcomes, UTC grouping and instant events. The feature was also exercised in a disposable AA5 browser preview with synthetic data.

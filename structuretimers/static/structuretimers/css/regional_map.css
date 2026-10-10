@@ -45,3 +45,17 @@
 #st-regional-map .st-map-node[data-category="warning"] .st-map-name { fill: var(--bs-warning-text-emphasis); }
 #st-regional-map .st-map-node[data-category="success"] .st-map-box { fill: var(--bs-success-bg-subtle); stroke: var(--bs-success); }
 #st-regional-map .st-map-node[data-category="success"] .st-map-name { fill: var(--bs-success-text-emphasis); }
+
+/* Experimental battle controls inherit the current Alliance Auth theme. */
+.st-battle-dialog { width: min(640px, calc(100vw - 24px)); max-height: 90vh; overflow: auto; color: var(--bs-body-color); background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .65rem; padding: 1.25rem; }
+.st-battle-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.st-battle-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.st-battle-fields label { min-width: 0; }
+.st-battle-fleet-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: .75rem; }
+.st-battle-hour { border-top: 1px solid var(--bs-border-color); padding-top: 1rem; margin-top: 1rem; }
+.st-battle-hour .st-map-timer { margin: .5rem 0; }
+.st-battle-note { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }
+.st-battle-status[data-state="open"], .st-battle-status[data-state="lost"] { color: var(--bs-danger); font-weight: 600; }
+.st-battle-status[data-state="paused"] { color: var(--bs-warning-text-emphasis, var(--bs-warning)); font-weight: 600; }
+.st-battle-status[data-state="won"] { color: var(--bs-success); font-weight: 600; }
+@media (max-width: 480px) { .st-battle-fields { grid-template-columns: 1fr; } }

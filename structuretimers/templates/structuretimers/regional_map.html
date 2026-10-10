@@ -9,8 +9,9 @@
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
     <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'structuretimers:regional_map' %}">{% translate 'Regional map' %}</a></li>
 </ul>
-<section id="st-regional-map" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+<section id="st-regional-map" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
+    {% include "structuretimers/partials/battle_map.html" %}
     <div class="card mb-3"><div class="card-body">
         <div class="st-map-controls">
             <label>{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
@@ -49,7 +50,8 @@
         </div>
         <aside class="card st-map-sidebar" aria-labelledby="st-map-detail-title"><div class="card-body"><h2 id="st-map-detail-title" class="h5">{% translate 'Select a system' %}</h2><div id="st-map-details" aria-live="polite">{% translate 'Select a system on the map or in the selector to see its permitted timers.' %}</div></div></aside>
     </div>
+    {% include "structuretimers/partials/battle_fleets.html" %}
 </section>
 {% endblock %}
 {% block structuretimers_extra_css %}<link rel="stylesheet" href="{% static 'structuretimers/css/regional_map.css' %}">{% endblock %}
-{% block extra_javascript %}<script src="{% static 'structuretimers/js/map_preferences.js' %}"></script><script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}
+{% block extra_javascript %}<script src="{% static 'structuretimers/js/map_preferences.js' %}"></script><script src="{% static 'structuretimers/js/system_map.js' %}"></script><script src="{% static 'structuretimers/js/battle_timeline.js' %}"></script><script src="{% static 'structuretimers/js/battle_map.js' %}"></script><script src="{% static 'structuretimers/js/regional_map.js' %}"></script>{% endblock %}

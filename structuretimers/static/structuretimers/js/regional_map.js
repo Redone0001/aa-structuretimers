@@ -28,11 +28,15 @@
     }
     function filters(){return {region:$('region').value,relationship:$('relationship').value,window:$('window').value,range:$('range').value,source:$('source').value};}
     function error(message){$('status').textContent=message+' Use Refresh to retry.';$('status').className='text-danger';}
-    const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember});
+    const map=new window.StructureSystemMap($('canvas'),{onSelect:select,onViewport:remember,onIndicator:(_id,item)=>{if(item.tokenId){const token=battle.tokens.find(t=>t.id===item.tokenId);if(token?.can_edit)battle.edit(token);}}});
+    const battle=new window.StructureBattleMap(root,{paint,select,refresh,inRange:id=>{
+        if($('range').value==='none')return true;
+        const d=state.distances.get(id);return state.rangeReady&&d!==null&&d!==undefined&&d<=state.limit;
+    }});
     function paint(){
-        const highlighted=new Set();const needsRange=$('range').value!=='none';
+        const highlighted=battle.enabled&&$('structures').checked?battle.highlights():new Set();const needsRange=$('range').value!=='none';
         if(state.structuresReady){for(const id of state.structures.keys()) {const distance=state.distances.get(id);if(!needsRange||(state.rangeReady&&distance!==null&&distance!==undefined&&distance<=state.limit))highlighted.add(id);}}
-        map.setOverlays($('structures').checked?state.structures:new Map(),highlighted);
+        map.setOverlays(battle.overlays($('structures').checked?state.structures:new Map()),battle.enabled&&$('structures').checked?battle.highlights():highlighted);
         const missing=state.data?.nodes.filter(n=>!n.position).length||0;
         $('status').className='text-muted';
         $('status').textContent=`${state.data?.nodes.length||0} systems · ${highlighted.size} match${missing?` · ${missing} without schematic positions (use selector)`:''}${!$('structures').checked?' · Structure layer off; timer matching paused.':''}${needsRange&&!$('source').value?' · Choose a range origin.':''}${state.rangeReady?` · Range ≤ ${state.limit} LY`:''}`;
@@ -43,27 +47,29 @@
         cancel('structures');cancel('range');
         state.structuresReady=false;state.rangeReady=false;state.structures=new Map();state.distances=new Map();paint();$('status').textContent='Loading selected layers…';
         const jobs=[];
-        if($('structures').checked)jobs.push(request('structures',params).then(data=>{if(!data)return;state.structures=new Map(data.systems.map(s=>[s.id,s.indicators]));state.structuresReady=true;paint();}));
+        if($('structures').checked&&!battle.enabled)jobs.push(request('structures',params).then(data=>{if(!data)return;state.structures=new Map(data.systems.map(s=>[s.id,s.indicators]));state.structuresReady=true;paint();}));
         if(params.range!=='none'&&params.source)jobs.push(request('range',params).then(data=>{if(!data)return;state.distances=new Map(data.systems.map(s=>[s.id,s.distance_ly]));state.limit=data.limit_ly;state.rangeReady=true;paint();}));
         const outcomes=await Promise.allSettled(jobs);
         if(version!==revision)return;
         const failure=outcomes.find(result=>result.status==='rejected');
-        if(failure)error(failure.reason.message);else if(!jobs.length)paint();
+        if(failure)error(failure.reason.message);else if(!jobs.length)paint();battle.filtersChanged();
     }
     async function region(){
-        revision++;['geography','structures','range','details'].forEach(cancel);state.data=null;state.selected=null;state.structures=new Map();state.distances=new Map();map.setOverlays(new Map(),new Set());map.select(null,false);map.setData({nodes:[],edges:[]});$('details').textContent='Select a system.';$('detail-title').textContent='Select a system';$('system').replaceChildren(new Option('Select a system',''));$('status').textContent='Loading regional geography…';
+        battle.reset();revision++;['geography','structures','range','details'].forEach(cancel);state.data=null;state.selected=null;state.structures=new Map();state.distances=new Map();map.setOverlays(new Map(),new Set());map.select(null,false);map.setData({nodes:[],edges:[]});$('details').textContent='Select a system.';$('detail-title').textContent='Select a system';$('system').replaceChildren(new Option('Select a system',''));$('status').textContent='Loading regional geography…';
         if(!$('region').value){$('status').textContent='No regions available. Import the SDE to populate the map.';return;}
-        try {const data=await request('geography',filters());if(!data)return;state.data=data;map.setData(data);data.nodes.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(n=>$('system').add(new Option(n.name+(n.position?'':' — position unavailable'),n.id)));if(!data.nodes.length){$('status').textContent='This region has no systems in the installed SDE.';return;}await overlays();map.fit();}catch(e){error(e.message);}
+        try {const data=await request('geography',filters());if(!data)return;state.data=data;map.setData(data);data.nodes.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(n=>$('system').add(new Option(n.name+(n.position?'':' — position unavailable'),n.id)));if(!data.nodes.length){$('status').textContent='This region has no systems in the installed SDE.';return;}await Promise.all([overlays(),battle.setRegion(data)]);map.fit();}catch(e){error(e.message);}
     }
     async function select(id){
         const focusedAction=document.activeElement?.dataset.timerAction;
-        state.selected=id;map.select(id,false);remember();$('system').value=id||'';cancel('details');
+        state.selected=id;battle.selected=id;map.select(id,false);remember();$('system').value=id||'';cancel('details');
         const node=state.data?.nodes.find(n=>n.id===id);$('detail-title').textContent=node?.name||'Select a system';$('details').replaceChildren();
         if(!node){$('details').textContent='Select a system on the map or in the selector.';return;}
         $('details').append(el('p',node.constellation,'text-muted small'));
         if($('range').value!=='none'){const origin=el('button','Use as range origin','btn btn-sm btn-outline-secondary mb-2');origin.type='button';origin.addEventListener('click',()=>{$('source').replaceChildren(new Option(node.name,node.id,true,true));$('source-search').value=node.name;refresh();});$('details').append(origin);}
         if(!node.position)$('details').append(el('p','Schematic position unavailable in the SDE. Timers remain accessible here.','text-warning'));
         if($('range').value!=='none'&&state.rangeReady){const distance=state.distances.get(id);$('details').append(el('p',distance===null||distance===undefined?'Distance unavailable: geographic coordinates are missing.':`${distance.toFixed(2)} LY from range origin`));}
+        battle.sidebar(id,$('details'));
+        if(battle.enabled)return;
         if(!$('structures').checked){$('details').append(el('p','Enable Structure indicators to load permitted timer details.'));return;}
         const loading=el('p','Loading permitted timers…');$('details').append(loading);
         try {const data=await request('details',{...filters(),system:id});if(!data||state.selected!==id)return;loading.remove();if(!data.timers.length){$('details').append(el('p','No visible timers match these filters.'));return;}
@@ -79,9 +85,9 @@
             if(focusedAction)Array.from($('details').querySelectorAll('[data-timer-action]')).find(e=>e.dataset.timerAction===focusedAction)?.focus({preventScroll:true});
         }catch(e){if(state.selected===id)loading.textContent=e.message+' Select the system again to retry.';}
     }
-    async function refresh(){cancel('details');if(!state.data){await region();return;}await overlays();if(state.selected!==null)await select(state.selected);}
+    async function refresh(){cancel('details');if(!state.data){await region();return;}await Promise.all([overlays(),battle.load()]);if(state.selected!==null)await select(state.selected);}
     $('region').addEventListener('change',region);
-    ['relationship','window','structures'].forEach(id=>$(id).addEventListener('change',refresh));
+    ['relationship','window','structures'].forEach(id=>$(id).addEventListener('change',async()=>{await overlays();if(state.selected!==null)select(state.selected);}));
     $('range').addEventListener('change',()=>{$('source-controls').hidden=$('range').value==='none';refresh();});
     $('source').addEventListener('change',refresh);
     let searchTimer;
@@ -100,7 +106,7 @@
         remembering=true;remember();
     }catch(e){error(e.message);}}
     $('refresh').addEventListener('click',()=>{if(!$('region').options.length)init();});
-    const interval=setInterval(()=>{if(!document.hidden&&state.data&&!root.contains(document.activeElement))refresh();},60000);
+    const interval=setInterval(()=>{if(!document.hidden&&state.data)refresh();},15*60000);
     window.addEventListener('pagehide',event=>{requests.forEach(controller=>controller.abort());if(!event.persisted){clearInterval(interval);map.destroy();}});
     for(const id of ['relationship','window','range','spacing']){if(Array.from($(id).options).some(o=>o.value===saved[id]))$(id).value=saved[id];}
     for(const [id,key] of [['structures','structures'],['gates','gates'],['labels','labels'],['test-regions','testRegions']])if(typeof saved[key]==='boolean')$(id).checked=saved[key];

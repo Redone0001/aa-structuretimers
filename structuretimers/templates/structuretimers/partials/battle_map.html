@@ -1,0 +1,19 @@
+{% load i18n %}
+<div class="card mb-3 st-battle-controls">
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <label><input id="st-battle-enabled" type="checkbox" class="form-check-input" checked> {% translate 'Experimental battle timeline' %}</label>
+      <label>{% translate 'Day (EVE / UTC)' %} <input id="st-battle-day" type="date" class="form-control"></label>
+      <button id="st-battle-live" type="button" class="btn btn-primary" aria-pressed="true">{% translate 'Live' %}</button>
+      <label>{% translate 'Time (UTC)' %} <input id="st-battle-time" type="time" step="60" class="form-control"></label>
+      <strong id="st-battle-clock"></strong>
+    </div>
+    <label for="st-battle-slider" class="mt-3">{% translate 'Drag to inspect when timers open' %}</label>
+    <input id="st-battle-slider" type="range" min="0" max="1439" step="1" value="0" class="form-range">
+    <div class="d-flex justify-content-between small text-muted"><span>00:00 UTC</span><span>12:00</span><span>23:59 UTC</span></div>
+    <p id="st-battle-summary" class="mt-2 mb-1" role="status"></p>
+    <p class="small text-muted mb-0">{% translate 'Armor / Final / Anchoring: 15 min · Hull: 30 min · Unanchoring: instant. Pausing freezes the repair countdown. Live updates locally; server refresh every 15 min. Auto-repair is an estimate. Fleet tokens show latest intelligence, even when inspecting another time.' %}</p>
+    <p id="st-battle-sync" class="small text-muted mt-1 mb-0"></p>
+    <p id="st-battle-error" class="text-danger mb-0" role="alert"></p>
+  </div>
+</div>

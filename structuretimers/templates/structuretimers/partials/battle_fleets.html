@@ -1,0 +1,31 @@
+{% load i18n %}
+<div class="card mt-3"><div class="card-body">
+  <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+    <h2 class="h5 mb-0">{% translate 'Forces in the area' %}</h2>
+    <label><input id="st-battle-fleets" type="checkbox" class="form-check-input" checked> {% translate 'Show fleet overlay' %}</label>
+    <button id="st-battle-add" class="btn btn-primary btn-sm" type="button">+ {% translate 'Add token' %}</button>
+  </div>
+  <p class="small text-muted">{% translate 'Shared with everyone who can access the regional map. Select a system to place a token quickly. All intelligence fields are optional.' %}</p>
+  <div id="st-battle-fleet-list" class="st-battle-fleet-list"></div>
+</div></div>
+<div id="st-battle-hours-panel" class="card mt-3"><div class="card-body"><h2 class="h5">{% translate 'Hour by hour · UTC' %}</h2><div id="st-battle-hours"></div></div></div>
+<dialog id="st-battle-editor" class="st-battle-dialog">
+  <form id="st-battle-form">
+    <div class="d-flex justify-content-between gap-3"><h2 id="st-battle-editor-title" class="h5">{% translate 'Fleet token' %}</h2><button id="st-battle-close" type="button" class="btn btn-sm btn-outline-secondary" aria-label="{% translate 'Close fleet editor' %}">×</button></div>
+    <div class="st-battle-fields">
+      <label>{% translate 'System' %}<select name="system_id" id="st-battle-token-system" class="form-select" required></select></label>
+      <label>{% translate 'Stance' %}<select name="stance" class="form-select"><option value="foe">{% translate 'Foe' %}</option><option value="friend">{% translate 'Friend' %}</option></select></label>
+      <label>{% translate 'Alliance' %}<input name="alliance_name" id="st-battle-alliance" class="form-control" list="st-battle-alliance-options" maxlength="200" autocomplete="off" placeholder="Any name, even uncertain"></label>
+      <label>{% translate 'Ship' %}<input name="ship_name" id="st-battle-ship" class="form-control" list="st-battle-ship-options" maxlength="200" autocomplete="off" placeholder="Ship name"></label>
+      <label>{% translate 'Number of DPS' %}<input name="dps" type="number" min="0" max="2147483647" step="1" class="form-control" placeholder="Unknown"></label>
+      <label>{% translate 'Number of Logi' %}<input name="logi" type="number" min="0" max="2147483647" step="1" class="form-control" placeholder="Unknown"></label>
+      <label>{% translate 'Mobility' %}<select name="mobility" class="form-select"><option value="gate">Gate</option><option value="super">Super range</option><option value="carrier">Carrier</option><option value="conduit">Conduit carrier</option><option value="blops">Blops</option></select></label>
+    </div>
+    <datalist id="st-battle-alliance-options"></datalist><datalist id="st-battle-ship-options"></datalist>
+    <p id="st-battle-lookup-status" class="small text-muted" role="status"></p>
+    <label class="d-block mt-2">{% translate 'Note' %}<textarea name="note" class="form-control" rows="2" maxlength="5000"></textarea></label>
+    <details class="mt-2"><summary>{% translate 'D-scan · raw text for later parsing' %}</summary><textarea name="dscan" aria-label="D-scan raw text" class="form-control" rows="5" maxlength="50000"></textarea></details>
+    <p id="st-battle-form-error" class="text-danger" role="alert"></p>
+    <div class="d-flex gap-2 mt-3"><button id="st-battle-save" type="submit" class="btn btn-primary">{% translate 'Save token' %}</button><button id="st-battle-delete" type="button" class="btn btn-outline-danger" hidden>{% translate 'Delete token' %}</button></div>
+  </form>
+</dialog>
