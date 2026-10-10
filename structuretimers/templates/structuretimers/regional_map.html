@@ -2,12 +2,12 @@
 {% load static i18n %}
 {% block structuretimers_content %}
 <ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{% translate 'Preliminary' %}</a></li>
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=current">{% translate 'Current' %}</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=past">{% translate 'Past' %}</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=manage-recon">{% translate 'Manage recon' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=preliminary">{% translate 'Database' %}</a></li>
     <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=recon-campaigns">{% translate 'Recon campaigns' %}</a></li>
     <li class="nav-item"><a class="nav-link active" aria-current="page" href="{% url 'structuretimers:regional_map' %}">{% translate 'Regional map' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=past">{% translate 'Past' %}</a></li>
+    <li class="nav-item"><a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab=manage-recon">{% translate 'Manage recon' %}</a></li>
 </ul>
 <section id="st-regional-map" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
@@ -16,7 +16,7 @@
         <div class="st-map-controls">
             <label>{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
             <label>{% translate 'Relationship' %}<select id="st-map-relationship" class="form-select"><option value="all">{% translate 'Any relationship' %}</option><option value="FR">{% translate 'Friendly' %}</option><option value="NE">{% translate 'Neutral' %}</option><option value="HO">{% translate 'Hostile' %}</option><option value="UN">{% translate 'Undefined' %}</option></select></label>
-            <label>{% translate 'Timers' %}<select id="st-map-window" class="form-select"><option value="preliminary">{% translate 'Preliminary' %}</option><option value="4">{% translate 'Active · next 4h' %}</option><option value="24">{% translate 'Active · next 24h' %}</option><option value="all">{% translate 'Active · all upcoming' %}</option></select></label>
+            <label>{% translate 'Timers' %}<select id="st-map-window" class="form-select"><option value="preliminary">{% translate 'Database' %}</option><option value="4">{% translate 'Active · next 4h' %}</option><option value="24">{% translate 'Active · next 24h' %}</option><option value="all">{% translate 'Active · all upcoming' %}</option></select></label>
             <label>{% translate 'Range' %}<select id="st-map-range" class="form-select"><option value="none">{% translate 'None' %}</option>{% for key, limit, label, style in jump_ranges %}<option value="{{ key }}">{{ label }} · {{ limit }} LY</option>{% endfor %}</select></label>
             <label>{% translate 'Spacing' %}<select id="st-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
         </div>
