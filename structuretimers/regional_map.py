@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.apps import apps
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Count, Exists, OuterRef
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.timezone import now
@@ -18,6 +18,11 @@ from .models import Structure, Timer
 from .distance_ranges import JUMP_RANGES
 
 LIGHT_YEAR = 9_460_000_000_000_000
+#: Regions shown together as one map. SDE schematic positions are universe-wide,
+#: so their systems already sit in one frame.
+MERGED_REGIONS = {
+    "delve-querious": ("Delve + Querious", ("Delve", "Querious")),
+}
 RANGES = {key: limit for key, limit, _, _ in JUMP_RANGES}
 RELATIONSHIPS = {"FR": "friendly", "NE": "neutral", "HO": "hostile", "UN": "undefined"}
 
@@ -59,6 +64,36 @@ def permitted_timers(user, systems, params):
     )
 
 
+class MapRegion:
+    """A real SDE region, or several shown together as one map."""
+
+    def __init__(self, pk, name, ids):
+        self.pk, self.name, self.ids = pk, name, list(ids)
+
+
+def resolve_region(region_model, value) -> MapRegion:
+    """Turn a map region parameter (an SDE region ID or a merged key) into regions."""
+    value = str(value or "")
+    if value in MERGED_REGIONS:
+        label, names = MERGED_REGIONS[value]
+        ids = list(region_model.objects.filter(name__in=names).values_list("pk", flat=True))
+        if len(ids) != len(names):
+            raise Http404("Merged region is not in the installed SDE.")
+        return MapRegion(value, label, ids)
+    region = get_object_or_404(region_model, pk=int(value or "0"))
+    return MapRegion(region.pk, region.name, [region.pk])
+
+
+def merged_region_options(regions) -> list:
+    """Merged maps whose regions are all available, for the region picker."""
+    by_name = {r["name"]: r["id"] for r in regions}
+    return [
+        {"id": key, "name": label, "regions": [by_name[n] for n in names]}
+        for key, (label, names) in MERGED_REGIONS.items()
+        if all(n in by_name for n in names)
+    ]
+
+
 def validate(params):
     if params.get("relationship", "all") not in {"all", *RELATIONSHIPS}:
         raise ValueError("Unknown relationship filter.")
@@ -95,6 +130,14 @@ def geography_payload(region, systems, gate_model):
             if a != b
         }
     )
+    by_id = {s.id: s for s in systems}
+
+    def crossing(a, b):
+        ca, cb = by_id[a].constellation, by_id[b].constellation
+        if not ca or not cb or ca.pk == cb.pk:
+            return "system"
+        return "region" if ca.region_id != cb.region_id else "constellation"
+
     return {
         "region": {"id": region.pk, "name": region.name},
         "origin": [ox, oy],
@@ -104,6 +147,7 @@ def geography_payload(region, systems, gate_model):
                 "id": s.pk,
                 "name": s.name,
                 "constellation": (s.constellation.name if s.constellation else ""),
+                "region_id": s.constellation.region_id if s.constellation else None,
                 "position": (
                     [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale]
                     if finite(s.x_2d, s.y_2d)
@@ -118,6 +162,7 @@ def geography_payload(region, systems, gate_model):
                 "source": a,
                 "target": b,
                 "kind": "gate",
+                "crossing": crossing(a, b),
                 "directed": False,
             }
             for a, b in pairs
@@ -204,29 +249,28 @@ def map_data(request, layer):
             # SDE system ID namespaces distinguish known space from wormholes
             # (31m) and Abyssal space (32m), without name or size heuristics.
             # Missing schematic coordinates do not remove otherwise valid regions.
-            return JsonResponse(
-                {
-                    "regions": list(
-                        region_model.objects.exclude(
-                            name__in=(
-                                []
-                                if request.GET.get("include_test") == "1"
-                                else ["A821-A", "UUA-F4", "J7HZ-F"]
-                            )
-                        )
-                        .filter(
-                            Exists(
-                                system_model.objects.filter(
-                                    constellation__region_id=OuterRef("pk"),
-                                    id__gte=30_000_000,
-                                    id__lt=31_000_000,
-                                )
-                            )
-                        )
-                        .order_by("name")
-                        .values("id", "name")
+            regions = list(
+                region_model.objects.exclude(
+                    name__in=(
+                        []
+                        if request.GET.get("include_test") == "1"
+                        else ["A821-A", "UUA-F4", "J7HZ-F"]
                     )
-                }
+                )
+                .filter(
+                    Exists(
+                        system_model.objects.filter(
+                            constellation__region_id=OuterRef("pk"),
+                            id__gte=30_000_000,
+                            id__lt=31_000_000,
+                        )
+                    )
+                )
+                .order_by("name")
+                .values("id", "name")
+                    )
+            return JsonResponse(
+                {"regions": merged_region_options(regions) + regions}
             )
         if layer == "search":
             term = request.GET.get("q", "").strip()[:100]
@@ -238,9 +282,9 @@ def map_data(request, layer):
             return JsonResponse(
                 {"systems": list(qs.order_by("name").values("id", "name")[:30])}
             )
-        region = get_object_or_404(region_model, pk=int(request.GET.get("region", "0")))
+        region = resolve_region(region_model, request.GET.get("region"))
         systems = list(
-            system_model.objects.filter(constellation__region=region)
+            system_model.objects.filter(constellation__region_id__in=region.ids)
             .select_related("constellation")
             .order_by("id")
         )

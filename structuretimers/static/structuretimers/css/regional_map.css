@@ -87,3 +87,91 @@
 
 #st-map-toggle .st-map-chevron { transition: transform .2s; }
 #st-map-toggle[aria-expanded="true"] .st-map-chevron { transform: rotate(180deg); }
+
+/* ------------------------------------------------------------------
+   Map sheet look, after the AEMT timer map: one committed dark sheet,
+   condensed type, a mono clock and gold for "opens soon / open".
+   ------------------------------------------------------------------ */
+#st-regional-map {
+    --sheet-bg: #0A0E13; --sheet: #0E141B; --sheet-rule: #1C2530; --sheet-ink: #E4E9EF;
+    --sheet-muted: #8B97A5; --sheet-faint: #525D6A; --sheet-box: #131A22; --sheet-boxline: #28323D;
+    --sheet-match: #182736; --sheet-matchline: #557A9E; --sheet-soon: #FFE066; --sheet-open: #2F301C;
+    --sheet-kill: #E5534B; --sheet-paused: #6FA8DC; --sheet-won: #6BD68F;
+    --st-map-gate: #46505C; --st-map-gate-constellation: #A8453F; --st-map-gate-region: #8A5BC0;
+    --st-friendly: #5B9CF0; --st-neutral: #A3ADB9; --st-hostile: #E5534B; --st-undefined: #D9A441;
+    --bs-body-bg: var(--sheet); --bs-body-color: var(--sheet-ink); --bs-secondary-color: var(--sheet-muted);
+    --bs-border-color: var(--sheet-rule); --bs-card-bg: var(--sheet);
+    --f-ui: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+    --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    background: var(--sheet-bg); color: var(--sheet-ink); font: 15px/1.4 var(--f-ui);
+    border-radius: 10px; padding: 14px;
+}
+#st-regional-map .text-muted { color: var(--sheet-muted) !important; }
+#st-regional-map .form-select, #st-regional-map .form-control {
+    background-color: #0A0F15; color: var(--sheet-ink); border-color: #2A3440; font-family: var(--f-ui);
+}
+#st-regional-map .btn-secondary, #st-regional-map .btn-outline-secondary {
+    background: #0A0F15; color: var(--sheet-ink); border-color: #2A3440;
+}
+#st-regional-map .btn-secondary:hover, #st-regional-map .btn-outline-secondary:hover { border-color: var(--sheet-muted); }
+#st-regional-map .card { background: var(--sheet); border-color: var(--sheet-rule); border-radius: 10px; }
+
+/* Top bar: region and time only. */
+#st-regional-map .st-map-topbar {
+    display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end;
+    background: var(--sheet); border: 1px solid var(--sheet-rule); border-radius: 10px; padding: 12px 14px 8px;
+}
+#st-regional-map .st-map-region-picker { font-weight: 600; min-width: 14rem; }
+#st-regional-map .st-map-region-picker select { margin-top: .25rem; font-weight: 600; }
+#st-regional-map .st-battle-controls { flex: 1 1 32rem; min-width: 0; }
+#st-regional-map .st-map-timebar label { display: inline-flex; flex-direction: column; font-weight: 600; gap: .2rem; }
+#st-regional-map .st-map-timebar label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: .45rem; align-self: center; }
+#st-regional-map input[type=checkbox] { accent-color: var(--sheet-soon); }
+#st-regional-map .form-range { accent-color: var(--sheet-soon); }
+#st-regional-map .form-range::-webkit-slider-thumb { background: var(--sheet-soon); }
+#st-regional-map .form-range::-moz-range-thumb { background: var(--sheet-soon); }
+#st-battle-clock { font: 600 clamp(20px, 2.2vw, 30px)/1 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; margin-left: auto; align-self: center; }
+#st-battle-live { background: #26271A; border-color: var(--sheet-soon); color: var(--sheet-soon); font-weight: 600; }
+#st-battle-day, #st-battle-time { font-family: var(--f-mono); }
+
+/* The sheet itself. */
+#st-map-canvas { background: var(--sheet); border: 1px solid var(--sheet-rule); border-radius: 10px; }
+#st-regional-map .st-map-name { fill: var(--sheet-ink); font: 600 12.5px var(--f-ui); }
+#st-regional-map .st-map-box { fill: var(--sheet-box); stroke: var(--sheet-boxline); stroke-width: 1.2; }
+#st-regional-map .st-map-node:hover .st-map-box { stroke: var(--sheet-muted); }
+#st-regional-map .st-map-edge { stroke: var(--st-map-gate); stroke-width: 1.5; }
+#st-regional-map .st-map-edge-constellation { stroke: var(--st-map-gate-constellation); stroke-width: 1.9; }
+#st-regional-map .st-map-edge-region { stroke: var(--st-map-gate-region); stroke-width: 1.9; }
+#st-regional-map .st-map-highlight { stroke: var(--sheet-matchline); stroke-width: 2; stroke-dasharray: none; }
+#st-regional-map .st-map-node:has(.st-map-highlight.is-highlighted) .st-map-box { fill: var(--sheet-match); stroke: var(--sheet-matchline); stroke-width: 1.6; }
+#st-regional-map .st-map-selection { stroke: #FFFFFF; stroke-width: 2.5; }
+#st-regional-map .st-map-focus { stroke: var(--sheet-soon); }
+#st-regional-map .st-map-icon-bg { fill: var(--sheet-bg); }
+#st-regional-map .st-map-count-bg { fill: var(--sheet-bg); stroke: var(--sheet-muted); }
+#st-regional-map .st-map-count, #st-regional-map .st-map-icon-fallback { fill: var(--sheet-ink); font-family: var(--f-mono); }
+#st-regional-map .st-map-indicator-label, #st-regional-map .st-map-edge-label { fill: var(--sheet-muted); font-family: var(--f-ui); }
+#st-regional-map .st-map-tooltip { background: #0B1016; border-color: #34404D; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+
+/* Battle timeline states on systems: gold for soon/open, like the AEMT map. */
+#st-regional-map .st-map-node[data-category="warning"] .st-map-box { fill: var(--sheet-box); stroke: var(--sheet-soon); stroke-dasharray: 6 4; stroke-width: 2; }
+#st-regional-map .st-map-node[data-category="warning"] .st-map-name { fill: var(--sheet-ink); }
+#st-regional-map .st-map-node[data-category="danger"] .st-map-box { fill: var(--sheet-open); stroke: var(--sheet-soon); stroke-width: 2.4; filter: drop-shadow(0 0 6px rgba(255, 224, 102, .55)); }
+#st-regional-map .st-map-node[data-category="danger"] .st-map-name { fill: var(--sheet-soon); }
+#st-regional-map .st-map-node[data-category="info"] .st-map-box { fill: #13212E; stroke: var(--sheet-paused); stroke-width: 2.4; }
+#st-regional-map .st-map-node[data-category="info"] .st-map-name { fill: var(--sheet-paused); }
+#st-regional-map .st-map-node[data-category="success"] .st-map-box { fill: #13241A; stroke: var(--sheet-won); }
+#st-regional-map .st-map-node[data-category="success"] .st-map-name { fill: var(--sheet-won); }
+@keyframes st-timer-pulse { 50% { fill: #4A4A1F; stroke-width: 4; } }
+
+/* Merged maps: Querious systems sit on a slightly cooler box than Delve's. */
+#st-regional-map [data-region="10000050"] .st-map-box { fill: #121922; }
+
+/* Sidebar and the area below the map. */
+#st-regional-map .st-map-sidebar h2 { font-family: var(--f-ui); font-weight: 700; }
+#st-regional-map .st-map-timer { background: #0B1016; border-radius: 6px; border-left-width: 3px; }
+#st-regional-map .st-map-legend { color: var(--sheet-muted); padding: 8px 0; border-block: 1px solid var(--sheet-rule); }
+#st-regional-map .st-map-legend [data-category] { color: var(--sheet-ink); }
+#st-regional-map .st-map-below { color: var(--sheet-muted); }
+#st-regional-map #st-map-status { color: var(--sheet-ink); font-family: var(--f-mono); font-size: 13px; }
+#st-battle-summary { color: var(--sheet-ink); font-weight: 600; }
+#st-regional-map .st-battle-hour { border-color: var(--sheet-rule); }

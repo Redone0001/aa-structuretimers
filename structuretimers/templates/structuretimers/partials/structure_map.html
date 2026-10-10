@@ -10,33 +10,26 @@
     <div class="collapse" id="st-map-collapse">
         <div class="card-body">
 {# data-forces="off" hides fleet tokens; a future tab can turn them on with data-forces="on". #}
-<section id="st-regional-map" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+<section id="st-regional-map" data-bs-theme="dark" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
-    {% include "structuretimers/partials/battle_map.html" %}
-    <div class="card mb-3"><div class="card-body">
-        <div class="st-map-controls">
-            <label>{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
-            <label>{% translate 'Range' %}<select id="st-map-range" class="form-select"><option value="none">{% translate 'None' %}</option>{% for key, limit, label, style in jump_ranges %}<option value="{{ key }}">{{ label }} · {{ limit }} LY</option>{% endfor %}</select></label>
-            <label>{% translate 'Spacing' %}<select id="st-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
-        </div>
-        <div class="st-map-source mt-3" id="st-map-source-controls" hidden>
-            <label for="st-map-source-search">{% translate 'Range origin · search any region' %}</label>
-            <div class="d-flex gap-2 flex-wrap"><input id="st-map-source-search" class="form-control" type="search" placeholder="{% translate 'At least two characters' %}" autocomplete="off"><select id="st-map-source" class="form-select" aria-label="{% translate 'Range origin results' %}"><option value="">{% translate 'Choose an origin' %}</option></select></div>
-            <p id="st-map-source-status" class="small text-muted mb-0" role="status"></p>
-        </div>
-        <p class="small text-muted mt-2 mb-0">The map shows the rows the table below shows: change the table's filters or search to change the map. Highlighted systems contain matching rows and satisfy the selected range. Range is geometric distance, not a guarantee that a ship can jump there.</p>
-    </div></div>
-    <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
-        <label><input id="st-map-test-regions" class="form-check-input me-1" type="checkbox"> {% translate 'Show CCP test regions' %}</label>
-        <label><input id="st-map-structures" class="form-check-input me-1" type="checkbox" checked> {% translate 'Structure indicators' %}</label>
-        <label><input id="st-map-gates" class="form-check-input me-1" type="checkbox" checked> {% translate 'Stargates' %}</label>
-        <label><input id="st-map-labels" class="form-check-input me-1" type="checkbox"> {% translate 'Indicator labels' %}</label>
-        <button class="btn btn-outline-secondary btn-sm" id="st-map-refresh" type="button">{% translate 'Refresh' %}</button>
+
+    {# Above the map: only the time and the region. #}
+    <div class="st-map-topbar mb-2">
+        <label class="st-map-region-picker">{% translate 'Region' %}<select id="st-map-region" class="form-select" aria-label="{% translate 'Region' %}"></select></label>
+        <div class="st-battle-controls">
+            <div class="st-map-timebar d-flex flex-wrap align-items-end gap-3">
+      <label><input id="st-battle-enabled" type="checkbox" class="form-check-input" checked> {% translate 'Experimental battle timeline' %}</label>
+      <label>{% translate 'Day (EVE / UTC)' %} <input id="st-battle-day" type="date" class="form-control"></label>
+      <button id="st-battle-live" type="button" class="btn btn-primary" aria-pressed="true">{% translate 'Live' %}</button>
+      <label>{% translate 'Time (UTC)' %} <input id="st-battle-time" type="time" step="60" class="form-control"></label>
+      <strong id="st-battle-clock"></strong>
     </div>
-    <div class="st-map-legend mb-2" aria-label="{% translate 'Map legend' %}">
-        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span data-forces-only>◯ {% translate 'Ring: fleet present' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
+            <label for="st-battle-slider" class="mt-3">{% translate 'Drag to inspect when timers open' %}</label>
+            <input id="st-battle-slider" type="range" min="0" max="1439" step="1" value="0" class="form-range">
+            <div class="d-flex justify-content-between small text-muted"><span>00:00 UTC</span><span>12:00</span><span>23:59 UTC</span></div>
+        </div>
     </div>
-    <p id="st-map-status" role="status" aria-live="polite">{% translate 'Loading regions…' %}</p>
+
     <div class="st-map-layout">
         <div class="st-map-main">
             <div class="d-flex flex-wrap gap-2 mb-2">
@@ -45,9 +38,41 @@
                 <button class="btn btn-secondary" id="st-map-fit" type="button">{% translate 'Fit map' %}</button><button class="btn btn-outline-secondary" id="st-map-clear" type="button">{% translate 'Clear selection' %}</button>
             </div>
             <div id="st-map-canvas"></div>
-            <p class="small text-muted mt-2">{% translate 'Drag the map to pan; drag fleet tokens onto systems to move them. Wheel or +/− to zoom. Tab to a system, Enter/Space to select. Arrow keys pan when the map is focused; Home fits the map.' %}</p>
         </div>
         <aside class="card st-map-sidebar" aria-labelledby="st-map-detail-title"><div class="card-body"><h2 id="st-map-detail-title" class="h5">{% translate 'Select a system' %}</h2><div id="st-map-details" aria-live="polite">{% translate 'Select a system on the map or in the selector to see its permitted timers.' %}</div></div></aside>
+    </div>
+
+    {# Below the map: status, filters, layers, legend and explanations. #}
+    <div class="st-map-below mt-3">
+        <p id="st-map-status" role="status" aria-live="polite">{% translate 'Loading regions…' %}</p>
+        <p id="st-battle-summary" class="mt-2 mb-1" role="status"></p>
+        <div class="st-map-controls mb-2">
+            <label>{% translate 'Range' %}<select id="st-map-range" class="form-select"><option value="none">{% translate 'None' %}</option>{% for key, limit, label, style in jump_ranges %}<option value="{{ key }}">{{ label }} · {{ limit }} LY</option>{% endfor %}</select></label>
+            <label>{% translate 'Spacing' %}<select id="st-map-spacing" class="form-select"><option value="1">{% translate 'Compact' %}</option><option value="1.6">{% translate 'Comfortable' %}</option><option value="2.2">{% translate 'Spacious' %}</option></select></label>
+        </div>
+        <div class="st-map-source mt-3" id="st-map-source-controls" hidden>
+            <label for="st-map-source-search">{% translate 'Range origin · search any region' %}</label>
+            <div class="d-flex gap-2 flex-wrap"><input id="st-map-source-search" class="form-control" type="search" placeholder="{% translate 'At least two characters' %}" autocomplete="off"><select id="st-map-source" class="form-select" aria-label="{% translate 'Range origin results' %}"><option value="">{% translate 'Choose an origin' %}</option></select></div>
+            <p id="st-map-source-status" class="small text-muted mb-0" role="status"></p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <label><input id="st-map-test-regions" class="form-check-input me-1" type="checkbox"> {% translate 'Show CCP test regions' %}</label>
+        <label><input id="st-map-structures" class="form-check-input me-1" type="checkbox" checked> {% translate 'Structure indicators' %}</label>
+        <label><input id="st-map-gates" class="form-check-input me-1" type="checkbox" checked> {% translate 'Stargates' %}</label>
+        <label><input id="st-map-labels" class="form-check-input me-1" type="checkbox"> {% translate 'Indicator labels' %}</label>
+        <button class="btn btn-outline-secondary btn-sm" id="st-map-refresh" type="button">{% translate 'Refresh' %}</button>
+    </div>
+        <div class="st-map-legend mb-2" aria-label="{% translate 'Map legend' %}">
+        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span data-forces-only>◯ {% translate 'Ring: fleet present' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
+    </div>
+        <p class="small text-muted mt-2 mb-0">The map shows the rows the table below shows: change the table's filters or search to change the map. Highlighted systems contain matching rows and satisfy the selected range. Range is geometric distance, not a guarantee that a ship can jump there.</p>
+        <p class="small text-muted mt-2">{% translate 'Drag the map to pan; drag fleet tokens onto systems to move them. Wheel or +/− to zoom. Tab to a system, Enter/Space to select. Arrow keys pan when the map is focused; Home fits the map.' %}</p>
+        <div class="st-map-notes small text-muted">
+            <p class="small text-muted mb-0">{% translate 'Armor / Final / Anchoring: 15 min · Hull: 30 min · Unanchoring: instant. Pausing freezes the repair countdown. Live updates locally; server refresh every 15 min. Auto-repair is an estimate. Fleet tokens show latest intelligence, even when inspecting another time.' %}</p>
+            <p class="small mt-2 mb-0"><span class="text-warning">{% translate 'Warning: opens within 15 min' %}</span> · <span class="text-info">{% translate 'Info: paused' %}</span> · <span class="text-danger">{% translate 'Danger: open; pulses in final 5 min' %}</span>. {% translate 'While paused, −1 min / +1 min corrects remaining repair time.' %}</p>
+            <p id="st-battle-sync" class="small text-muted mt-1 mb-0"></p>
+            <p id="st-battle-error" class="text-danger mb-0" role="alert"></p>
+        </div>
     </div>
     {% include "structuretimers/partials/battle_fleets.html" %}
 </section>

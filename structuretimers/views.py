@@ -306,6 +306,11 @@ class TimerListDataView(
                     # Plain values for the map section, which draws table rows.
                     "map": {
                         "system_id": timer.eve_solar_system_id,
+                        "region_id": (
+                            timer.eve_solar_system.eve_constellation.eve_region_id
+                            if timer.eve_solar_system
+                            else None
+                        ),
                         "objective": timer.objective,
                         "structure_type_id": timer.structure_type_id,
                         "structure_name": timer.structure_name,

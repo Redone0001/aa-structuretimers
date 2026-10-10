@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 from .alliance_directory import lookup_alliances, resolve_alliance
 
 from .models import MapFleetToken, MapTimerState, Timer
-from .regional_map import RELATIONSHIPS, sde_models, distance_ly, RANGES
+from .regional_map import RELATIONSHIPS, RANGES, distance_ly, resolve_region, sde_models
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
 
@@ -126,10 +126,10 @@ def token_payload(token, user, system=None, ship_classes=None):
     }
 
 
-def regional_fleets(user, region_id):
+def regional_fleets(user, region_ids):
     """Include adjacent-region forces and forces within the longest jump preset."""
     _, system_model, gate_model = sde_models()
-    regional = list(system_model.objects.filter(constellation__region_id=region_id))
+    regional = list(system_model.objects.filter(constellation__region_id__in=region_ids))
     ids = {s.pk for s in regional}
     neighbors = set(
         gate_model.objects.filter(solar_system_id__in=ids).values_list(
@@ -222,21 +222,19 @@ def battle_data(request, layer):
             )
         if layer == "fleets":
             region_model, _, _ = sde_models()
-            region = get_object_or_404(
-                region_model, pk=int(request.GET.get("region", "0"))
-            )
+            region = resolve_region(region_model, request.GET.get("region"))
             return JsonResponse(
                 {
-                    "tokens": regional_fleets(request.user, region.pk),
+                    "tokens": regional_fleets(request.user, region.ids),
                     "server_time": now().isoformat(),
                 }
             )
         if layer != "snapshot":
             return JsonResponse({"error": "Unknown layer."}, status=404)
-        _, system_model, _ = sde_models()
-        region_id = int(request.GET.get("region", "0"))
+        region_model, system_model, _ = sde_models()
+        region_ids = resolve_region(region_model, request.GET.get("region")).ids
         systems = dict(
-            system_model.objects.filter(constellation__region_id=region_id).values_list(
+            system_model.objects.filter(constellation__region_id__in=region_ids).values_list(
                 "id", "name"
             )
         )
@@ -293,7 +291,7 @@ def battle_data(request, layer):
             {
                 "timers": records,
                 "tokens": (
-                    regional_fleets(request.user, region_id)
+                    regional_fleets(request.user, region_ids)
                     if request.GET.get("fleets", "1") == "1"
                     else None
                 ),

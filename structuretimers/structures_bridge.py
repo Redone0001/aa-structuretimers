@@ -165,6 +165,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
                 "objective_name": "+10",
                 "map": {
                     "system_id": system.id,
+                    "region_id": region.id,
                     "objective": "FR",
                     "structure_type_id": structure.eve_type_id,
                     "structure_name": structure.name,

@@ -185,7 +185,7 @@
             this.data.nodes.forEach(node => {
                 if (!node.position) return;
                 const x=node.position[0]*this.spacing, y=node.position[1]*this.spacing;
-                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-external':node.external?'true':'false', 'data-category': this.nodeStates?.get(node.id)?.category || node.category || 'default', 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id), class: 'st-map-node'+(this.nodeStates?.get(node.id)?.pulse?' st-map-timer-pulse':'')});
+                const group=svg('g', {transform: `translate(${x} ${y})`, 'data-node': node.id, 'data-external':node.external?'true':'false', 'data-category': this.nodeStates?.get(node.id)?.category || node.category || 'default', 'data-region': node.region_id ?? '', 'data-focus-key': `node-${node.id}`, tabindex: 0, role: 'button', 'aria-label': node.name, 'aria-pressed': String(this.selectedIds ? this.selectedIds.has(node.id) : this.selected===node.id), class: 'st-map-node'+(this.nodeStates?.get(node.id)?.pulse?' st-map-timer-pulse':'')});
                 const label=svg('text', {x:0, y:4, 'text-anchor':'middle', class:'st-map-name'}, node.name); group.append(label); layers[3].append(group);
                 const width=Math.max(90, label.getComputedTextLength()+24), height=34;
                 const box=svg('rect', {x:-width/2, y:-17, width, height, rx:6, class:'st-map-box'});group.prepend(box);
@@ -233,8 +233,8 @@
             pairs.forEach(edges=>edges.sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach((edge,index)=>{
                 const a=this.nodes.get(edge.source),b=this.nodes.get(edge.target);if(!a||!b)return;
                 const lane=(index-(edges.length-1)/2)*(edge.source<edge.target?1:-1);
-                const color=edge.color||'var(--bs-secondary-color)';
-                const path=svg('path',{d:connectionPath(a,b,lane),fill:'none',stroke:color,'stroke-width':edge.width||1,'vector-effect':'non-scaling-stroke'});
+                const color=edge.color||'var(--st-map-gate, var(--bs-secondary-color))';
+                const path=svg('path',{d:connectionPath(a,b,lane),fill:'none',stroke:color,'stroke-width':edge.width||1,'vector-effect':'non-scaling-stroke',class:`st-map-edge${edge.crossing?' st-map-edge-'+edge.crossing:''}`});
                 if(edge.dashed)path.setAttribute('stroke-dasharray','6 4');
                 if(edge.directed){const id=`${this.uid}-arrow-${defs.childElementCount}`;const marker=svg('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:8,markerHeight:8,orient:'auto-start-reverse',markerUnits:'userSpaceOnUse'});marker.append(svg('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker);path.setAttribute('marker-end',`url(#${id})`);}
                 if(edge.tooltip)this.hint(path,edge.tooltip);layers[edge.kind==='gate'?0:1].append(path);

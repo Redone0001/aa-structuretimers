@@ -131,8 +131,11 @@
     async function init(restore=false){try{
         const previous=restore?(saved.region||root.dataset.defaultRegion):$('region').value;
         const data=await request('regions',{include_test:$('test-regions').checked?'1':'0'});if(!data)return;
-        $('region').replaceChildren(...data.regions.map(r=>new Option(r.name,r.id)));
-        if(data.regions.some(r=>String(r.id)===String(previous)))$('region').value=previous;
+        $('region').replaceChildren(...data.regions.map(r=>{const option=new Option(r.name,r.id);option.dataset.regions=(r.regions||[r.id]).join(',');return option;}));
+        // Staging in Delve or Querious opens the merged Delve + Querious map.
+        const merged=!restore||saved.region?null:[...$('region').options].find(o=>o.dataset.regions.includes(',')&&o.dataset.regions.split(',').includes(String(previous)));
+        if(merged)$('region').value=merged.value;
+        else if(data.regions.some(r=>String(r.id)===String(previous)))$('region').value=previous;
         await region();
         if(restore && String(saved.region)===$('region').value){map.setViewport(saved.viewport);if(state.data?.nodes.some(n=>n.id===saved.selected))await select(saved.selected);}
         remembering=true;remember();
@@ -150,10 +153,12 @@
     // Load nothing until the section is opened, so the tabs stay fast.
     let started=false;
     function regionFollowsTable(){
-        const regions=new Set(rows().map(row=>row.region_name));
-        if(regions.size!==1)return false;
-        const [name]=regions, option=[...$('region').options].find(o=>o.textContent===name);
-        if(!option||option.value===$('region').value)return false;
+        // Follow the table when all its rows are in one region the map is not showing.
+        const regions=new Set(rows().map(row=>String(row.map.region_id)));
+        const shown=($('region').selectedOptions[0]?.dataset.regions||'').split(',');
+        if(!regions.size||[...regions].every(id=>shown.includes(id))||regions.size!==1)return false;
+        const [id]=regions, option=[...$('region').options].find(o=>o.value===id);
+        if(!option)return false;
         $('region').value=option.value;region();return true;
     }
     async function tableChanged(){
