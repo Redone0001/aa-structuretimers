@@ -1,14 +1,16 @@
 {% load static i18n %}
 {# One map section, shared by the Current and Database tabs; it draws the active tab's filtered table rows. #}
 <div class="card mb-3" id="st-map-panel" hidden>
-    <div class="card-header d-flex align-items-center justify-content-between">
-        <button class="btn btn-link p-0 text-decoration-none fw-bold" type="button" id="st-map-toggle" data-bs-toggle="collapse" data-bs-target="#st-map-collapse" aria-expanded="false" aria-controls="st-map-collapse">
-            <i class="fas fa-map me-1"></i> Map <span class="small text-muted fw-normal" id="st-map-mode-label"></span>
+    <div class="card-header p-0">
+        <button class="btn w-100 text-start fw-bold px-3 py-2 d-flex align-items-center gap-2" type="button" id="st-map-toggle" data-bs-toggle="collapse" data-bs-target="#st-map-collapse" aria-expanded="false" aria-controls="st-map-collapse">
+            <i class="fas fa-map"></i> Map <span class="small text-muted fw-normal" id="st-map-mode-label"></span>
+            <i class="fas fa-chevron-down ms-auto st-map-chevron" aria-hidden="true"></i>
         </button>
     </div>
     <div class="collapse" id="st-map-collapse">
         <div class="card-body">
-<section id="st-regional-map" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+{# data-forces="off" hides fleet tokens; a future tab can turn them on with data-forces="on". #}
+<section id="st-regional-map" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
     {% include "structuretimers/partials/battle_map.html" %}
     <div class="card mb-3"><div class="card-body">
@@ -32,7 +34,7 @@
         <button class="btn btn-outline-secondary btn-sm" id="st-map-refresh" type="button">{% translate 'Refresh' %}</button>
     </div>
     <div class="st-map-legend mb-2" aria-label="{% translate 'Map legend' %}">
-        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span>◯ {% translate 'Ring: fleet present' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
+        <span data-category="friendly">F · {% translate 'Friendly' %}</span><span data-category="neutral">N · {% translate 'Neutral' %}</span><span data-category="hostile">H · {% translate 'Hostile' %}</span><span data-category="undefined">? · {% translate 'Undefined' %}</span><span data-forces-only>◯ {% translate 'Ring: fleet present' %}</span><span>◇ {% translate 'Solid outline: selected' %}</span><span>┄ {% translate 'Dashed outline: matches filters' %}</span>
     </div>
     <p id="st-map-status" role="status" aria-live="polite">{% translate 'Loading regions…' %}</p>
     <div class="st-map-layout">

@@ -9,7 +9,11 @@
     const relationshipCodes = {friendly:'FR',hostile:'HO',neutral:'NE',undefined:'UN'};
     class BattleMap {
         constructor(root, hooks) {
-            this.root=root;this.hooks=hooks;this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();this.rangeSelected=new Set();this.rangeCache=new Map();this.rangeGeneration=0;this.fleetVersion=0;this.fleetLoaded=0;
+            this.root=root;this.hooks=hooks;
+            // Fleet tokens are off unless the map section asks for them (data-forces="on").
+            this.forces=root.dataset.forces!=='off';
+            if(!this.forces){$('fleets').checked=false;$('forces-panel').hidden=true;root.querySelectorAll('[data-forces-only]').forEach(e=>{e.hidden=true;});}
+this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.selected=null;this.ready=false;this.moving=new Set();this.rangeSelected=new Set();this.rangeCache=new Map();this.rangeGeneration=0;this.fleetVersion=0;this.fleetLoaded=0;
             $('day').value=utc(Date.now()).slice(0,10);
             $('enabled').addEventListener('change',()=>{this.updateControls();hooks.refresh();});
             $('day').addEventListener('change',()=>{if(!$('day').value)return;this.live=false;this.load();});
@@ -46,6 +50,7 @@
             return data;
         }
         applyFleets(tokens){
+            if(!this.forces)return;
             this.tokens=tokens;this.fleetLoaded=Date.now();this.syncForceRanges();this.renderFleets();this.hooks.paint();
             $('fleet-sync').textContent=`Forces updated ${clock(this.now())} UTC · updates every 2 minutes while fleet overlay is on.`;
         }
