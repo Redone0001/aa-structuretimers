@@ -13,7 +13,7 @@
 
 {% block header_nav_collapse_right %}
     {% if perms.structuretimers.create_timer %}
-        {% if perms.structuretimers.recon_access %}
+        {% if perms.structuretimers.recon_member %}
         <li class="nav-item">
             <a class="btn btn-primary me-2" href="{% url 'structuretimers:add_recon' %}" title="{% translate 'Add reconnaissance' %}">
                 <i class="fa-solid fa-binoculars"></i>&nbsp;{% translate "Add recon" %}

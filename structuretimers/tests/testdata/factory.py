@@ -49,7 +49,7 @@ class UserWithAccessFactory(UserMainFactory):
 
     permissions__ = [
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
     ]
 
 
@@ -58,7 +58,7 @@ class UserWithCreateFactory(UserMainFactory):
 
     permissions__ = [
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
         "structuretimers.create_timer",
     ]
 
@@ -68,7 +68,7 @@ class UserWithManageFactory(UserMainFactory):
 
     permissions__ = [
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
         "structuretimers.manage_timer",
     ]
 
@@ -246,7 +246,7 @@ def create_user(character: EveCharacter) -> User:
     user = AuthUtils.create_user(character.character_name)
     add_main_to_user(user, character)
     AuthUtils.add_permission_to_user_by_name("structuretimers.basic_access", user)
-    AuthUtils.add_permission_to_user_by_name("structuretimers.recon_access", user)
+    AuthUtils.add_permission_to_user_by_name("structuretimers.recon_member", user)
     user = User.objects.get(pk=user.pk)
     return user
 

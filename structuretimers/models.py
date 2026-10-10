@@ -80,7 +80,7 @@ class General(models.Model):
         permissions = (
             ("basic_access", "Can access this app and see timers"),
             (
-                "recon_access",
+                "recon_member",
                 "Can see the database, recon campaigns and maps",
             ),
             ("recon_coordinator", "Can create and coordinate recon campaigns"),

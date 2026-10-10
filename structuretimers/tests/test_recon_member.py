@@ -17,7 +17,7 @@ from structuretimers.tests.testdata.factory import (
 @patch(
     "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
 )
-class TestReconAccess(NoSocketsTestCase):
+class TestReconMember(NoSocketsTestCase):
     def setUp(self):
         self.user = UserMainFactory(
             permissions__=[
@@ -72,7 +72,7 @@ class TestReconAccess(NoSocketsTestCase):
         )
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
 
-    def test_recon_access_restores_everything(self):
+    def test_recon_member_restores_everything(self):
         user = UserWithAccessFactory()
         self.client.force_login(user)
         response = self.client.get(reverse("structuretimers:timer_list"))

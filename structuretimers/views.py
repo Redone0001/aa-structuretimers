@@ -81,7 +81,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         tab = self.request.GET.get("tab", "current")
         tab = {"manage-recon": "preliminary"}.get(tab, tab)
         if tab in ("preliminary", "recon-campaigns") and not self.request.user.has_perm(
-            "structuretimers.recon_access"
+            "structuretimers.recon_member"
         ):
             return "current"
         return tab
@@ -459,7 +459,7 @@ class ManageReconDataView(TimerListDataView):
 
     permission_required = (
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
     )
 
     def get_queryset(self):
@@ -482,7 +482,7 @@ class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     permission_required = (
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
     )
 
     def post(self, request, pk, action):
@@ -582,7 +582,7 @@ class CreateReconView(CreateTimerView):
     permission_required = (
         "structuretimers.basic_access",
         "structuretimers.create_timer",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
     )
 
 

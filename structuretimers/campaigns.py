@@ -65,7 +65,7 @@ class CampaignForm(forms.Form):
 class CampaignAccess(LoginRequiredMixin, PermissionRequiredMixin):
     permission_required = (
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
     )
 
 
@@ -77,7 +77,7 @@ class CampaignListView(CampaignAccess, View):
 class CampaignCreateView(CampaignAccess, View):
     permission_required = (
         "structuretimers.basic_access",
-        "structuretimers.recon_access",
+        "structuretimers.recon_member",
         "structuretimers.recon_coordinator",
     )
 

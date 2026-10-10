@@ -176,7 +176,7 @@ def structure_payload(user, ids, params):
 
 @login_required
 @permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_access"),
+    ("structuretimers.basic_access", "structuretimers.recon_member"),
     raise_exception=True,
 )
 @require_GET
@@ -191,7 +191,7 @@ def map_page(request):
 
 @login_required
 @permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_access"),
+    ("structuretimers.basic_access", "structuretimers.recon_member"),
     raise_exception=True,
 )
 @require_GET
