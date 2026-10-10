@@ -7,7 +7,7 @@ $(document).ready(function () {
     const number = value => Number(value.toFixed(2)).toLocaleString(document.documentElement.lang || undefined);
     const status = $('#recon-status');
     const filters = () => ({age: $('#recon-age').val(), from: $('#recon-from').val(), to: $('#recon-to').val()});
-    const stateKey = 'st-recon-settings-' + root.dataset.userId;
+    const stateKey = 'st-recon-settings-v2-' + root.dataset.userId;
     let saved = {}, ready = false;
     try {
         const cookie = document.cookie.split('; ').find(value => value.startsWith(stateKey + '='));
@@ -23,7 +23,7 @@ $(document).ready(function () {
     function saveSettings() {
         if (!ready) return;
         const columns = {};
-        for (let i = 7; i <= 11; i++) {
+        for (let i = 8; i <= 12; i++) {
             columns[i] = $('#tbl_manage_recon_filterSelect' + i + '_menu input:checked').map(function () { return this.value; }).get();
         }
         const state = {...filters(), windowFrom: $('#recon-window-from').val(), windowTo: $('#recon-window-to').val(),
@@ -71,7 +71,7 @@ $(document).ready(function () {
         ajax: {url: root.dataset.url, dataSrc: '', cache: false,
             error: () => status.addClass('text-danger').text(messages.loadError)},
         columns: [
-            {data: 'location'}, {data: 'structure_details'}, {data: 'name_objective'},
+            {data: 'location'}, {data: 'distance', render: {_: 'display', sort: 'sort'}}, {data: 'structure_details'}, {data: 'name_objective'},
             {data: 'owner'},
             {data: 'reinforcement_time', className: 'text-nowrap', render: (data, type) => {
                 if (type === 'sort' || type === 'type') {
@@ -85,14 +85,14 @@ $(document).ready(function () {
             {data: 'structure_type_name', visible: false}, {data: 'owner_name', visible: false},
             {data: 'objective_name', visible: false}
         ],
-        order: saved.order || [[5, 'asc']], pageLength: saved.length || 25,
+        order: saved.order || [[6, 'asc']], pageLength: saved.length || 25,
         search: {search: saved.search || ''},
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, messages.all]],
         drawCallback: function () { updateDashboard(this.api().rows({search: 'applied'}).data().toArray()); saveSettings(); },
         initComplete: function () {
             initializeMultiSelectFilters(this.api(), {columns: [
-                {idx: 7, title: messages.solarSystem}, {idx: 8, title: messages.region},
-                {idx: 9, title: messages.structureType}, {idx: 10, title: messages.owner}, {idx: 11, title: messages.objective}
+                {idx: 8, title: messages.solarSystem}, {idx: 9, title: messages.region},
+                {idx: 10, title: messages.structureType}, {idx: 11, title: messages.owner}, {idx: 12, title: messages.objective}
             ]}, exported.getAttribute('data-titleFilterBy'), exported.getAttribute('data-titleAll'),
             saved.columns || {});
             this.api().page(Math.min(saved.page || 0, Math.max(0, this.api().page.info().pages - 1))).draw(false);
@@ -133,7 +133,6 @@ $(document).ready(function () {
             await response.json();
             status.text(destroy ? messages.removed : messages.refreshed);
             table.ajax.reload(null, false);
-            $('#tbl_preliminary').DataTable().ajax.reload(null, false);
         } catch (_) {
             status.addClass('text-danger').text(messages.saveError);
         } finally { buttons.prop('disabled', false); }
@@ -143,6 +142,6 @@ $(document).ready(function () {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
         window.history.replaceState(null, '', url);
-        if (tab === 'manage-recon') table.columns.adjust();
+        if (tab === 'preliminary') table.columns.adjust();
     });
 });

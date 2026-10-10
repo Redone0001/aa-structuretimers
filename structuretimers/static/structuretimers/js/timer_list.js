@@ -138,7 +138,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         $("<p>", {class: "mb-1 fw-bold"}).text(titleFilterBy + ":"), wrapper
     );
     $(table.table().container()).prepend(row);
-    const windowPrefix = {tbl_preliminary: 'preliminary', tbl_manage_recon: 'recon'}[tableId];
+    const windowPrefix = {tbl_manage_recon: 'recon'}[tableId];
     if (windowPrefix) {
         row.append($('#' + windowPrefix + '-window-filter'));
     }
@@ -377,17 +377,6 @@ $(document).ready(function () {
         titleVisibility,
         titleOwner
     );
-    const preliminaryFilterDefinition = createFilterDefinition(
-        8,
-        hasPermOPSEC,
-        titleSolarSystem,
-        titleRegion,
-        titleStructureType,
-        titleTimerType,
-        titleObjective,
-        titleVisibility,
-        titleOwner
-    );
 
     $("#tbl_timers_past").DataTable({
         ajax: {
@@ -405,73 +394,6 @@ $(document).ready(function () {
             initializeMultiSelectFilters(
                 this.api(),
                 standardFilterDefinition,
-                titleFilterBy,
-                titleAll
-            );
-        },
-    });
-    $.fn.dataTable.ext.search.push((settings, data, index, row) =>
-        settings.nTable.id !== 'tbl_preliminary' || ReconDistribution.matchesWindow(
-            row, $('#preliminary-window-from').val(), $('#preliminary-window-to').val()));
-    $('#preliminary-window-from, #preliminary-window-to').on('change', () => $('#tbl_preliminary').DataTable().draw());
-    $('#preliminary-window-clear').on('click', () => {
-        $('#preliminary-window-from, #preliminary-window-to').val('');
-        $('#tbl_preliminary').DataTable().draw();
-    });
-    $("#tbl_preliminary").DataTable({
-        ajax: {
-            url: listDataTargetUrl,
-            dataSrc: "",
-            cache: false,
-        },
-        columns: [
-            { data: "location" },
-            {
-                data: "distance",
-                render: {
-                    _: "display",
-                    sort: "sort",
-                },
-            },
-            { data: "structure_details" },
-            { data: "owner" },
-            { data: "name_objective" },
-            {
-                data: "reinforcement_time",
-                className: "text-nowrap",
-                render: function (data, type) {
-                    if (type === "sort" || type === "type") {
-                        return data ? Number(data.slice(0, 2)) * 60 + Number(data.slice(3, 5)) : 1440;
-                    }
-                    return data || "—";
-                },
-            },
-            {
-                data: "last_updated_at",
-                render: function (data, type, row) {
-                    return moment(data).utc().format("YYYY-MM-DD HH:mm");
-                },
-            },
-            { data: "actions" },
-            /* hidden columns */
-            { data: "system_name" },
-            { data: "region_name" },
-            { data: "structure_type_name" },
-            { data: "timer_type_name" },
-            { data: "objective_name" },
-            { data: "visibility" },
-            { data: "owner_name" },
-            { data: "opsec_str" },
-        ],
-        order: [[6, "desc"]],
-        lengthMenu: lengthMenu,
-        paging: dataTablesPaging,
-        pageLength: dataTablesPageLength,
-        columnDefs: [createVisibleColumDef(8), { orderable: false, targets: 7 }],
-        initComplete: function () {
-            initializeMultiSelectFilters(
-                this.api(),
-                preliminaryFilterDefinition,
                 titleFilterBy,
                 titleAll
             );

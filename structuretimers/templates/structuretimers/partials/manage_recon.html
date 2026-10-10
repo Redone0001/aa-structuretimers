@@ -1,6 +1,6 @@
 {% load i18n %}
 {{ recon_translations|json_script:"recon-translations" }}
-<div id="recon-dashboard" data-user-id="{{ request.user.pk }}" data-url="{% url 'structuretimers:recon_data' %}">
+<div id="recon-dashboard" data-user-id="{{ request.user.pk }}" data-url="{% url 'structuretimers:recon_data' %}?staging={{ selected_staging_system.pk }}">
     <div class="row g-3 mb-4" aria-live="polite">
         <div class="col-md-4"><div class="card h-100"><div class="card-body">
             <h6 class="text-muted">{% translate "Oldest recon / refresh" %}</h6>
@@ -16,7 +16,8 @@
         </div></div></div>
     </div>
     {% include "structuretimers/partials/vulnerability_filter.html" with prefix="recon" %}
-    <h5>{% translate "Vulnerability window distribution · EVE time (UTC)" %}</h5>
+    <details class="mb-4" id="recon-heatmap-section">
+    <summary class="h5">{% translate "Vulnerability window distribution · EVE time (UTC)" %}</summary>
     <p class="small text-muted">{% translate "Darker cells mean more overlapping vulnerability windows. Each cell covers 30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown structure types use ±3 hours." %}</p>
     {% include "structuretimers/partials/recon_heatmap_help.html" %}
     <div class="recon-heatmap-scroll mb-2">
@@ -27,6 +28,7 @@
         <span>{% translate "Low" %} <span class="recon-legend"></span> {% translate "High" %}</span>
         <span id="recon-peak"></span><span id="recon-missing" class="text-muted"></span>
     </div>
+    </details>
     <div class="d-flex flex-wrap gap-3 align-items-end mb-3">
         <div><label class="form-label" for="recon-age">{% translate "Last updated" %}</label>
             <select id="recon-age" class="form-select">
@@ -45,7 +47,7 @@
     <div class="table-responsive">
         <table class="table table-striped" id="tbl_manage_recon" style="width:100%">
             <thead><tr>
-                <th>{% translate "Location" %}</th><th>{% translate "Structure type" %}</th>
+                <th>{% translate "Location" %}</th><th>Dist. *</th><th>{% translate "Structure type" %}</th>
                 <th>{% translate "Name / Owner" %}</th><th>{% translate "Objective / Tags" %}</th>
                 <th>{% translate "Vulnerability windows" %} (UTC)</th>
                 <th>{% translate "Last updated (UTC)" %}</th><th>{% translate "Actions" %}</th>

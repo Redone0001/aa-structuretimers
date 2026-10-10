@@ -34,15 +34,19 @@ def messages_in(value):
 
 class TestReconTranslations(NoSocketsTestCase):
     def setUp(self):
-        self.request = RequestFactory().get("/?tab=manage-recon")
+        self.request = RequestFactory().get("/?tab=preliminary")
         self.request.user = UserWithCreateFactory()
 
     def test_each_language_renders_translated_page_and_javascript_messages(self):
-        for language, title in TRANSLATED_TITLES.items():
+        for language in TRANSLATED_TITLES:
             with self.subTest(language=language), translation.override(language):
                 response = TimerListView.as_view()(self.request)
                 response.render()
-                self.assertContains(response, title)
+                # The recon tools now live on the Database tab, so check one of
+                # their headings instead of the old "Manage recon" tab title.
+                heading = translation.gettext("Oldest recon / refresh")
+                self.assertNotEqual(heading, "Oldest recon / refresh")
+                self.assertContains(response, heading)
                 self.assertContains(response, 'id="recon-translations"')
                 messages = response.context_data["recon_translations"]
                 self.assertNotEqual(messages["noMatches"], "No matching recon")

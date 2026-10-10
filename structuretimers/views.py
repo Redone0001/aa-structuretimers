@@ -105,7 +105,10 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "data_tables_paging": STRUCTURETIMERS_PAGING_ENABLED,
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
-                "tab": self.request.GET.get("tab", "current"),
+                "tab": {"manage-recon": "preliminary"}.get(
+                    self.request.GET.get("tab", "current"),
+                    self.request.GET.get("tab", "current"),
+                ),
                 "campaigns": ReconCampaign.objects.all(),
                 "recon_translations": {
                     "noMatches": _("No matching recon"),
@@ -455,7 +458,11 @@ class ManageReconDataView(TimerListDataView):
     def _get_data_actions(self, timer):
         return render_to_string(
             "structuretimers/partials/recon_actions.html",
-            {"timer": timer, "can_edit": timer.user_can_edit(self.request.user)},
+            {
+                "timer": timer,
+                "can_edit": timer.user_can_edit(self.request.user),
+                "can_copy": self.request.user.has_perm("structuretimers.create_timer"),
+            },
         )
 
 
@@ -585,15 +592,15 @@ class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateV
     template_name_suffix = "_update_form"
 
     def get_success_url(self):
-        if self.request.GET.get("tab") == "manage-recon":
-            return reverse("structuretimers:timer_list") + "?tab=manage-recon"
+        if self.request.GET.get("tab") in ("preliminary", "manage-recon"):
+            return reverse("structuretimers:timer_list") + "?tab=preliminary"
         return super().get_success_url()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.GET.get("tab") == "manage-recon":
+        if self.request.GET.get("tab") in ("preliminary", "manage-recon"):
             context["cancel_url"] = (
-                reverse("structuretimers:timer_list") + "?tab=manage-recon"
+                reverse("structuretimers:timer_list") + "?tab=preliminary"
             )
         return context
 

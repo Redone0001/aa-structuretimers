@@ -138,7 +138,7 @@ class TestManageRecon(NoSocketsTestCase):
         self.assertIsNone(row["reinforcement_time"])
         self.assertEqual(row["window_minutes"], 180)
 
-    def test_edit_returns_to_manage_recon(self):
+    def test_edit_returns_to_database_tab(self):
         self.timer.structure_type = None
         self.timer.save()
         url = (
@@ -152,5 +152,5 @@ class TestManageRecon(NoSocketsTestCase):
             },
         )
         self.assertRedirects(
-            response, reverse("structuretimers:timer_list") + "?tab=manage-recon"
+            response, reverse("structuretimers:timer_list") + "?tab=preliminary"
         )
