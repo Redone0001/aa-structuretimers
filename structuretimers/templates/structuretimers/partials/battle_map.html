@@ -13,6 +13,7 @@
     <div class="d-flex justify-content-between small text-muted"><span>00:00 UTC</span><span>12:00</span><span>23:59 UTC</span></div>
     <p id="st-battle-summary" class="mt-2 mb-1" role="status"></p>
     <p class="small text-muted mb-0">{% translate 'Armor / Final / Anchoring: 15 min · Hull: 30 min · Unanchoring: instant. Pausing freezes the repair countdown. Live updates locally; server refresh every 15 min. Auto-repair is an estimate. Fleet tokens show latest intelligence, even when inspecting another time.' %}</p>
+    <p class="small mt-2 mb-0"><span class="text-warning">{% translate 'Warning: opens within 15 min' %}</span> · <span class="text-info">{% translate 'Info: paused' %}</span> · <span class="text-danger">{% translate 'Danger: open; pulses in final 5 min' %}</span>. {% translate 'While paused, −1 min / +1 min corrects remaining repair time.' %}</p>
     <p id="st-battle-sync" class="small text-muted mt-1 mb-0"></p>
     <p id="st-battle-error" class="text-danger mb-0" role="alert"></p>
   </div>

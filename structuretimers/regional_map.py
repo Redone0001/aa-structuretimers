@@ -15,9 +15,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 from .models import Timer
+from .distance_ranges import JUMP_RANGES
 
 LIGHT_YEAR = 9_460_000_000_000_000
-RANGES = {"super": 6.0, "carrier": 7.0, "command": 7.5}
+RANGES = {key: limit for key, limit, _, _ in JUMP_RANGES}
 RELATIONSHIPS = {"FR": "friendly", "NE": "neutral", "HO": "hostile", "UN": "undefined"}
 
 
@@ -179,7 +180,9 @@ def structure_payload(user, ids, params):
 @never_cache
 def map_page(request):
     return render(
-        request, "structuretimers/regional_map.html", {"title": "Regional map"}
+        request,
+        "structuretimers/regional_map.html",
+        {"title": "Regional map", "jump_ranges": JUMP_RANGES},
     )
 
 

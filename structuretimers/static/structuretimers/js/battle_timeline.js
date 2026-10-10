@@ -9,6 +9,7 @@
             if (at > instant) break;
             if (event.action === 'pause') paused = at;
             if (event.action === 'resume' && paused !== null) { elapsed -= at - paused; paused = null; }
+            if (event.action === 'adjust') elapsed -= event.seconds * 1000;
             if (event.action === 'kill') killed = true;
             if (event.action === 'restore') killed = false;
         }
@@ -23,11 +24,18 @@
     }
     function onMap(timer, instant) {
         const status = stateAt(timer, instant);
-        return ['open','paused'].includes(status.name) ||
+        return ['open','paused'].includes(status.name) || (status.name==='upcoming' && status.seconds<=900) ||
             (['unanchored','occurred'].includes(status.name) && instant-Date.parse(timer.date)<60000);
     }
+    function signal(timer, instant) {
+        const state=stateAt(timer,instant);
+        if(state.name==='open')return {category:'danger',pulse:state.seconds<=300};
+        if(state.name==='paused')return {category:'info',pulse:false};
+        if(state.name==='upcoming'&&state.seconds<=900)return {category:'warning',pulse:false};
+        return null;
+    }
     function hourKey(timer) { return timer.date ? new Date(timer.date).toISOString().slice(0,13)+':00Z' : 'Unscheduled'; }
-    const api = {stateAt, onMap, hourKey};
+    const api = {stateAt, onMap, hourKey, signal};
     if (typeof module !== 'undefined') module.exports = api;
     else root.StructureBattleTimeline = api;
 })(typeof window === 'undefined' ? globalThis : window);

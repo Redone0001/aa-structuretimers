@@ -2,10 +2,15 @@
 
 from django.utils.translation import gettext_lazy as _
 
-DISTANCE_RANGE_BADGES = (
-    (6.0, _("Super"), "success"),
-    (7.0, _("Cap"), "primary"),
-    (7.5, _("Command carrier"), "danger"),
+# Keys also drive regional-map presets; badge and map limits cannot drift.
+JUMP_RANGES = (
+    ("super", 6.0, _("Super"), "success"),
+    ("carrier", 7.0, _("Cap"), "primary"),
+    ("command", 7.5, _("Command carrier"), "danger"),
+    ("blops", 8.0, _("Blops"), "info"),
+)
+DISTANCE_RANGE_BADGES = tuple(
+    (limit, label, style) for _, limit, label, style in JUMP_RANGES
 )
 
 

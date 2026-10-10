@@ -41,3 +41,16 @@ test('instant events have no repair window; unknown types are not assigned durat
 test('hour grouping is UTC even for offset dates',()=>{
     assert.equal(hourKey({...timer,date:'2026-10-11T00:30:00+02:00'}),'2026-10-10T22:00Z');
 });
+test('warning and final five-minute pulse boundaries, with paused corrections',()=>{
+    const {signal}=require('../../static/structuretimers/js/battle_timeline.js');
+    assert.equal(signal(timer,start-901000),null);
+    assert.deepEqual(signal(timer,start-900000),{category:'warning',pulse:false});
+    assert.deepEqual(signal(timer,start+599000),{category:'danger',pulse:false});
+    assert.deepEqual(signal(timer,start+600000),{category:'danger',pulse:true});
+    const t={...timer,events:[event('pause',600),{...event('adjust',620),seconds:60},event('resume',700)]};
+    assert.deepEqual(stateAt(t,start+610000),{name:'paused',seconds:300});
+    assert.deepEqual(stateAt(t,start+650000),{name:'paused',seconds:360});
+    assert.deepEqual(signal(t,start+650000),{category:'info',pulse:false});
+    assert.deepEqual(stateAt(t,start+700000),{name:'open',seconds:360});
+    assert.equal(signal(t,start+1060000),null);
+});

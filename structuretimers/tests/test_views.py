@@ -404,7 +404,8 @@ class TestTimerListData(NoSocketsTestCase):
             (5.999, "Super", "success"),
             (6.0, "Cap", "primary"),
             (7.0, "Command carrier", "danger"),
-            (7.5, None, None),
+            (7.5, "Blops", "info"),
+            (8.0, None, None),
         ]
         self.client.force_login(UserWithAccessFactory())
 

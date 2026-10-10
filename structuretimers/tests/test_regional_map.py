@@ -166,6 +166,15 @@ class RegionalMapTests(TestCase):
             1,
         )
 
+    def test_blops_range_matches_shared_badges(self):
+        from structuretimers.distance_ranges import JUMP_RANGES, distance_range
+        from structuretimers.regional_map import RANGES
+
+        self.assertEqual(RANGES, {key: limit for key, limit, _, _ in JUMP_RANGES})
+        self.assertEqual(RANGES["blops"], 8.0)
+        self.assertEqual(str(distance_range(7.9)[0]), "Blops")
+        self.assertIsNone(distance_range(8.0))
+
     def test_range_uses_geographic_coordinates_and_external_origin(self):
         from eve_sde.models import SolarSystem
 

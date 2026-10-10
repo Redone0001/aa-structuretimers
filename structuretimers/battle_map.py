@@ -30,10 +30,8 @@ def timer_events(timer):
     ], state.revision
 
 
-def timer_status(timer, events, instant):
+def timer_clock(timer, events, instant):
     """Replay observations at an instant without moving the original timer date."""
-    if timer.date is None:
-        return "unscheduled"
     duration = DURATIONS.get(timer.timer_type)
     elapsed = (instant - timer.date).total_seconds()
     paused = None
@@ -47,19 +45,31 @@ def timer_status(timer, events, instant):
         elif event["action"] == "resume" and paused:
             elapsed -= (at - paused).total_seconds()
             paused = None
+        elif event["action"] == "adjust":
+            elapsed -= event["seconds"]
         elif event["action"] == "kill":
             killed = True
         elif event["action"] == "restore":
             killed = False
+    if paused:
+        elapsed -= (instant - paused).total_seconds()
+    remaining = None if duration is None else max(0, duration - elapsed)
+    return elapsed, paused, killed, remaining
+
+
+def timer_status(timer, events, instant):
+    if timer.date is None:
+        return "unscheduled"
+    elapsed, paused, killed, remaining = timer_clock(timer, events, instant)
     if killed:
         return "killed"
     if elapsed < 0:
         return "upcoming"
     if paused:
         return "paused"
-    if duration is None:
+    if remaining is None:
         return "occurred"
-    return "open" if elapsed < duration else "repaired"
+    return "open" if remaining > 0 else "repaired"
 
 
 def visible_tokens(user):
@@ -179,7 +189,10 @@ def battle_data(request, layer):
                     "relationship": RELATIONSHIPS[timer.objective],
                     "date": timer.date.isoformat(),
                     "duration": DURATIONS.get(timer.timer_type),
-                    "events": [{"action": e["action"], "at": e["at"]} for e in events],
+                    "events": [
+                        {k: e[k] for k in ("action", "at", "seconds") if k in e}
+                        for e in events
+                    ],
                     "revision": revision,
                     "can_edit": timer.user_can_edit(request.user),
                 }
@@ -228,6 +241,7 @@ def update_timer(user, body):
     allowed = {
         "pause": status == "open",
         "resume": status == "paused",
+        "adjust": status == "paused",
         "kill": status != "killed",
         "restore": status == "killed",
     }
@@ -235,9 +249,24 @@ def update_timer(user, body):
         raise ValueError(
             "This action is unavailable for the timer's current live state."
         )
+    adjustment = {}
+    if action == "adjust":
+        seconds = body.get("seconds")
+        if type(seconds) is not int or seconds not in (-60, 60):
+            raise ValueError("Adjust remaining time by exactly one minute.")
+        remaining = timer_clock(timer, events, instant)[3]
+        if (
+            remaining is None
+            or not 0 <= remaining + seconds <= DURATIONS[timer.timer_type]
+        ):
+            raise ValueError(
+                "Remaining time must stay within the timer's repair window."
+            )
+        adjustment = {"seconds": seconds}
     state.events = [
         *state.events,
         {
+            **adjustment,
             "action": action,
             "at": instant.isoformat(),
             "schedule": timer.date.isoformat(),

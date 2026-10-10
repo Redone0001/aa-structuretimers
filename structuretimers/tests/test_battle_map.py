@@ -39,6 +39,55 @@ class BattleMapTests(RegionalMapTests):
         timer.refresh_from_db()
         return timer
 
+    def test_paused_minute_adjustments_are_validated_and_replayed(self):
+        from structuretimers.battle_map import timer_clock, timer_events
+
+        timer = self.active_timer()
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="pause").status_code, 200
+        )
+        events, _ = timer_events(timer)
+        initial = timer_clock(timer, events, now())[3]
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=1, action="adjust", seconds=60
+            ).status_code,
+            200,
+        )
+        timer.refresh_from_db()
+        events, revision = timer_events(timer)
+        self.assertAlmostEqual(
+            timer_clock(timer, events, now())[3], initial + 60, places=3
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=revision, action="adjust", seconds=120
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=0, action="adjust", seconds=-60
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=revision, action="resume"
+            ).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.post(
+                "timer",
+                id=timer.pk,
+                revision=revision + 1,
+                action="adjust",
+                seconds=-60,
+            ).status_code,
+            400,
+        )
+
     def test_snapshot_permission_filtering_and_durations(self):
         self.active_timer(structure_name="Visible")
         self.active_timer(structure_name="SECRET", is_opsec=True)

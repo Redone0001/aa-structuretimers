@@ -36,6 +36,7 @@
     function paint(){
         const highlighted=battle.enabled&&$('structures').checked?battle.highlights():new Set();const needsRange=$('range').value!=='none';
         if(state.structuresReady){for(const id of state.structures.keys()) {const distance=state.distances.get(id);if(!needsRange||(state.rangeReady&&distance!==null&&distance!==undefined&&distance<=state.limit))highlighted.add(id);}}
+        map.nodeStates=battle.nodeStates();
         map.setOverlays(battle.overlays($('structures').checked?state.structures:new Map()),battle.enabled&&$('structures').checked?battle.highlights():highlighted);
         const missing=state.data?.nodes.filter(n=>!n.position).length||0;
         $('status').className='text-muted';

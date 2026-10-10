@@ -352,7 +352,8 @@ class TimerboardTests(TestCase):
             (6.999, "7.0 Cap", "Cap"),
             (7, "7.0 Command carrier", "Command carrier"),
             (7.499, "7.5 Command carrier", "Command carrier"),
-            (7.5, "7.5", ""),
+            (7.5, "7.5 Blops", "Blops"),
+            (8, "8.0", ""),
             (12, "12.0", ""),
         ]
         for distance, expected, label in cases:

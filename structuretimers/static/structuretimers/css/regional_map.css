@@ -56,7 +56,7 @@
 .st-battle-hour .st-map-timer { margin: .5rem 0; }
 .st-battle-note { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }
 .st-battle-status[data-state="open"], .st-battle-status[data-state="lost"] { color: var(--bs-danger); font-weight: 600; }
-.st-battle-status[data-state="paused"] { color: var(--bs-warning-text-emphasis, var(--bs-warning)); font-weight: 600; }
+.st-battle-status[data-state="paused"] { color: var(--bs-info-text-emphasis, var(--bs-info)); font-weight: 600; }
 .st-battle-status[data-state="won"] { color: var(--bs-success); font-weight: 600; }
 @media (max-width: 480px) { .st-battle-fields { grid-template-columns: 1fr; } }
 
@@ -67,3 +67,12 @@
 #st-map-canvas.is-token-dragging, #st-map-canvas.is-token-dragging * { cursor: grabbing; }
 #st-regional-map .st-map-drop-target { fill: none; stroke: var(--bs-body-color); stroke-width: 4; stroke-dasharray: 6 3; vector-effect: non-scaling-stroke; pointer-events: none; visibility: hidden; }
 #st-regional-map .st-map-drop-target.is-drop-target { visibility: visible; }
+
+/* Bootstrap semantic colors supplied by the active Alliance Auth theme. */
+#st-regional-map .st-map-node[data-category="info"] .st-map-box { fill: var(--bs-info-bg-subtle, var(--bs-body-bg)); stroke: var(--bs-info); stroke-width: 3; }
+#st-regional-map .st-map-node[data-category="info"] .st-map-name { fill: var(--bs-info-text-emphasis, var(--bs-body-color)); }
+#st-regional-map .st-map-node[data-category="danger"] .st-map-box { fill: var(--bs-danger-bg-subtle, var(--bs-body-bg)); stroke: var(--bs-danger); stroke-width: 3; }
+#st-regional-map .st-map-node[data-category="danger"] .st-map-name { fill: var(--bs-danger-text-emphasis, var(--bs-body-color)); }
+#st-regional-map .st-map-timer-pulse .st-map-box { animation: st-timer-pulse 1.5s ease-in-out infinite; }
+@keyframes st-timer-pulse { 50% { fill: var(--bs-danger); stroke-width: 6; } }
+@media (prefers-reduced-motion: reduce) { #st-regional-map .st-map-timer-pulse .st-map-box { animation: none; stroke-width: 5; } }

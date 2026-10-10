@@ -182,3 +182,11 @@ CELERYBEAT_SCHEDULE["structuretimers-sync-alliances"] = {
 ```
 
 Failed refreshes leave the local directory available; rerun the command or wait for the next scheduled run. No additional migration is needed.
+
+### Battle system signals and pause correction
+
+Map presets and web/Discord distance badges share `distance_ranges.JUMP_RANGES`, including Blops at 8 LY. Existing badge boundary semantics remain unchanged.
+
+With the battle timeline enabled, systems use the active Auth theme's Bootstrap semantic colors: warning for timers opening within 15 minutes, info for paused timers, and danger for open repair windows. Open timers pulse in their final five minutes; paused timers never pulse. Reduced-motion preferences replace pulsing with a stronger border. If a system has multiple timers, open takes priority over paused, then upcoming; any open timer in its final five minutes enables the pulse. Relationship colors remain on structure/fleet indicators.
+
+Paused timers expose **−1 min / +1 min** controls to correct remaining repair time after delayed reporting. Corrections are limited to zero through the full repair duration, require timer edit permission, and use the existing revision conflict checks. They are timestamped observations, replay on the timeline, and persist after Resume. The original scheduled timer and notifications are unchanged.
