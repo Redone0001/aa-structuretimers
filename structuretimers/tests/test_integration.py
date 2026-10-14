@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Any, Dict
 from unittest.mock import Mock, patch
 
+from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
 from django.utils.timezone import now
@@ -64,7 +65,9 @@ class TestCreateNewTimer(NoSocketsTestCase):
 
         # assert results
         self.assertRedirects(response, self.timer_list_url)
-        obj = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(structure_name="Timer 4")
+        obj = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(
+            structure_name="Timer 4"
+        )
         self.assertEqual(obj.eve_solar_system, solar_system)
         self.assertEqual(obj.structure_type, structure_type)
         self.assertEqual(obj.timer_type, Timer.Type.ANCHORING)
@@ -130,7 +133,9 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
         response = self.client.post(self.add_fast_timer_url, data=form_data)
 
         self.assertRedirects(response, self.timer_list_url)
-        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(structure_name="kongbao")
+        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(
+            structure_name="kongbao"
+        )
         self.assertEqual(timer.eve_solar_system, solar_system)
         self.assertEqual(timer.structure_type, structure_type)
         self.assertEqual(timer.timer_type, Timer.Type.HULL)
@@ -157,7 +162,9 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
         response = self.client.post(self.add_fast_timer_url, data=form_data)
 
         self.assertRedirects(response, self.timer_list_url)
-        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(structure_name="VIII")
+        timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).get(
+            structure_name="VIII"
+        )
         self.assertEqual(timer.eve_solar_system, solar_system)
         self.assertEqual(timer.structure_type, structure_type)
         self.assertEqual(timer.timer_type, Timer.Type.THEFT)
@@ -405,6 +412,10 @@ class TestSendTestMessageToWebhook(NoSocketsTestCase):
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(MODELS_PATH + "._task_calc_timer_distances_for_all_staging_systems", Mock())
 class TestTimerSave(NoSocketsTestCase):
+    def setUp(self):
+        # Database rollbacks do not remove Celery-once locks from earlier tests.
+        cache.clear()
+
     def test_schedule_notifications_for_new_timers_2(self):
         # given
         NotificationRuleFactory()

@@ -2,8 +2,9 @@
 
 import requests
 
-from allianceauth.eveonline.models import EveAllianceInfo
 from eveuniverse.models import EveEntity
+
+from allianceauth.eveonline.models import EveAllianceInfo
 
 from . import __version__
 
@@ -22,8 +23,11 @@ def sync_alliances():
     )
     response.raise_for_status()
     ids = response.json()
+    # JSON booleans are not valid IDs, although bool subclasses int.
     if not isinstance(ids, list) or any(
-        type(item) is not int or item <= 0 for item in ids
+        # pylint: disable-next=unidiomatic-typecheck
+        type(item) is not int or item <= 0
+        for item in ids
     ):
         raise ValueError("ESI returned an invalid alliance list")
     # Names are immutable in EVE. Only missing names need resolution on later runs.
@@ -55,6 +59,7 @@ def lookup_alliances(term):
 
 
 def resolve_alliance(name):
+    """Resolve an alliance name using the public cache and Auth records."""
     if not name:
         return None
     return (

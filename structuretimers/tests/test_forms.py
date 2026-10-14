@@ -1,15 +1,20 @@
 import datetime as dt
 from unittest.mock import Mock, patch
 
-from django.utils.timezone import now
-
 from requests.exceptions import ConnectionError as NewConnectionError
 from requests.exceptions import HTTPError, Timeout
+
+from django.utils.timezone import now
 
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.constants import EveTypeId
-from structuretimers.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
+from structuretimers.forms import (
+    FastTimerForm,
+    ReconForm,
+    TimerForm,
+    parse_eve_timer_text,
+)
 from structuretimers.models import Organization, Structure, Timer
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -416,7 +421,8 @@ class TestTimerFormSave(NoSocketsTestCase):
         )
         for selected in (replacement.pk, ""):
             form = TimerForm(
-                user=self.user, instance=timer,
+                user=self.user,
+                instance=timer,
                 data=create_form_data(assigned_to=selected, date=FUTURE),
             )
             self.assertTrue(form.is_valid(), form.errors)
@@ -460,9 +466,7 @@ class TestTimerFormSave(NoSocketsTestCase):
 
     def test_should_create_new_normal_timer(self):
         # given
-        form_data = create_form_data(
-            date=FUTURE, timer_type=Timer.Type.ARMOR
-        )
+        form_data = create_form_data(date=FUTURE, timer_type=Timer.Type.ARMOR)
         form = TimerForm(user=self.user, data=form_data)
         # when
         form.save()

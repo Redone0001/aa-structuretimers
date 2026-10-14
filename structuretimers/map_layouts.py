@@ -7,6 +7,7 @@ from pathlib import Path
 
 @lru_cache(maxsize=1)
 def region_layouts():
+    """Load the bundled region layouts once per process."""
     return json.loads(
         (Path(__file__).parent / "data" / "region_layouts.json").read_text()
     )["regions"]
@@ -14,6 +15,7 @@ def region_layouts():
 
 @lru_cache(maxsize=128)
 def get_region_layout(name):
+    """Return a region layout scaled to keep system labels apart."""
     layout = region_layouts().get(name)
     if layout is None:
         return None

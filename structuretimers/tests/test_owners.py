@@ -3,7 +3,9 @@
 from unittest.mock import Mock, patch
 
 from eveuniverse.models import EveEntity
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers import owners
 from structuretimers.models import Organization, Timer
 from structuretimers.tests.testdata.factory import TimerFactory

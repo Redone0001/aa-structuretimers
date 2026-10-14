@@ -17,7 +17,8 @@ def enqueue_campaign_job(pk, kind, refresh=False):
     """Broker errors leave a visible retryable state, never a broken create response."""
     try:
         prepare_campaign.apply_async(args=[pk, kind, refresh], retry=False)
-    except Exception:
+    # Preserve a retryable failure state for any broker or import failure.
+    except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Could not queue campaign %s %s import", pk, kind)
         changes = (
             {"import_status": "failed", "gates_status": "failed"}
@@ -34,6 +35,7 @@ def enqueue_campaign_job(pk, kind, refresh=False):
     soft_time_limit=600, time_limit=660, acks_late=True, reject_on_worker_lost=True
 )
 def prepare_campaign(pk, kind, refresh=False):
+    """Import campaign systems or stargates and persist the job status."""
     campaign = ReconCampaign.objects.filter(pk=pk).first()
     if campaign is None:
         return
@@ -93,7 +95,8 @@ def prepare_campaign(pk, kind, refresh=False):
                     enabled_sections=[EveSolarSystem.Section.STARGATES],
                 )
             ReconCampaign.objects.filter(pk=pk).update(gates_status="ready")
-    except Exception:
+    # Preserve a retryable failure state for any broker or import failure.
+    except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Campaign %s %s import failed", pk, kind)
         changes = (
             {"import_status": "failed", "gates_status": "failed"}

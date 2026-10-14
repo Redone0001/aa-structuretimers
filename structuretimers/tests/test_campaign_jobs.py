@@ -186,7 +186,7 @@ class TestCampaignJobs(NoSocketsTestCase):
     def test_system_validation_uses_one_query(self):
         from structuretimers.campaigns import CampaignForm
 
-        systems = [EveSolarSystemFactory() for _ in range(20)]
+        systems = [EveSolarSystemFactory(name=f"Batch system {i}") for i in range(20)]
         form = CampaignForm(
             {"name": "Batch", "systems": ",".join(s.name for s in systems)}
         )

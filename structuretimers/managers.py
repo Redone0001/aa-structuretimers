@@ -201,9 +201,10 @@ class StructureManagerBase(models.Manager):
             return record
         changed = False
         for field in self.FILL_FIELDS:
-            if getattr(timer, field) not in (None, "") and getattr(
-                record, field
-            ) in (None, ""):
+            if getattr(timer, field) not in (None, "") and getattr(record, field) in (
+                None,
+                "",
+            ):
                 setattr(record, field, getattr(timer, field))
                 changed = True
         if changed:

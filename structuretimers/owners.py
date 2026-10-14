@@ -3,9 +3,9 @@
 from typing import Optional
 
 import requests
-from eveuniverse.models import EveEntity
 
 from django.db.models import Q
+from eveuniverse.models import EveEntity
 
 from . import __version__
 from .models import Organization

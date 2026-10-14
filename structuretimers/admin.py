@@ -19,11 +19,11 @@ from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
 from . import tasks
 from .models import (
-    DiscordWebhook,
     DiscordTimerboard,
+    DiscordWebhook,
+    NotificationRule,
     ReconCampaign,
     ReconCampaignSystem,
-    NotificationRule,
     ScheduledNotification,
     StagingSystem,
     Timer,

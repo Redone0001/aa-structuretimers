@@ -6,12 +6,23 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('structuretimers', '0016_mapfleettoken_maptimerstate'),
+        ("structuretimers", "0016_mapfleettoken_maptimerstate"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='general',
-            options={'default_permissions': (), 'managed': False, 'permissions': (('basic_access', 'Can access this app and see timers'), ('recon_member', 'Can see the database, recon campaigns and maps'), ('recon_coordinator', 'Can create and coordinate recon campaigns'), ('create_timer', 'Can create new timers and edit own timers'), ('manage_timer', 'Can edit and delete any timer'), ('opsec_access', 'Can create and see opsec timers'))},
+            name="general",
+            options={
+                "default_permissions": (),
+                "managed": False,
+                "permissions": (
+                    ("basic_access", "Can access this app and see timers"),
+                    ("recon_member", "Can see the database, recon campaigns and maps"),
+                    ("recon_coordinator", "Can create and coordinate recon campaigns"),
+                    ("create_timer", "Can create new timers and edit own timers"),
+                    ("manage_timer", "Can edit and delete any timer"),
+                    ("opsec_access", "Can create and see opsec timers"),
+                ),
+            },
         ),
     ]

@@ -22,7 +22,8 @@ EFT_HEADER = re.compile(r"^\s*\[(?P<type>[^,\]]+),\s*(?P<name>[^\]]*)\]\s*$")
 def _structure_type(name: str):
     return (
         EveType.objects.filter(
-            name__iexact=name.strip(), eve_group__eve_category_id=EveCategoryId.STRUCTURE
+            name__iexact=name.strip(),
+            eve_group__eve_category_id=EveCategoryId.STRUCTURE,
         ).first()
         or EveType.objects.filter(name__iexact=name.strip()).first()
     )
@@ -95,7 +96,11 @@ def find_match(user, values):
             qs = qs.filter(eve_solar_system_id=system_id)
         if type_id:
             qs = qs.filter(structure_type_id=type_id)
-        matches = list(qs.select_related("eve_solar_system", "structure_type", "owner_corporation__alliance")[:2])
+        matches = list(
+            qs.select_related(
+                "eve_solar_system", "structure_type", "owner_corporation__alliance"
+            )[:2]
+        )
         if len(matches) == 1:
             return picker_entry(matches[0])
     if structures_bridge.is_available() and system_id:
@@ -113,7 +118,10 @@ def picker_entry(entry) -> dict:
     return {
         "id": entry.pk,
         "text": entry.structure_display_name,
-        "solar_system": {"id": entry.eve_solar_system_id, "text": entry.eve_solar_system.name},
+        "solar_system": {
+            "id": entry.eve_solar_system_id,
+            "text": entry.eve_solar_system.name,
+        },
         "structure_type": (
             {"id": entry.structure_type_id, "text": entry.structure_type.name}
             if entry.structure_type
@@ -122,10 +130,16 @@ def picker_entry(entry) -> dict:
         "structure_name": entry.structure_name,
         "owner_name": entry.owner_name or "",
         "owner": (
-            {"id": str(entry.owner_corporation_id), "text": entry.owner_corporation.display_name}
+            {
+                "id": str(entry.owner_corporation_id),
+                "text": entry.owner_corporation.display_name,
+            }
             if entry.owner_corporation_id
             else (
-                {"id": owners.LOOKUP_PREFIX + entry.owner_name, "text": entry.owner_name}
+                {
+                    "id": owners.LOOKUP_PREFIX + entry.owner_name,
+                    "text": entry.owner_name,
+                }
                 if entry.owner_name
                 else None
             )
@@ -133,6 +147,8 @@ def picker_entry(entry) -> dict:
         "location_details": entry.location_details,
         "objective": entry.objective,
         "reinforcement_time": (
-            entry.reinforcement_time.strftime("%H:%M") if entry.reinforcement_time else ""
+            entry.reinforcement_time.strftime("%H:%M")
+            if entry.reinforcement_time
+            else ""
         ),
     }

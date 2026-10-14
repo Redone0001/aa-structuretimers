@@ -12,15 +12,16 @@ from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
-from .alliance_directory import lookup_alliances, resolve_alliance
 
+from .alliance_directory import lookup_alliances, resolve_alliance
 from .models import MapFleetToken, MapTimerState, Timer
-from .regional_map import RELATIONSHIPS, RANGES, distance_ly, resolve_region, sde_models
+from .regional_map import RANGES, RELATIONSHIPS, distance_ly, resolve_region, sde_models
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
 
 
 def timer_events(timer):
+    """Return observations belonging to the timer's current schedule."""
     try:
         state = timer.map_state
     except MapTimerState.DoesNotExist:
@@ -58,6 +59,7 @@ def timer_clock(timer, events, instant):
 
 
 def timer_status(timer, events, instant):
+    """Classify a timer at the requested instant."""
     if timer.date is None:
         return "unscheduled"
     elapsed, paused, killed, remaining = timer_clock(timer, events, instant)
@@ -72,12 +74,16 @@ def timer_status(timer, events, instant):
     return "open" if remaining > 0 else "repaired"
 
 
-def visible_tokens(user):
+def visible_tokens(user):  # pylint: disable=unused-argument
+    # Keep the user argument consistent with other permission-aware query helpers.
     # Access to this endpoint already requires basic_access.
+    """Return shared fleet tokens for an already authorized map user."""
     return MapFleetToken.objects.all()
 
 
 class FleetForm(forms.ModelForm):
+    """Validate editable fleet intelligence fields."""
+
     class Meta:
         model = MapFleetToken
         fields = [
@@ -94,6 +100,7 @@ class FleetForm(forms.ModelForm):
 
 
 def token_payload(token, user, system=None, ship_classes=None):
+    """Serialize a fleet token with location, ship and edit metadata."""
     fields = [*FleetForm.Meta.fields, "id", "alliance_id", "ship_id", "revision"]
     if system is None:
         _, system_model, _ = sde_models()
@@ -129,7 +136,9 @@ def token_payload(token, user, system=None, ship_classes=None):
 def regional_fleets(user, region_ids):
     """Include adjacent-region forces and forces within the longest jump preset."""
     _, system_model, gate_model = sde_models()
-    regional = list(system_model.objects.filter(constellation__region_id__in=region_ids))
+    regional = list(
+        system_model.objects.filter(constellation__region_id__in=region_ids)
+    )
     ids = {s.pk for s in regional}
     neighbors = set(
         gate_model.objects.filter(solar_system_id__in=ids).values_list(
@@ -149,11 +158,12 @@ def regional_fleets(user, region_ids):
     }
     from django.apps import apps
 
-    type_model = apps.get_model("eve_sde", "ItemType")
     ship_classes = dict(
-        type_model.objects.filter(
+        apps.get_model("eve_sde", "ItemType")
+        .objects.filter(
             pk__in={t.ship_id for t in tokens if t.ship_id}, group__category_id=6
-        ).values_list("pk", "group__name")
+        )
+        .values_list("pk", "group__name")
     )
     result = []
     for token in tokens:
@@ -172,6 +182,7 @@ def regional_fleets(user, region_ids):
 
 
 def lookup(kind, term):
+    """Find matching systems, alliances or ships for map autocomplete."""
     if kind == "system":
         _, system_model, _ = sde_models()
         return [
@@ -197,21 +208,100 @@ def lookup(kind, term):
     )
 
 
+def _battle_snapshot(request):
+    """Build the requested day's visible timers and optional fleet overlay."""
+    region_model, system_model, _ = sde_models()
+    region_ids = resolve_region(region_model, request.GET.get("region")).ids
+    systems = dict(
+        system_model.objects.filter(
+            constellation__region_id__in=region_ids
+        ).values_list("id", "name")
+    )
+    day = datetime.strptime(
+        request.GET.get("day", now().date().isoformat()), "%Y-%m-%d"
+    ).date()
+    start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+    timers = (
+        Timer.objects.visible_to_user(request.user)
+        .filter(eve_solar_system_id__in=systems, date__isnull=False)
+        .exclude(timer_type=Timer.Type.PRELIMINARY)
+        .filter(
+            Q(date__gte=start - timedelta(days=1), date__lt=end)
+            | Q(map_state__isnull=False)
+        )
+        .select_related("map_state", "structure_type", "user")
+        .order_by("date", "pk")
+    )
+    records = []
+    for timer in timers:
+        events, revision = timer_events(timer)
+        if timer.date >= end or (
+            timer.date < start - timedelta(days=1)
+            and timer_status(timer, events, start) not in ("paused", "open")
+        ):
+            continue
+        records.append(
+            {
+                "id": timer.pk,
+                "system_id": timer.eve_solar_system_id,
+                "system": systems[timer.eve_solar_system_id],
+                "name": timer.structure_name or "Unnamed structure",
+                "type": (
+                    timer.structure_type.name
+                    if timer.structure_type
+                    else "Unknown structure"
+                ),
+                "type_id": timer.structure_type_id,
+                "timer_type": timer.timer_type,
+                "timer_label": timer.get_timer_type_display(),
+                "relationship": RELATIONSHIPS[timer.objective],
+                "date": timer.date.isoformat(),
+                "duration": DURATIONS.get(timer.timer_type),
+                "events": [
+                    {k: e[k] for k in ("action", "at", "seconds") if k in e}
+                    for e in events
+                ],
+                "revision": revision,
+                "can_edit": timer.user_can_edit(request.user),
+            }
+        )
+    return JsonResponse(
+        {
+            "timers": records,
+            "tokens": (
+                regional_fleets(request.user, region_ids)
+                if request.GET.get("fleets", "1") == "1"
+                else None
+            ),
+            "server_time": now().isoformat(),
+            "day": day.isoformat(),
+            "scope": "all map users",
+        }
+    )
+
+
+def _battle_update(request, layer):
+    """Validate the request object and dispatch a timer or fleet edit."""
+    body = json.loads(request.body)
+    if not isinstance(body, dict):
+        raise ValueError("Expected an object.")
+    if layer == "timer":
+        return update_timer(request.user, body)
+    if layer == "fleet":
+        return update_fleet(request.user, body)
+    return JsonResponse({"error": "Unknown action."}, status=404)
+
+
 @login_required
 @permission_required("structuretimers.basic_access", raise_exception=True)
 @require_http_methods(["GET", "POST"])
 @never_cache
 def battle_data(request, layer):
+    """Dispatch battle map queries and edits with shared input handling."""
     try:
         if request.method == "POST":
-            body = json.loads(request.body)
-            if not isinstance(body, dict):
-                raise ValueError("Expected an object.")
-            if layer == "timer":
-                return update_timer(request.user, body)
-            if layer == "fleet":
-                return update_fleet(request.user, body)
-            return JsonResponse({"error": "Unknown action."}, status=404)
+            return _battle_update(request, layer)
         if layer == "lookup":
             kind = request.GET.get("kind")
             if kind not in ("alliance", "ship", "system"):
@@ -229,77 +319,11 @@ def battle_data(request, layer):
                     "server_time": now().isoformat(),
                 }
             )
-        if layer != "snapshot":
-            return JsonResponse({"error": "Unknown layer."}, status=404)
-        region_model, system_model, _ = sde_models()
-        region_ids = resolve_region(region_model, request.GET.get("region")).ids
-        systems = dict(
-            system_model.objects.filter(constellation__region_id__in=region_ids).values_list(
-                "id", "name"
-            )
-        )
-        day = datetime.strptime(
-            request.GET.get("day", now().date().isoformat()), "%Y-%m-%d"
-        ).date()
-        start = datetime.combine(day, time.min, tzinfo=timezone.utc)
-        end = start + timedelta(days=1)
-        timers = (
-            Timer.objects.visible_to_user(request.user)
-            .filter(eve_solar_system_id__in=systems, date__isnull=False)
-            .exclude(timer_type=Timer.Type.PRELIMINARY)
-            .filter(
-                Q(date__gte=start - timedelta(days=1), date__lt=end)
-                | Q(map_state__isnull=False)
-            )
-            .select_related("map_state", "structure_type", "user")
-            .order_by("date", "pk")
-        )
-        records = []
-        for timer in timers:
-            events, revision = timer_events(timer)
-            if timer.date >= end or (
-                timer.date < start - timedelta(days=1)
-                and timer_status(timer, events, start) not in ("paused", "open")
-            ):
-                continue
-            records.append(
-                {
-                    "id": timer.pk,
-                    "system_id": timer.eve_solar_system_id,
-                    "system": systems[timer.eve_solar_system_id],
-                    "name": timer.structure_name or "Unnamed structure",
-                    "type": (
-                        timer.structure_type.name
-                        if timer.structure_type
-                        else "Unknown structure"
-                    ),
-                    "type_id": timer.structure_type_id,
-                    "timer_type": timer.timer_type,
-                    "timer_label": timer.get_timer_type_display(),
-                    "relationship": RELATIONSHIPS[timer.objective],
-                    "date": timer.date.isoformat(),
-                    "duration": DURATIONS.get(timer.timer_type),
-                    "events": [
-                        {k: e[k] for k in ("action", "at", "seconds") if k in e}
-                        for e in events
-                    ],
-                    "revision": revision,
-                    "can_edit": timer.user_can_edit(request.user),
-                }
-            )
-        return JsonResponse(
-            {
-                "timers": records,
-                "tokens": (
-                    regional_fleets(request.user, region_ids)
-                    if request.GET.get("fleets", "1") == "1"
-                    else None
-                ),
-                "server_time": now().isoformat(),
-                "day": day.isoformat(),
-                "scope": "all map users",
-            }
-        )
+        if layer == "snapshot":
+            response = _battle_snapshot(request)
+        else:
+            response = JsonResponse({"error": "Unknown layer."}, status=404)
+        return response
     except (ValueError, TypeError, OverflowError) as ex:
         return JsonResponse({"error": str(ex) or "Invalid input."}, status=400)
     except LookupError:
@@ -310,6 +334,7 @@ def battle_data(request, layer):
 
 @transaction.atomic
 def update_timer(user, body):
+    """Apply a permitted observation to a locked timer revision."""
     timer = get_object_or_404(
         Timer.objects.filter(
             pk__in=Timer.objects.visible_to_user(user).values("pk")
@@ -343,6 +368,8 @@ def update_timer(user, body):
     adjustment = {}
     if action == "adjust":
         seconds = body.get("seconds")
+        # JSON booleans must not be accepted as integer adjustments.
+        # pylint: disable-next=unidiomatic-typecheck
         if type(seconds) is not int or seconds not in (-60, 60):
             raise ValueError("Adjust remaining time by exactly one minute.")
         remaining = timer_clock(timer, events, instant)[3]
@@ -371,6 +398,7 @@ def update_timer(user, body):
 
 @transaction.atomic
 def update_fleet(user, body):
+    """Create, update, move or delete a permitted fleet token."""
     token_id = body.get("id")
     token = (
         get_object_or_404(visible_tokens(user).select_for_update(), pk=int(token_id))

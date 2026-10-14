@@ -6,15 +6,12 @@ import math
 from copy import deepcopy
 from typing import Iterable
 
-import requests
-
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count, Q
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
@@ -31,21 +28,15 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
-from esi.decorators import token_required
-from eveuniverse.models import EveEntity, EveSolarSystem, EveType
 
 from allianceauth.eveonline.evelinks import dotlan
 from allianceauth.services.hooks import get_extension_logger
-from app_utils.views import (
-    JSONResponseMixin,
-    link_html,
-    yesno_str,
-)
+from app_utils.views import JSONResponseMixin, link_html, yesno_str
 
 from structuretimers import (
     __title__,
     information,
-    owners,
+    lookup_views,
     standings,
     structures_bridge,
 )
@@ -66,7 +57,16 @@ from structuretimers.models import (
     StructureDistance,
     Timer,
 )
-from structuretimers.selectors import supported_eve_types
+
+# Keep the established view import paths available to callers.
+Select2DatabaseEntriesView = lookup_views.Select2DatabaseEntriesView
+Select2OwnersView = lookup_views.Select2OwnersView
+Select2SolarSystemsView = lookup_views.Select2SolarSystemsView
+Select2StructureTypesView = lookup_views.Select2StructureTypesView
+StandingSetView = lookup_views.StandingSetView
+StandingsSyncView = lookup_views.StandingsSyncView
+add_standings_source = lookup_views.add_standings_source
+AssignTimerView = lookup_views.AssignTimerView
 
 logger = get_extension_logger(__name__)
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
@@ -88,7 +88,11 @@ def timer_action_button_html(url, icon, style, label):
     return format_html(
         '<a href="{}" class="btn btn-{}" title="{}" aria-label="{}">'
         '<i class="{}" aria-hidden="true"></i></a>',
-        url, style, _(label), _(label), icon,
+        url,
+        style,
+        _(label),
+        _(label),
+        icon,
     )
 
 
@@ -373,15 +377,22 @@ class TimerListDataView(
 
         structure_name = timer.structure_name if timer.structure_name else "-"
         name = format_html("{}<br>{}", structure_name, owner)
-        if self.kwargs.get("tab_name") not in ("current", "past") and timer.assigned_to_id:
+        if (
+            self.kwargs.get("tab_name") not in ("current", "past")
+            and timer.assigned_to_id
+        ):
             name = format_html(
                 '{}<br><span class="text-muted">{}: {}</span>',
-                name, _("Assigned to"), timer.assigned_character_name,
+                name,
+                _("Assigned to"),
+                timer.assigned_character_name,
             )
         return owner_name, name
 
     def _calc_assignment(self, timer):
-        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(self.request.user):
+        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(
+            self.request.user
+        ):
             return render_to_string(
                 "structuretimers/partials/timer_assignment.html", {"timer": timer}
             )
@@ -490,14 +501,11 @@ class TimerListDataView(
 
     def _get_data_actions(self, timer: Timer):
         actions = ""
-        if (
-            timer.details_image_url
-            or timer.details_notes
-            or timer.assigned_to_id
-            or (
-                (timer.structure_id or timer.structures_structure_id)
-                and self.request.user.has_perm("structuretimers.recon_member")
-            )
+        if any(
+            (timer.details_image_url, timer.details_notes, timer.assigned_to_id)
+        ) or (
+            (timer.structure_id or timer.structures_structure_id)
+            and self.request.user.has_perm("structuretimers.recon_member")
         ):
             disabled_html = ""
             button_type = "primary"
@@ -608,9 +616,13 @@ class ManageReconDataView(TimerListDataView):
         )
         return data
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._distances_map = None
+
     def _calc_distance_for_timer(self, timer):
         staging_system_pk = self.request.GET.get("staging")
-        if not hasattr(self, "_distances_map"):
+        if self._distances_map is None:
             self._distances_map = (
                 {
                     obj.structure_id: obj
@@ -629,7 +641,9 @@ class ManageReconDataView(TimerListDataView):
             if distances.light_years is not None
             else "N/A"
         )
-        jumps_text = f"{distances.jumps} jumps" if distances.jumps is not None else "N/A"
+        jumps_text = (
+            f"{distances.jumps} jumps" if distances.jumps is not None else "N/A"
+        )
         range_badge = distance_range_badge_html(distances.light_years)
         if range_badge:
             return distances, format_html(
@@ -809,7 +823,9 @@ class ParseInformationView(LoginRequiredMixin, PermissionRequiredMixin, View):
     )
 
     def post(self, request):
-        return JsonResponse(information.parse(request.POST.get("text", ""), request.user))
+        return JsonResponse(
+            information.parse(request.POST.get("text", ""), request.user)
+        )
 
 
 class FastCreateTimerView(CreateTimerView):
@@ -897,7 +913,9 @@ class EditStructureView(TimerManagementView, AddUpdateMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["cancel_url"] = reverse("structuretimers:timer_list") + "?tab=preliminary"
+        context["cancel_url"] = (
+            reverse("structuretimers:timer_list") + "?tab=preliminary"
+        )
         return context
 
     def get_success_url(self):
@@ -932,49 +950,6 @@ class RemoveStructureView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
         return reverse("structuretimers:timer_list") + "?tab=preliminary"
 
 
-class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Update only the assignee, enforcing the usual timer edit permissions."""
-
-    permission_required = "structuretimers.basic_access"
-
-    def get(self, request, pk):
-        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
-        if not timer.user_can_edit(request.user):
-            raise PermissionDenied()
-        query = request.GET.get("term", "").strip()
-        try:
-            page = max(1, int(request.GET.get("page", 1)))
-        except ValueError:
-            page = 1
-        users = TimerForm.base_fields["assigned_to"].queryset.filter(
-            profile__main_character__character_name__icontains=query
-        )
-        offset = (page - 1) * 20
-        matches = list(users[offset:offset + 21]) if query else []
-        return JsonResponse({
-            "results": [
-                {"id": user.pk, "text": user.profile.main_character.character_name}
-                for user in matches[:20]
-            ],
-            "pagination": {"more": len(matches) > 20},
-        })
-
-    def post(self, request, pk):
-        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
-        if not timer.user_can_edit(request.user):
-            raise PermissionDenied()
-        if "assigned_to" not in request.POST:
-            return JsonResponse({"error": _("Choose an assignee or Unassigned.")}, status=400)
-        try:
-            assignee = TimerForm.base_fields["assigned_to"].clean(request.POST["assigned_to"])
-        except ValidationError as ex:
-            return JsonResponse({"error": " ".join(ex.messages)}, status=400)
-        timer.assigned_to = assignee
-        timer.save(update_fields=["assigned_to", "last_updated_at"])
-        return JsonResponse({"assigned_to": timer.assigned_to_id,
-                             "assigned_character_name": timer.assigned_character_name})
-
-
 class CopyTimerView(CreateTimerView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -995,227 +970,3 @@ class RemoveTimerView(
 
     def get_success_url(self) -> str:
         return self.object.get_absolute_url()
-
-
-class Select2SolarSystemsView(JSONResponseMixin, ListView):
-    """Dynamically generated list of solar systems for select2 widget."""
-
-    model = EveSolarSystem
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        term = self.request.GET.get("term")
-        if not term:
-            return qs.none()
-        return qs.filter(name__istartswith=term)
-
-    def get_context_data(self, **kwargs):
-        if self.object_list:
-            solar_systems = self.object_list.values("id", "name")
-            results = [{"id": row["id"], "text": row["name"]} for row in solar_systems]
-            results = sorted(results, key=lambda d: d["text"])
-        else:
-            results = None
-        return {"results": results}
-
-    def render_to_response(self, context, **response_kwargs):
-        return self.render_to_json_response(context, **response_kwargs)
-
-
-class StandingSetView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Recon coordinators override the standing of a corporation or alliance."""
-
-    permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_coordinator",
-    )
-
-    def post(self, request, pk):
-        organization = get_object_or_404(Organization, pk=pk)
-        value = request.POST.get("standing", "")
-        if value == "":
-            organization.standing_override = None
-        elif value.lstrip("-").isdigit() and int(value) in standings.STANDING_VALUES:
-            organization.standing_override = int(value)
-        else:
-            return JsonResponse({"error": "Unknown standing"}, status=400)
-        organization.save(update_fields=["standing_override", "updated_at"])
-        standings.refresh_objectives()
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
-
-
-class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Refresh automatic standings now instead of waiting for the schedule."""
-
-    permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_coordinator",
-    )
-
-    def post(self, request):
-        standings.sync_all()
-        if StandingsSource.objects.exists():
-            messages.info(request, "Standings refreshed from alliance contacts.")
-        else:
-            messages.warning(
-                request,
-                "No character in Auth has alliance-contacts access yet. "
-                "Add one to get automatic standings.",
-            )
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
-
-
-@login_required
-@permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_coordinator"),
-    raise_exception=True,
-)
-@token_required(scopes=[standings.CONTACTS_SCOPE])
-def add_standings_source(request, token):
-    """Use a character's alliance contacts as the automatic standings."""
-    character = requests.get(
-        f"{owners.ESI_URL}/characters/{token.character_id}/",
-        headers={"User-Agent": owners.USER_AGENT},
-        timeout=(5, 30),
-    ).json()
-    alliance_id = character.get("alliance_id")
-    if not alliance_id:
-        messages.error(request, f"{token.character_name} is not in an alliance.")
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
-    StandingsSource.objects.all().delete()
-    source = StandingsSource.objects.create(
-        token=token,
-        alliance_id=alliance_id,
-        alliance_name=EveEntity.objects.resolve_name(alliance_id),
-        added_by=request.user,
-    )
-    try:
-        count = standings.sync_source(source)
-        standings.refresh_objectives()
-    except Exception as ex:  # pylint: disable=broad-exception-caught
-        messages.error(request, f"Could not read alliance contacts: {ex}")
-    else:
-        messages.info(
-            request, f"Loaded {count} standings for {source.alliance_name}."
-        )
-    return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
-
-
-class Select2OwnersView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Known owner corporations for the Owner field, plus an ESI lookup."""
-
-    permission_required = "structuretimers.basic_access"
-
-    def get(self, request):
-        return JsonResponse({"results": owners.autocomplete(request.GET.get("term"))})
-
-
-class Select2DatabaseEntriesView(
-    LoginRequiredMixin, PermissionRequiredMixin, JSONResponseMixin, ListView
-):
-    """Structures in the Database for the timer form's select2 picker."""
-
-    permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
-    )
-
-    def get_queryset(self):
-        term = (self.request.GET.get("term") or "").strip()
-        if len(term) < 2:
-            return Timer.objects.none()
-        return (
-            Structure.objects.visible_to_user(self.request.user)
-            .filter(
-                Q(structure_name__icontains=term)
-                | Q(eve_solar_system__name__istartswith=term)
-                | Q(owner_name__icontains=term)
-            )
-            .select_related(
-                "eve_solar_system", "structure_type", "owner_corporation__alliance"
-            )
-            .order_by("eve_solar_system__name", "structure_name")[:30]
-        )
-
-    def get_context_data(self, **kwargs):
-        term = (self.request.GET.get("term") or "").strip()
-        structures = (
-            structures_bridge.picker_results(self.request.user, term)
-            if len(term) >= 2
-            else []
-        )
-        return {
-            "results": structures
-            + [
-                {
-                    "id": entry.pk,
-                    "text": entry.structure_display_name,
-                    "solar_system": {
-                        "id": entry.eve_solar_system_id,
-                        "text": entry.eve_solar_system.name,
-                    },
-                    "structure_type": (
-                        {
-                            "id": entry.structure_type_id,
-                            "text": entry.structure_type.name,
-                        }
-                        if entry.structure_type
-                        else None
-                    ),
-                    "structure_name": entry.structure_name,
-                    "owner_name": entry.owner_name or "",
-                    "owner": (
-                        {
-                            "id": str(entry.owner_corporation_id),
-                            "text": entry.owner_corporation.display_name,
-                        }
-                        if entry.owner_corporation_id
-                        else (
-                            {
-                                "id": owners.LOOKUP_PREFIX + entry.owner_name,
-                                "text": entry.owner_name,
-                            }
-                            if entry.owner_name
-                            else None
-                        )
-                    ),
-                    "location_details": entry.location_details,
-                    "objective": entry.objective,
-                    "reinforcement_time": (
-                        entry.reinforcement_time.strftime("%H:%M")
-                        if entry.reinforcement_time
-                        else ""
-                    ),
-                }
-                for entry in self.object_list
-            ]
-        }
-
-    def render_to_response(self, context, **response_kwargs):
-        return self.render_to_json_response(context, **response_kwargs)
-
-
-class Select2StructureTypesView(JSONResponseMixin, ListView):
-    """Dynamically generated list of types for select2 widget."""
-
-    def get_queryset(self):
-        term = self.request.GET.get("term")
-        if not term:
-            return EveType.objects.none()
-
-        qs = supported_eve_types()
-        return qs.filter(name__icontains=term)
-
-    def get_context_data(self, **kwargs):
-        if self.object_list:
-            results = [
-                {"id": row["id"], "text": row["name"]}
-                for row in self.object_list.values("id", "name").order_by("name")
-            ]
-            results = sorted(results, key=lambda d: d["text"])
-        else:
-            results = None
-        return {"results": results}
-
-    def render_to_response(self, context, **response_kwargs):
-        return self.render_to_json_response(context, **response_kwargs)

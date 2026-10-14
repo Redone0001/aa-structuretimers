@@ -60,12 +60,50 @@ def clean_cell(value):
 
 
 def board_page(rows, staging_name=None):
+    """Build a Discord page with a shared header and staging label."""
     staging = (
         f"Distance from staging: {clean_cell(staging_name)}"
         if staging_name
         else "Distance: no staging configured"
     )
     return HEADER + "\n" + staging + "\n\n" + "\n".join(rows or ["No timers"])
+
+
+def _timer_row(timer, date):
+    """Render one timer with its location, distance and structure labels."""
+    system = timer.eve_solar_system
+    location = "Unknown"
+    if system:
+        region = system.eve_constellation.eve_region
+        region_path = quote(region.name.replace(" ", "_"), safe="")
+        system_path = quote(system.name.replace(" ", "_"), safe="")
+        url = f"https://evemaps.dotlan.net/map/{region_path}/{system_path}"
+        location = clean_cell(system.name)
+        # Malformed imported names must not overflow Discord's message limit.
+        if len(url) <= 512:
+            location = f"[{location}](<{url}>)"
+    structure = structure_label(
+        timer.structure_type.name if timer.structure_type else None
+    )
+    structure_text = clean_cell(structure)
+    if structure in {"Fortizar", "Tatara", "Sotiyo", "Keepstar"}:
+        structure_text = f"**{structure_text}**"
+        if structure == "Keepstar":
+            structure_text += " 🏰"
+    distance = distance_label(timer.distance_ly)
+    distance = (
+        distance.replace(" ", " LY • ", 1) if " " in distance else f"{distance} LY"
+    )
+    return " • ".join(
+        [
+            f"`{date:%Y-%m-%d %H:%M}`",
+            f"<t:{int(date.timestamp())}:R>",
+            f"{location} ({distance})",
+            structure_text,
+            clean_cell(timer.get_timer_type_display()),
+            clean_cell(timer.get_objective_display()).capitalize(),
+        ]
+    )
 
 
 def render_board(board):
@@ -112,41 +150,7 @@ def render_board(board):
     with override("en"):
         for timer in timers:
             date = timer.date.astimezone(dt.timezone.utc)
-            system = timer.eve_solar_system
-            location = "Unknown"
-            if system:
-                region = system.eve_constellation.eve_region
-                region_path = quote(region.name.replace(" ", "_"), safe="")
-                system_path = quote(system.name.replace(" ", "_"), safe="")
-                url = f"https://evemaps.dotlan.net/map/{region_path}/{system_path}"
-                location = clean_cell(system.name)
-                # Malformed imported names must not overflow Discord's message limit.
-                if len(url) <= 512:
-                    location = f"[{location}](<{url}>)"
-            structure = structure_label(
-                timer.structure_type.name if timer.structure_type else None
-            )
-            structure_text = clean_cell(structure)
-            if structure in {"Fortizar", "Tatara", "Sotiyo", "Keepstar"}:
-                structure_text = f"**{structure_text}**"
-                if structure == "Keepstar":
-                    structure_text += " 🏰"
-            distance = distance_label(timer.distance_ly)
-            distance = (
-                distance.replace(" ", " LY • ", 1)
-                if " " in distance
-                else f"{distance} LY"
-            )
-            row = " • ".join(
-                [
-                    f"`{date:%Y-%m-%d %H:%M}`",
-                    f"<t:{int(date.timestamp())}:R>",
-                    f"{location} ({distance})",
-                    structure_text,
-                    clean_cell(timer.get_timer_type_display()),
-                    clean_cell(timer.get_objective_display()).capitalize(),
-                ]
-            )
+            row = _timer_row(timer, date)
             # Rolling 24-hour windows, measured from this refresh, not midnight.
             window = int((date - current_time).total_seconds() // 86400)
             additions = []
@@ -175,6 +179,25 @@ def delete_message(client, channel_id, message_id):
             raise
 
 
+def _edit_message(client, board, message, content):
+    """Update an existing message, removing local state if Discord deleted it."""
+    try:
+        client.edit_channel_message(
+            channel_id=int(board.channel_id),
+            message_id=int(message.message_id),
+            content=content,
+            suppress_mentions=True,
+        )
+    except DiscordProxyHttpError as exc:
+        if exc.status != 404 or exc.code != 10008:
+            raise
+        message.delete()
+        return False
+    message.content = content
+    message.save(update_fields=["content"])
+    return True
+
+
 def sync_board(board):
     """Called with the board row locked to serialize concurrent refreshes."""
     client = DiscordClient(
@@ -198,22 +221,9 @@ def sync_board(board):
         if message and message.message_id and message.content == content:
             continue
         if message and message.message_id:
-            try:
-                client.edit_channel_message(
-                    channel_id=int(board.channel_id),
-                    message_id=int(message.message_id),
-                    content=content,
-                    suppress_mentions=True,
-                )
-            except DiscordProxyHttpError as exc:
-                if exc.status != 404 or exc.code != 10008:
-                    raise
-                message.delete()
-                message = None
-            else:
-                message.content = content
-                message.save(update_fields=["content"])
+            if _edit_message(client, board, message, content):
                 continue
+            message = None
         if message is None:
             message = board.messages.create(
                 channel_id=board.channel_id,

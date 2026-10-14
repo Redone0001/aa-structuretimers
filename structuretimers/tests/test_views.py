@@ -22,11 +22,11 @@ from app_utils.testing import (
 from structuretimers.models import Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
-    StructureFactory,
     CitadelTypeFactory,
     DistancesFromStagingFactory,
     EveSolarSystemFactory,
     StagingSystemFactory,
+    StructureFactory,
     TimerFactory,
     UserMainFactory,
     UserWithAccessFactory,
@@ -675,18 +675,26 @@ class TestInlineAssignment(NoSocketsTestCase):
         )
 
     def test_current_list_has_assignment_dropdown(self):
-        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        response = self.client.get(
+            reverse("structuretimers:timer_list_data", args=["current"])
+        )
         self.assertEqual(response.status_code, 200)
         row = next(row for row in response.json() if row["id"] == self.timer.pk)
-        self.assertIn('class="form-select form-select-sm timer-assignee"', row["assignment"])
+        self.assertIn(
+            'class="form-select form-select-sm timer-assignee"', row["assignment"]
+        )
         self.assertNotIn("timer-assignee", row["name_objective"])
-        self.assertNotIn(self.assignee.profile.main_character.character_name, row["name_objective"])
+        self.assertNotIn(
+            self.assignee.profile.main_character.character_name, row["name_objective"]
+        )
 
     def test_assignment_search_uses_main_character_names(self):
         name = self.assignee.profile.main_character.character_name
         response = self.client.get(self.url, {"term": name})
         self.assertEqual(response.status_code, 200)
-        self.assertIn({"id": self.assignee.pk, "text": name}, response.json()["results"])
+        self.assertIn(
+            {"id": self.assignee.pk, "text": name}, response.json()["results"]
+        )
 
     def test_assignment_search_requires_edit_permission(self):
         self.client.force_login(self.assignee)
@@ -701,7 +709,8 @@ class TestFrontendPrivacy(NoSocketsTestCase):
         self.user = UserWithCreateFactory()
         self.owner = UserWithManageFactory()
         self.hidden = TimerFactory(
-            user=self.owner, is_opsec=True,
+            user=self.owner,
+            is_opsec=True,
             structure_name="PRIVATE-PLANNING-MARKER",
             details_notes="PRIVATE-NOTES-MARKER",
         )
@@ -716,22 +725,29 @@ class TestFrontendPrivacy(NoSocketsTestCase):
             self.assertNotIn(b"PRIVATE-NOTES-MARKER", response.content)
 
     def test_hidden_timer_is_absent_from_json_and_detail(self):
-        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        response = self.client.get(
+            reverse("structuretimers:timer_list_data", args=["current"])
+        )
         self.assertNotIn(b"PRIVATE-PLANNING-MARKER", response.content)
-        response = self.client.get(reverse("structuretimers:detail", args=[self.hidden.pk]))
+        response = self.client.get(
+            reverse("structuretimers:detail", args=[self.hidden.pk])
+        )
         self.assertEqual(response.status_code, 404)
         self.assertNotIn(b"PRIVATE-NOTES-MARKER", response.content)
 
     def test_read_only_current_list_does_not_include_assignment_editor(self):
         self.client.force_login(UserWithAccessFactory())
         TimerFactory(user=self.owner)
-        response = self.client.get(reverse("structuretimers:timer_list_data", args=["current"]))
+        response = self.client.get(
+            reverse("structuretimers:timer_list_data", args=["current"])
+        )
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"timer-assignee", response.content)
 
     def test_base_uses_one_aa_jquery_and_bootstrap_and_accessible_modal(self):
         response = self.client.get(reverse("structuretimers:timer_list"))
         from bs4 import BeautifulSoup
+
         page = BeautifulSoup(response.content, "html.parser")
         scripts = [tag.get("src", "") for tag in page.find_all("script")]
         self.assertEqual(sum("/jquery/" in src for src in scripts), 1)

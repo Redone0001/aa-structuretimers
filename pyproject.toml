@@ -67,6 +67,10 @@ ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
 [tool.pylint.'BASIC']
 good-names = ["i", "j", "k", "x", "y", "z", "ex", "id"]
 
+# Django choice enums inherit framework classes rather than application complexity.
+[tool.pylint.'DESIGN']
+ignored-parents = ["django.db.models.enums.TextChoices", "django.db.models.enums.IntegerChoices"]
+
 [tool.pylint.'FORMAT']
 max-line-length = 120
 

@@ -9,12 +9,7 @@ from django.urls import reverse
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
-from structuretimers.models import (
-    Organization,
-    ScheduledNotification,
-    Structure,
-    Timer,
-)
+from structuretimers.models import Organization, ScheduledNotification, Structure, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,

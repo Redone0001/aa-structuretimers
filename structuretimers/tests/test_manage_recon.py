@@ -6,14 +6,16 @@ from unittest.mock import Mock, patch
 from django.test import Client
 from django.urls import reverse
 from django.utils.timezone import now
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers.constants import EveTypeId
 from structuretimers.forms import ReconForm
 from structuretimers.models import Structure, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
-    StructureFactory,
     CitadelTypeFactory,
+    StructureFactory,
     TimerFactory,
     UserWithAccessFactory,
     UserWithCreateFactory,
@@ -112,7 +114,7 @@ class TestManageRecon(NoSocketsTestCase):
             self.assertEqual(self.client.post(missing).status_code, 404)
 
     def test_recon_type_can_be_saved_and_missing_type_is_supported(self):
-        structure_type = CitadelTypeFactory(id=EveTypeId.ANSIBLEX)
+        structure_type = CitadelTypeFactory(id=EveTypeId.ANSIBLEX.value)
         form = ReconForm(
             data={
                 "structure_type_2": structure_type.pk,
@@ -142,9 +144,7 @@ class TestManageRecon(NoSocketsTestCase):
     def test_edit_returns_to_database_tab(self):
         self.timer.structure_type = None
         self.timer.save()
-        url = (
-            reverse("structuretimers:edit_structure", args=[self.timer.pk])
-        )
+        url = reverse("structuretimers:edit_structure", args=[self.timer.pk])
         response = self.client.post(
             url,
             {

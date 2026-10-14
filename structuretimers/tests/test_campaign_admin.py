@@ -4,12 +4,13 @@ from unittest.mock import Mock, patch
 
 from django.urls import reverse
 from django.utils.timezone import now
-from app_utils.testdata_factories import UserFactory
-from app_utils.testing import NoSocketsTestCase
 from eveuniverse.tests.testdata.factories_2 import EveSolarSystemFactory
 
-from structuretimers.models import ReconCampaign, ReconCampaignSystem, Structure, Timer
-from structuretimers.tests.testdata.factory import StructureFactory, TimerFactory
+from app_utils.testdata_factories import UserFactory
+from app_utils.testing import NoSocketsTestCase
+
+from structuretimers.models import ReconCampaign, ReconCampaignSystem, Structure
+from structuretimers.tests.testdata.factory import StructureFactory
 
 
 class TestCampaignAdmin(NoSocketsTestCase):

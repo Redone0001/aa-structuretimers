@@ -5,7 +5,9 @@ from unittest.mock import Mock, patch
 
 from django.urls import reverse
 from django.utils.timezone import now
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers.forms import ReconForm, TimerForm
 from structuretimers.models import Structure, Timer
 from structuretimers.tests.testdata.factory import (

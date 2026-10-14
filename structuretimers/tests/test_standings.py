@@ -5,7 +5,9 @@ from unittest.mock import Mock, patch
 from django.urls import reverse
 from esi.models import Token
 from eveuniverse.helpers import EveEntityNameResolver
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers import standings
 from structuretimers.models import Organization, StandingsSource
 from structuretimers.tests.testdata.factory import (
@@ -20,8 +22,17 @@ ALLIANCE = Organization.Category.ALLIANCE
 class TestStandingRules(NoSocketsTestCase):
     def test_contacts_round_to_the_five_groups(self):
         for value, expected in [
-            (10, 10), (7.6, 10), (6.7, 5), (2.6, 5), (2.4, 0), (0, 0),
-            (-2.4, 0), (-2.6, -5), (-7.4, -5), (-7.6, -10), (-10, -10),
+            (10, 10),
+            (7.6, 10),
+            (6.7, 5),
+            (2.6, 5),
+            (2.4, 0),
+            (0, 0),
+            (-2.4, 0),
+            (-2.6, -5),
+            (-7.4, -5),
+            (-7.6, -10),
+            (-10, -10),
         ]:
             with self.subTest(value=value):
                 self.assertEqual(standings.bucket(value), expected)
@@ -166,7 +177,10 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
 
 
 class TestBorrowToken(NoSocketsTestCase):
-    @patch("structuretimers.standings.EveEntity.objects.resolve_name", return_value="Our Alliance")
+    @patch(
+        "structuretimers.standings.EveEntity.objects.resolve_name",
+        return_value="Our Alliance",
+    )
     @patch("structuretimers.standings.requests.get")
     def test_existing_contacts_token_is_reused(self, get, _):
         from esi.models import Scope
@@ -174,7 +188,14 @@ class TestBorrowToken(NoSocketsTestCase):
         get.return_value.json.return_value = {"alliance_id": 999}
         user = UserMainFactory()
         (token,) = Token.objects.bulk_create(
-            [Token(user=user, character_id=7, character_name="Diplo", character_owner_hash="y")]
+            [
+                Token(
+                    user=user,
+                    character_id=7,
+                    character_name="Diplo",
+                    character_owner_hash="y",
+                )
+            ]
         )
         token.scopes.add(Scope.objects.create(name=standings.CONTACTS_SCOPE))
         source = standings.borrow_existing_token()

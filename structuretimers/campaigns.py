@@ -22,6 +22,8 @@ from .regional_map import geography_payload, sde_models, structure_payload
 
 
 class CampaignForm(forms.Form):
+    """Resolve a campaign's explicitly named systems and selected regions."""
+
     name = forms.CharField(max_length=200, label=_("Campaign name"))
     systems = forms.CharField(
         required=False,
@@ -63,6 +65,8 @@ class CampaignForm(forms.Form):
 
 
 class CampaignAccess(LoginRequiredMixin, PermissionRequiredMixin):
+    """Require basic access and recon membership for campaign views."""
+
     permission_required = (
         "structuretimers.basic_access",
         "structuretimers.recon_member",
@@ -70,11 +74,16 @@ class CampaignAccess(LoginRequiredMixin, PermissionRequiredMixin):
 
 
 class CampaignListView(CampaignAccess, View):
+    """Redirect the legacy campaign list to its timerboard tab."""
+
     def get(self, request):
+        """Open the recon campaigns tab."""
         return redirect(reverse("structuretimers:timer_list") + "?tab=recon-campaigns")
 
 
 class CampaignCreateView(CampaignAccess, View):
+    """Create campaigns and enqueue region imports when needed."""
+
     permission_required = (
         "structuretimers.basic_access",
         "structuretimers.recon_member",
@@ -82,9 +91,11 @@ class CampaignCreateView(CampaignAccess, View):
     )
 
     def get(self, request):
+        """Display an empty campaign form."""
         return self.render_form(request, CampaignForm())
 
     def render_form(self, request, form):
+        """Render the campaign form with its current validation state."""
         return render(
             request,
             "structuretimers/campaign_form.html",
@@ -92,6 +103,7 @@ class CampaignCreateView(CampaignAccess, View):
         )
 
     def post(self, request):
+        """Persist a valid campaign and its initial system membership."""
         form = CampaignForm(request.POST)
         if form.is_valid():
             systems = form.cleaned_data["resolved_systems"]
@@ -121,6 +133,7 @@ class CampaignCreateView(CampaignAccess, View):
 
 
 def can_work(user, entry):
+    """Check whether a user may edit an unfinished campaign entry."""
     return (
         entry.campaign.import_status == "ready"
         and not entry.completed_at
@@ -129,6 +142,35 @@ def can_work(user, entry):
             or user.has_perm("structuretimers.recon_coordinator")
         )
     )
+
+
+def _campaign_nodes(data, members):
+    """Attach campaign reservation and recon status to geographic nodes."""
+    by_id = {node["id"]: node for node in data["nodes"]}
+    nodes = []
+    for entry in members:
+        node = by_id.get(
+            entry.solar_system_id,
+            {
+                "id": entry.solar_system_id,
+                "name": entry.solar_system.name,
+                "position": None,
+            },
+        )
+        node.update(
+            {
+                "entryId": entry.pk,
+                "count": entry.timer_count,
+                "indicators": entry.indicators,
+                "status": (
+                    "completed"
+                    if entry.completed_at
+                    else "reserved" if entry.reserved_by_id else "available"
+                ),
+            }
+        )
+        nodes.append(node)
+    return nodes
 
 
 def campaign_map_data(entries):
@@ -160,30 +202,7 @@ def campaign_map_data(entries):
             data = geography_payload(sde_region, systems, gate_model)
         else:
             data = {"nodes": [], "edges": []}
-        by_id = {node["id"]: node for node in data["nodes"]}
-        nodes = []
-        for entry in members:
-            node = by_id.get(
-                entry.solar_system_id,
-                {
-                    "id": entry.solar_system_id,
-                    "name": entry.solar_system.name,
-                    "position": None,
-                },
-            )
-            node.update(
-                {
-                    "entryId": entry.pk,
-                    "count": entry.timer_count,
-                    "indicators": entry.indicators,
-                    "status": (
-                        "completed"
-                        if entry.completed_at
-                        else "reserved" if entry.reserved_by_id else "available"
-                    ),
-                }
-            )
-            nodes.append(node)
+        nodes = _campaign_nodes(data, members)
         ids = {node["id"] for node in nodes}
         data.update(
             {
@@ -206,7 +225,10 @@ def campaign_map_data(entries):
 
 
 class CampaignDetailView(CampaignAccess, View):
+    """Display and update campaign reservations and completion."""
+
     def get(self, request, pk):
+        """Render campaign systems with their visible structure records."""
         campaign = get_object_or_404(ReconCampaign, pk=pk)
         entries = list(
             campaign.systems.select_related(
@@ -242,32 +264,10 @@ class CampaignDetailView(CampaignAccess, View):
         )
 
     def post(self, request, pk):
+        """Apply an import or reservation action to a locked campaign."""
         action = request.POST.get("action")
         if action in {"load_gates", "retry_import"}:
-            if not request.user.has_perm("structuretimers.recon_coordinator"):
-                raise PermissionDenied()
-            from .campaign_jobs import enqueue_campaign_job
-
-            with transaction.atomic():
-                campaign = get_object_or_404(
-                    ReconCampaign.objects.select_for_update(), pk=pk
-                )
-                if action == "retry_import" and campaign.import_status == "failed":
-                    campaign.import_status = "pending"
-                    campaign.gates_status = "pending"
-                    campaign.save(update_fields=["import_status", "gates_status"])
-                    transaction.on_commit(lambda: enqueue_campaign_job(pk, "systems"))
-                elif (
-                    action == "load_gates"
-                    and campaign.import_status == "ready"
-                    and campaign.gates_status != "pending"
-                ):
-                    campaign.gates_status = "pending"
-                    campaign.save(update_fields=["gates_status"])
-                    transaction.on_commit(
-                        lambda: enqueue_campaign_job(pk, "gates", refresh=True)
-                    )
-            return redirect(campaign)
+            return self._import_action(request, pk, action)
         if action not in {"reserve", "release", "complete", "reopen"}:
             return HttpResponseBadRequest("Unknown action")
         with transaction.atomic():
@@ -286,26 +286,9 @@ class CampaignDetailView(CampaignAccess, View):
             )
             if not entries or len(entries) != len(set(ids)):
                 return HttpResponseBadRequest("Select systems from this campaign")
-            coordinator = request.user.has_perm("structuretimers.recon_coordinator")
-            for entry in entries:
-                entry.campaign = campaign
-                if action == "reserve":
-                    if entry.completed_at or entry.reserved_by_id not in {
-                        None,
-                        request.user.pk,
-                    }:
-                        messages.error(
-                            request,
-                            _(
-                                "One of these systems is already reserved or complete. Refresh and try again."
-                            ),
-                        )
-                        return redirect(campaign)
-                elif action == "reopen":
-                    if not coordinator:
-                        raise PermissionDenied()
-                elif not can_work(request.user, entry):
-                    raise PermissionDenied()
+            invalid = self._validate_reservations(request, campaign, entries, action)
+            if invalid is not None:
+                return invalid
             for entry in entries:
                 entry.campaign = campaign
                 if action == "reserve":
@@ -325,9 +308,63 @@ class CampaignDetailView(CampaignAccess, View):
             campaign.save(update_fields=["finished_at"])
         return redirect(campaign)
 
+    def _validate_reservations(self, request, campaign, entries, action):
+        """Check every selected reservation before changing any of them."""
+        coordinator = request.user.has_perm("structuretimers.recon_coordinator")
+        for entry in entries:
+            entry.campaign = campaign
+            if action == "reserve":
+                if entry.completed_at or entry.reserved_by_id not in {
+                    None,
+                    request.user.pk,
+                }:
+                    messages.error(
+                        request,
+                        _(
+                            "One of these systems is already reserved or complete. Refresh and try again."
+                        ),
+                    )
+                    return redirect(campaign)
+            elif action == "reopen":
+                if not coordinator:
+                    raise PermissionDenied()
+            elif not can_work(request.user, entry):
+                raise PermissionDenied()
+        return None
+
+    def _import_action(self, request, pk, action):
+        """Retry system imports or refresh stargates under the campaign lock."""
+        if not request.user.has_perm("structuretimers.recon_coordinator"):
+            raise PermissionDenied()
+        from .campaign_jobs import enqueue_campaign_job
+
+        with transaction.atomic():
+            campaign = get_object_or_404(
+                ReconCampaign.objects.select_for_update(), pk=pk
+            )
+            if action == "retry_import" and campaign.import_status == "failed":
+                campaign.import_status = "pending"
+                campaign.gates_status = "pending"
+                campaign.save(update_fields=["import_status", "gates_status"])
+                transaction.on_commit(lambda: enqueue_campaign_job(pk, "systems"))
+            elif (
+                action == "load_gates"
+                and campaign.import_status == "ready"
+                and campaign.gates_status != "pending"
+            ):
+                campaign.gates_status = "pending"
+                campaign.save(update_fields=["gates_status"])
+                transaction.on_commit(
+                    lambda: enqueue_campaign_job(pk, "gates", refresh=True)
+                )
+        return redirect(campaign)
+
 
 class CampaignStatusView(CampaignAccess, View):
+    """Expose campaign import status for polling."""
+
     def get(self, request, pk):
+        """Return current import states without shared caching."""
         campaign = get_object_or_404(ReconCampaign, pk=pk)
         response = JsonResponse(
             {
@@ -340,7 +377,10 @@ class CampaignStatusView(CampaignAccess, View):
 
 
 class CampaignMapDataView(CampaignAccess, View):
+    """Combine campaign membership with regional structure overlays."""
+
     def get(self, request, pk):
+        """Return geography and recon status for the campaign map."""
         campaign = get_object_or_404(ReconCampaign, pk=pk)
         entries = list(
             campaign.systems.select_related(
@@ -374,7 +414,10 @@ class CampaignMapDataView(CampaignAccess, View):
 
 
 class CampaignReconView(CampaignAccess, View):
+    """Edit structures within a permitted campaign reservation."""
+
     def handle(self, request, pk, entry_pk, timer_pk=None):
+        """Display or update a structure in the reserved system."""
         entry = get_object_or_404(
             ReconCampaignSystem.objects.select_related("campaign", "solar_system"),
             pk=entry_pk,
@@ -426,9 +469,11 @@ class CampaignReconView(CampaignAccess, View):
         )
 
     def get(self, request, **kwargs):
+        """Display the reserved system's recon form."""
         return self.handle(request, **kwargs)
 
     def post(self, request, pk, **kwargs):
+        """Lock the campaign before applying a recon edit."""
         with transaction.atomic():
             get_object_or_404(ReconCampaign.objects.select_for_update(), pk=pk)
             return self.handle(request, pk=pk, **kwargs)
