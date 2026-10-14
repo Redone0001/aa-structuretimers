@@ -27,10 +27,7 @@ from structuretimers.tests.testdata.factory import (
     EveSolarSystemLowSecFactory,
     StagingSystemFactory,
 )
-from structuretimers.timerboard import (
-    render_board,
-    sync_board,
-)
+from structuretimers.timerboard import render_board, sync_board
 
 
 class TimerboardTests(TestCase):
@@ -590,9 +587,9 @@ class ProxyWireTests(TestCase):
     @patch("discordproxy.client.DiscordApiStub")
     def test_real_proxy_client_serializes_lifecycle_requests(self, stub_class, channel):
         from discordproxy.discord_api_pb2 import (
-            SendChannelMessageResponse,
-            EditChannelMessageResponse,
             DeleteChannelMessageResponse,
+            EditChannelMessageResponse,
+            SendChannelMessageResponse,
         )
 
         stub = stub_class.return_value

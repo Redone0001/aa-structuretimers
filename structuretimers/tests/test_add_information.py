@@ -3,7 +3,9 @@
 from unittest.mock import Mock, patch
 
 from django.urls import reverse
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers.models import Structure, Timer
 from structuretimers.tests.testdata.factory import (
     EveSolarSystemLowSecFactory,
@@ -18,6 +20,7 @@ from .test_forms import FUTURE, create_form_data, make_owner
     "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
 )
 @patch("structuretimers.models._task_calc_structure_distances", Mock())
+@patch("structuretimers.models._task_schedule_notifications_for_timer", Mock())
 class TestAddInformation(NoSocketsTestCase):
     def setUp(self):
         self.user = UserWithCreateFactory()
@@ -36,11 +39,17 @@ class TestAddInformation(NoSocketsTestCase):
         self.assertNotContains(response, "Quick add timer")
         self.assertNotContains(response, reverse("structuretimers:add_recon"))
         fields = list(response.context["form"].fields)
-        self.assertEqual(fields[:3], ["database_entry_2", "paste_info", "structure_name"])
+        self.assertEqual(
+            fields[:3], ["database_entry_2", "paste_info", "structure_name"]
+        )
 
     def test_timer_paste_is_read_and_matched_to_existing_structure(self):
-        record = StructureFactory(eve_solar_system=self.system, structure_name="kongbao")
-        data = self.parse("SVM-3K - KONGBAO\n17 km\nReinforced until 2030.09.05 03:47:08")
+        record = StructureFactory(
+            eve_solar_system=self.system, structure_name="kongbao"
+        )
+        data = self.parse(
+            "SVM-3K - KONGBAO\n17 km\nReinforced until 2030.09.05 03:47:08"
+        )
         self.assertEqual(data["found"], ["timer"])
         self.assertEqual(data["values"]["solar_system"]["id"], str(self.system.pk))
         self.assertEqual(data["values"]["structure_name"], "KONGBAO")
@@ -52,7 +61,9 @@ class TestAddInformation(NoSocketsTestCase):
         fit = f"[{record.structure_type.name}, Home]\nStandup Point Defense Battery I"
         data = self.parse(fit)
         self.assertEqual(data["found"], ["fitting"])
-        self.assertEqual(data["values"]["structure_type"]["id"], str(record.structure_type_id))
+        self.assertEqual(
+            data["values"]["structure_type"]["id"], str(record.structure_type_id)
+        )
         self.assertEqual(data["values"]["fitting"], fit)
         self.assertEqual(data["match"]["id"], record.pk)
 
@@ -62,7 +73,9 @@ class TestAddInformation(NoSocketsTestCase):
         self.assertIsNone(data["match"])
 
     def test_saving_updates_the_picked_structure_instead_of_duplicating(self):
-        record = StructureFactory(eve_solar_system=self.system, structure_name="kongbao")
+        record = StructureFactory(
+            eve_solar_system=self.system, structure_name="kongbao"
+        )
         response = self.client.post(
             reverse("structuretimers:add_info"),
             create_form_data(
@@ -85,4 +98,6 @@ class TestAddInformation(NoSocketsTestCase):
         self.client.force_login(
             UserWithCreateFactory(permissions__=["structuretimers.basic_access"])
         )
-        self.assertEqual(self.client.post(self.parse_url, {"text": "x"}).status_code, 403)
+        self.assertEqual(
+            self.client.post(self.parse_url, {"text": "x"}).status_code, 403
+        )

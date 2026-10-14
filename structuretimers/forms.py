@@ -11,18 +11,16 @@ import requests
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from eveuniverse.models import EveSolarSystem, EveType
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 from allianceauth.services.hooks import get_extension_logger
 
-from .constants import EveGroupId, EveTypeId
 from . import owners, structures_bridge
+from .constants import EveGroupId, EveTypeId
 from .models import Structure, Timer
 
 logger = get_extension_logger(__name__)
@@ -179,11 +177,10 @@ class TimerForm(forms.ModelForm):
         widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
     )
     assigned_to = AssigneeChoiceField(
-        queryset=get_user_model().objects.filter(
-            is_active=True, profile__main_character__isnull=False
-        ).select_related("profile__main_character").order_by(
-            "profile__main_character__character_name", "pk"
-        ),
+        queryset=get_user_model()
+        .objects.filter(is_active=True, profile__main_character__isnull=False)
+        .select_related("profile__main_character")
+        .order_by("profile__main_character__character_name", "pk"),
         required=False,
         label=_("Assigned to"),
         empty_label=_("Unassigned"),
@@ -360,6 +357,7 @@ class TimerForm(forms.ModelForm):
             cleaned_data["timer_type"] = Timer.Type.NONE.value
 
     def clean_reinforcement_time(self):
+        """Require an explicit 24-hour HH:MM reinforcement time."""
         value = self.cleaned_data.get("reinforcement_time")
         raw_value = self.data.get("reinforcement_time", "").strip()
         if raw_value and not re.fullmatch(
@@ -451,7 +449,9 @@ class TimerForm(forms.ModelForm):
             owner = owners.clean_owner_value(value)
         except Exception:  # pylint: disable=broad-exception-caught
             logger.warning("Could not look up owner %r on ESI", value, exc_info=True)
-            self.add_error("owner_2", "Could not reach ESI to check this owner. Try again.")
+            self.add_error(
+                "owner_2", "Could not reach ESI to check this owner. Try again."
+            )
             return
         if owner is None:
             name = str(value).removeprefix(owners.LOOKUP_PREFIX)
@@ -548,6 +548,19 @@ class TimerForm(forms.ModelForm):
             **self._creator(),
         )
 
+    def _save_structure(self, structure, commit):
+        """Save a Database record and its optional reinforcement timer."""
+        if self.is_new:
+            for key, value in self._creator().items():
+                setattr(structure, key, value)
+        self._apply_structure_fields(structure)
+        if not commit:
+            return structure
+        structure.save()
+        if self.cleaned_data.get("date"):
+            self._new_timer_for(structure).save()
+        return structure
+
     def save(self, commit=True):
         """Save the structure, and its reinforcement timer when there is a date.
 
@@ -555,17 +568,7 @@ class TimerForm(forms.ModelForm):
         """
         obj = super().save(commit=False)
         if isinstance(obj, Structure):
-            structure = obj
-            if self.is_new:
-                for key, value in self._creator().items():
-                    setattr(structure, key, value)
-            self._apply_structure_fields(structure)
-            if not commit:
-                return structure
-            structure.save()
-            if self.cleaned_data.get("date"):
-                self._new_timer_for(structure).save()
-            return structure
+            return self._save_structure(obj, commit)
 
         timer = obj
         if self.is_new:
@@ -580,8 +583,10 @@ class TimerForm(forms.ModelForm):
             timer.owner_name = owner.name
 
         picked = self.cleaned_data.get("database_entry_2") or None
-        if "database_entry_2" in self.fields and picked is not None and not isinstance(
-            picked, Structure
+        if (
+            "database_entry_2" in self.fields
+            and picked is not None
+            and not isinstance(picked, Structure)
         ):
             # A friendly structure from aa-structures: it stays in that app.
             timer.structure = None
@@ -593,12 +598,14 @@ class TimerForm(forms.ModelForm):
         structure = (
             picked
             if isinstance(picked, Structure)
-            else timer.structure
-            if timer.structure_id
-            else Structure.objects.find_matching(
-                timer.eve_solar_system_id,
-                timer.structure_type_id,
-                timer.structure_name,
+            else (
+                timer.structure
+                if timer.structure_id
+                else Structure.objects.find_matching(
+                    timer.eve_solar_system_id,
+                    timer.structure_type_id,
+                    timer.structure_name,
+                )
             )
         )
         if structure is None:
@@ -607,7 +614,12 @@ class TimerForm(forms.ModelForm):
                 is_opsec=timer.is_opsec,
                 **{
                     key: getattr(timer, key)
-                    for key in ("eve_character", "eve_corporation", "eve_alliance", "user")
+                    for key in (
+                        "eve_character",
+                        "eve_corporation",
+                        "eve_alliance",
+                        "user",
+                    )
                 },
             )
         self._apply_structure_fields(structure)
@@ -659,6 +671,38 @@ class FastTimerForm(TimerForm):
         "location_details",
     )
 
+    def _parse_data(self, data):
+        """Derive hidden form values from pasted text while retaining validation."""
+        data = data.copy()
+        for field_name in self.derived_fields:
+            data.pop(field_name, None)
+        parsed_owner_name = ""
+        parsed_location_details = ""
+
+        try:
+            parsed_timer = parse_eve_timer_text(data.get("pasted_timer", ""))
+        except ValueError:
+            pass
+        else:
+            solar_system = EveSolarSystem.objects.filter(
+                name__iexact=parsed_timer.solar_system_name
+            ).first()
+            if solar_system:
+                data["eve_solar_system_2"] = str(solar_system.id)
+            data["structure_name"] = parsed_timer.structure_name
+            data["date"] = parsed_timer.date.isoformat()
+            parsed_owner_name = parsed_timer.owner_name
+            parsed_location_details = parsed_timer.location_details
+            if parsed_timer.structure_type_name:
+                data["structure_type_2"] = str(EveTypeId.ORBITAL_SKYHOOK.value)
+
+        if parsed_owner_name and not data.get("owner_2"):
+            data["owner_2"] = owners.LOOKUP_PREFIX + parsed_owner_name
+        if parsed_location_details:
+            data["location_details"] = parsed_location_details
+
+        return data
+
     def __init__(self, *args, **kwargs):
         args = list(args)
         data = kwargs.get("data")
@@ -667,34 +711,7 @@ class FastTimerForm(TimerForm):
             data = args[0]
 
         if data is not None:
-            data = data.copy()
-            for field_name in self.derived_fields:
-                data.pop(field_name, None)
-            parsed_owner_name = ""
-            parsed_location_details = ""
-
-            try:
-                parsed_timer = parse_eve_timer_text(data.get("pasted_timer", ""))
-            except ValueError:
-                pass
-            else:
-                solar_system = EveSolarSystem.objects.filter(
-                    name__iexact=parsed_timer.solar_system_name
-                ).first()
-                if solar_system:
-                    data["eve_solar_system_2"] = str(solar_system.id)
-                data["structure_name"] = parsed_timer.structure_name
-                data["date"] = parsed_timer.date.isoformat()
-                parsed_owner_name = parsed_timer.owner_name
-                parsed_location_details = parsed_timer.location_details
-                if parsed_timer.structure_type_name:
-                    data["structure_type_2"] = str(EveTypeId.ORBITAL_SKYHOOK.value)
-
-            if parsed_owner_name and not data.get("owner_2"):
-                data["owner_2"] = owners.LOOKUP_PREFIX + parsed_owner_name
-            if parsed_location_details:
-                data["location_details"] = parsed_location_details
-
+            data = self._parse_data(data)
             if data_is_positional:
                 args[0] = data
             else:
@@ -711,9 +728,9 @@ class FastTimerForm(TimerForm):
         # Invalid paste data is reported against the text area instead of producing
         # a second, confusing "solar system is required" error from the hidden field.
         self.fields["eve_solar_system_2"].required = False
-        self.fields["structure_type_2"].widget.attrs[
-            "data-skyhook-type-id"
-        ] = str(EveTypeId.ORBITAL_SKYHOOK.value)
+        self.fields["structure_type_2"].widget.attrs["data-skyhook-type-id"] = str(
+            EveTypeId.ORBITAL_SKYHOOK.value
+        )
         self.fields["location_details"].required = False
         self.order_fields(self.fast_fields + self.derived_fields)
 
@@ -725,6 +742,7 @@ class FastTimerForm(TimerForm):
         return timer
 
     def clean_pasted_timer(self):
+        """Validate pasted timer text and its referenced solar system."""
         value = self.cleaned_data["pasted_timer"]
         try:
             parsed_timer = parse_eve_timer_text(value)
@@ -797,4 +815,3 @@ class ReconForm(TimerForm):
         if self.is_new:
             self.initial["reinforcement_time"] = dt.time(0, 0)
         self.order_fields(self.recon_fields)
-

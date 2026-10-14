@@ -8,22 +8,52 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('esi', '0013_squashed_0012_fix_token_type_choices'),
-        ('structuretimers', '0021_owner_organizations'),
+        ("esi", "0013_squashed_0012_fix_token_type_choices"),
+        ("structuretimers", "0021_owner_organizations"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='StandingsSource',
+            name="StandingsSource",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('alliance_id', models.PositiveBigIntegerField()),
-                ('alliance_name', models.CharField(blank=True, default='', max_length=254)),
-                ('last_sync_at', models.DateTimeField(blank=True, null=True)),
-                ('last_error', models.CharField(blank=True, default='', max_length=254)),
-                ('added_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('token', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to='esi.token')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("alliance_id", models.PositiveBigIntegerField()),
+                (
+                    "alliance_name",
+                    models.CharField(blank=True, default="", max_length=254),
+                ),
+                ("last_sync_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "last_error",
+                    models.CharField(blank=True, default="", max_length=254),
+                ),
+                (
+                    "added_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "token",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="+",
+                        to="esi.token",
+                    ),
+                ),
             ],
         ),
     ]

@@ -5,11 +5,11 @@ from http import HTTPStatus
 from unittest.mock import Mock, patch
 
 from django.urls import reverse
+
 from app_utils.testing import NoSocketsTestCase
-from structuretimers.models import Timer
+
 from structuretimers.tests.testdata.factory import (
     StructureFactory,
-    TimerFactory,
     UserMainFactory,
     UserWithAccessFactory,
 )

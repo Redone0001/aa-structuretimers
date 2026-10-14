@@ -12,8 +12,8 @@ from app_utils.testing import NoSocketsTestCase
 from structuretimers.models import ReconCampaign, ReconCampaignSystem, Structure, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
-    StructureFactory,
     CitadelTypeFactory,
+    StructureFactory,
     TimerFactory,
     UserWithAccessFactory,
 )

@@ -18,7 +18,6 @@ from structuretimers.tasks import (
     send_scheduled_notification,
 )
 from structuretimers.tests.testdata.factory import (
-    StructureFactory,
     DiscordWebhookFactory,
     NotificationRuleFactory,
     ScheduledNotificationFactory,

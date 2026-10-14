@@ -1,7 +1,9 @@
 """Bundled map positions must work without network access."""
 
 import math
+
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers.map_layouts import get_region_layout, region_layouts
 
 

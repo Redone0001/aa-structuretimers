@@ -40,9 +40,9 @@ from structuretimers.app_settings import (
     STRUCTURETIMERS_NOTIFICATIONS_ENABLED,
 )
 from structuretimers.managers import (
-    StructureManager,
     DistancesFromStagingManager,
     NotificationRuleManager,
+    StructureManager,
     TimerManager,
 )
 
@@ -105,10 +105,14 @@ class Organization(models.Model):
     """
 
     class Category(models.TextChoices):
+        """Kinds of organizations that can own structures."""
+
         CORPORATION = "corporation", _("Corporation")
         ALLIANCE = "alliance", _("Alliance")
 
     class Standing(models.IntegerChoices):
+        """Supported corporation and alliance standing values."""
+
         TERRIBLE = -10, "-10"
         BAD = -5, "-5"
         NEUTRAL = 0, "0"
@@ -160,6 +164,7 @@ class Organization(models.Model):
 
     @staticmethod
     def objective_for_standing(value: int) -> str:
+        """Map a standing to its friend-or-foe objective."""
         if value > 0:
             return Timer.Objective.FRIENDLY
         if value < 0:
@@ -168,6 +173,7 @@ class Organization(models.Model):
 
     @property
     def display_name(self) -> str:
+        """Include the owning alliance when displaying a corporation."""
         if self.alliance_id:
             return f"{self.name} [{self.alliance.name}]"
         return self.name
@@ -693,7 +699,9 @@ class Timer(StructureDetails):
             return ""
         profile = getattr(self.assigned_to, "profile", None)
         character = getattr(profile, "main_character", None)
-        return character.character_name if character else self.assigned_to.get_username()
+        return (
+            character.character_name if character else self.assigned_to.get_username()
+        )
 
     objects = TimerManager()
 
@@ -713,9 +721,7 @@ class Timer(StructureDetails):
         if not self.structure_id and not self.structures_structure_id:
             if self.eve_solar_system_id:
                 # Friendly structures known to aa-structures stay in that app.
-                self.structures_structure_id = structures_bridge.find_structure_id(
-                    self
-                )
+                self.structures_structure_id = structures_bridge.find_structure_id(self)
                 if not self.structures_structure_id:
                     self.structure = Structure.objects.find_or_create_for_timer(self)
         if self.structure_id:
@@ -909,12 +915,15 @@ class Structure(StructureDetails):
             self._original_eve_solar_system_id = self.eve_solar_system_id
 
     def get_absolute_url(self) -> str:
+        """Return the Database tab containing this structure."""
         return reverse("structuretimers:timer_list") + "?tab=preliminary"
 
     def get_timer_type_display(self) -> str:
+        """Provide the Database label for shared timer rendering."""
         return "Database"
 
     def label_type_for_timer_type(self) -> str:
+        """Provide the badge style for a Database record."""
         return "secondary"
 
 
@@ -1438,7 +1447,11 @@ class StructureDistance(models.Model):
 
 
 class ReconCampaign(models.Model):
+    """Coordinate recon reservations and imports for a group of systems."""
+
     class ImportStatus(models.TextChoices):
+        """States of a campaign systems or stargates import."""
+
         READY = "ready", "Ready"
         PENDING = "pending", "Importing"
         FAILED = "failed", "Import failed"
@@ -1462,10 +1475,13 @@ class ReconCampaign(models.Model):
         return self.name
 
     def get_absolute_url(self):
+        """Return the campaign detail page."""
         return reverse("structuretimers:campaign_detail", args=[self.pk])
 
 
 class ReconCampaignSystem(models.Model):
+    """Track one system's reservation and completion within a campaign."""
+
     campaign = models.ForeignKey(
         ReconCampaign, related_name="systems", on_delete=models.CASCADE
     )
@@ -1581,6 +1597,7 @@ class MapFleetToken(models.Model):
     revision = models.PositiveIntegerField(default=0)
 
     def user_can_edit(self, user):
+        """Allow the creator or a timer manager to edit this fleet token."""
         return self.creator_id == user.pk or user.has_perm(
             "structuretimers.manage_timer"
         )

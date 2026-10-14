@@ -3,10 +3,10 @@
 from typing import Iterable, Optional
 
 import requests
-from eveuniverse.models import EveEntity
 
 from django.db import transaction
 from django.utils.timezone import now
+from eveuniverse.models import EveEntity
 
 from .models import Organization, StandingsSource
 from .owners import ESI_URL, USER_AGENT
@@ -61,6 +61,7 @@ def refresh_objectives() -> None:
 
 
 def standing_label(value: Optional[int]) -> str:
+    """Format a standing for display, including unknown values."""
     if value is None:
         return "?"
     return f"+{value}" if value > 0 else str(value)
@@ -101,9 +102,11 @@ def sync_source(source: StandingsSource) -> int:
     contacts = _get_pages(f"/alliances/{source.alliance_id}/contacts/", source.token)
     groups = {
         contact["contact_id"]: (
-            Organization.Category.CORPORATION
-            if contact["contact_type"] == "corporation"
-            else Organization.Category.ALLIANCE,
+            (
+                Organization.Category.CORPORATION
+                if contact["contact_type"] == "corporation"
+                else Organization.Category.ALLIANCE
+            ),
             bucket(float(contact["standing"])),
         )
         for contact in contacts
@@ -133,7 +136,9 @@ def borrow_existing_token() -> Optional[StandingsSource]:
     """
     from esi.models import Token  # pylint: disable=import-outside-toplevel
 
-    for token in Token.objects.all().require_scopes(CONTACTS_SCOPE).order_by("-created"):
+    for token in (
+        Token.objects.all().require_scopes(CONTACTS_SCOPE).order_by("-created")
+    ):
         try:
             character = requests.get(
                 f"{ESI_URL}/characters/{token.character_id}/",
@@ -153,6 +158,7 @@ def borrow_existing_token() -> Optional[StandingsSource]:
 
 
 def sync_all() -> None:
+    """Refresh all standings sources and apply the resulting objectives."""
     if not StandingsSource.objects.exists():
         borrow_existing_token()
     for source in StandingsSource.objects.select_related("token"):

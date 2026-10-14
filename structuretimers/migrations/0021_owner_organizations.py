@@ -7,28 +7,88 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('structuretimers', '0020_timer_structures_structure_id'),
+        ("structuretimers", "0020_timer_structures_structure_id"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Organization',
+            name="Organization",
             fields=[
-                ('id', models.PositiveBigIntegerField(help_text='EVE ID', primary_key=True, serialize=False)),
-                ('name', models.CharField(db_index=True, max_length=254)),
-                ('category', models.CharField(choices=[('corporation', 'Corporation'), ('alliance', 'Alliance')], max_length=16)),
-                ('standing_auto', models.SmallIntegerField(blank=True, choices=[(-10, '-10'), (-5, '-5'), (0, '0'), (5, '+5'), (10, '+10')], help_text='Standing from our alliance contacts, set automatically', null=True)),
-                ('standing_override', models.SmallIntegerField(blank=True, choices=[(-10, '-10'), (-5, '-5'), (0, '0'), (5, '+5'), (10, '+10')], help_text='Standing set by a recon coordinator, wins over the automatic one', null=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('alliance', models.ForeignKey(blank=True, limit_choices_to={'category': 'alliance'}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='corporations', to='structuretimers.organization')),
+                (
+                    "id",
+                    models.PositiveBigIntegerField(
+                        help_text="EVE ID", primary_key=True, serialize=False
+                    ),
+                ),
+                ("name", models.CharField(db_index=True, max_length=254)),
+                (
+                    "category",
+                    models.CharField(
+                        choices=[
+                            ("corporation", "Corporation"),
+                            ("alliance", "Alliance"),
+                        ],
+                        max_length=16,
+                    ),
+                ),
+                (
+                    "standing_auto",
+                    models.SmallIntegerField(
+                        blank=True,
+                        choices=[
+                            (-10, "-10"),
+                            (-5, "-5"),
+                            (0, "0"),
+                            (5, "+5"),
+                            (10, "+10"),
+                        ],
+                        help_text="Standing from our alliance contacts, set automatically",
+                        null=True,
+                    ),
+                ),
+                (
+                    "standing_override",
+                    models.SmallIntegerField(
+                        blank=True,
+                        choices=[
+                            (-10, "-10"),
+                            (-5, "-5"),
+                            (0, "0"),
+                            (5, "+5"),
+                            (10, "+10"),
+                        ],
+                        help_text="Standing set by a recon coordinator, wins over the automatic one",
+                        null=True,
+                    ),
+                ),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "alliance",
+                    models.ForeignKey(
+                        blank=True,
+                        limit_choices_to={"category": "alliance"},
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="corporations",
+                        to="structuretimers.organization",
+                    ),
+                ),
             ],
             options={
-                'ordering': ('name',),
+                "ordering": ("name",),
             },
         ),
         migrations.AddField(
-            model_name='timer',
-            name='owner_corporation',
-            field=models.ForeignKey(blank=True, help_text='Player corporation owning the structure', limit_choices_to={'category': 'corporation'}, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='structuretimers.organization'),
+            model_name="timer",
+            name="owner_corporation",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Player corporation owning the structure",
+                limit_choices_to={"category": "corporation"},
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="+",
+                to="structuretimers.organization",
+            ),
         ),
     ]

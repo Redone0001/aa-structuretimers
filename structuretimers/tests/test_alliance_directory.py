@@ -3,9 +3,11 @@
 from unittest.mock import patch
 
 import requests
+
 from django.test import TestCase
-from allianceauth.eveonline.models import EveAllianceInfo
 from eveuniverse.models import EveEntity
+
+from allianceauth.eveonline.models import EveAllianceInfo
 
 from structuretimers.alliance_directory import (
     lookup_alliances,
@@ -23,10 +25,16 @@ class AllianceDirectoryTests(TestCase):
             id=99000002, name="Public Corporation", category="corporation"
         )
         EveAllianceInfo.objects.create(
-            alliance_id=99000001, alliance_name="Public Alliance", alliance_ticker="PUB"
+            alliance_id=99000001,
+            alliance_name="Public Alliance",
+            alliance_ticker="PUB",
+            executor_corp_id=98000001,
         )
         EveAllianceInfo.objects.create(
-            alliance_id=99000003, alliance_name="Public Legacy", alliance_ticker="OLD"
+            alliance_id=99000003,
+            alliance_name="Public Legacy",
+            alliance_ticker="OLD",
+            executor_corp_id=98000003,
         )
         self.assertEqual(
             lookup_alliances("public"),

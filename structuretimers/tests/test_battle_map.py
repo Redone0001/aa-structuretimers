@@ -12,8 +12,8 @@ from structuretimers.models import MapFleetToken, MapTimerState, Timer
 from structuretimers.tests.test_regional_map import RegionalMapTests
 from structuretimers.tests.testdata.factory import (
     TimerFactory,
-    UserWithAccessFactory,
     UserNoAccessFactory,
+    UserWithAccessFactory,
 )
 
 
@@ -93,7 +93,8 @@ class BattleMapTests(RegionalMapTests):
         )
 
     def test_global_system_lookup_and_adjacent_region_fleets(self):
-        from eve_sde.models import Region, Constellation, SolarSystem, Stargate
+        from eve_sde.models import Constellation, Region, SolarSystem, Stargate
+
         from structuretimers.regional_map import LIGHT_YEAR
 
         region = Region.objects.create(id=10000002, name="Next door")

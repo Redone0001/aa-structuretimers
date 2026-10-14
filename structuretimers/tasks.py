@@ -14,7 +14,8 @@ from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
-from structuretimers import __title__
+# Re-export the task so Celery autodiscovery registers campaign imports.
+from structuretimers import __title__, campaign_jobs
 from structuretimers.app_settings import STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
 from structuretimers.models import (
     DiscordWebhook,
@@ -26,6 +27,8 @@ from structuretimers.models import (
     StructureDistance,
     Timer,
 )
+
+prepare_campaign = campaign_jobs.prepare_campaign
 
 logger = get_extension_logger(__name__)
 TASK_PRIORITY_HIGH = 4
@@ -337,14 +340,11 @@ def calc_timer_distances_for_staging_system(
     )
 
 
-# Celery autodiscovers tasks.py; campaign imports are implemented separately.
-from .campaign_jobs import prepare_campaign  # noqa: E402,F401
-
-
 @shared_task(base=QueueOnce, acks_late=True)
 def refresh_discord_timerboards():
     """Poll database state; unchanged boards make no Discord requests."""
     from django.db.models import Q
+
     from .models import DiscordTimerboard
 
     for pk in (
@@ -357,6 +357,7 @@ def refresh_discord_timerboards():
 
 @shared_task(bind=True, max_retries=5, acks_late=True)
 def refresh_discord_timerboard(self, board_pk):
+    """Synchronize a locked timerboard and retry failed Discord operations."""
     from discordproxy.exceptions import DiscordProxyException
 
     from .models import DiscordTimerboard

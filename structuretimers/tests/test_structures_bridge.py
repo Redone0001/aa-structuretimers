@@ -5,8 +5,10 @@ from unittest.mock import Mock, patch
 
 from django.urls import reverse
 from eveuniverse.models import EveSolarSystem, EveType
+
 from allianceauth.eveonline.models import EveCorporationInfo
 from app_utils.testing import NoSocketsTestCase
+
 from structuretimers import structures_bridge
 from structuretimers.forms import TimerForm
 from structuretimers.models import Timer

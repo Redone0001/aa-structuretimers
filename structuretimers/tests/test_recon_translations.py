@@ -6,11 +6,14 @@ from pathlib import Path
 
 from django.test import RequestFactory
 from django.utils import translation
+
 from app_utils.testing import NoSocketsTestCase
 
 from structuretimers.forms import ReconForm
-from structuretimers.tests.testdata.factory import StructureFactory, TimerFactory, UserWithCreateFactory
-from structuretimers.models import Timer
+from structuretimers.tests.testdata.factory import (
+    StructureFactory,
+    UserWithCreateFactory,
+)
 from structuretimers.views import TimerListView
 
 LOCALE_ROOT = Path(__file__).resolve().parents[1] / "locale"
@@ -55,7 +58,8 @@ class TestReconTranslations(NoSocketsTestCase):
                 self.assertIn("_TOTAL_", messages["table"]["info"])
                 form = ReconForm(user=self.request.user)
                 self.assertNotEqual(
-                    str(form.fields["reinforcement_time"].label), "Vulnerability windows"
+                    str(form.fields["reinforcement_time"].label),
+                    "Vulnerability windows",
                 )
                 self.assertNotEqual(
                     str(form.fields["details_notes"].label), "Details / notes"

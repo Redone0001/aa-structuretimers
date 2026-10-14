@@ -14,8 +14,8 @@ from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from .models import Structure, Timer
 from .distance_ranges import JUMP_RANGES
+from .models import Structure, Timer
 
 LIGHT_YEAR = 9_460_000_000_000_000
 #: Regions shown together as one map. SDE schematic positions are universe-wide,
@@ -39,6 +39,7 @@ def distance_ly(source, target):
 
 
 def sde_models():
+    """Resolve the installed SDE geography models."""
     return tuple(
         apps.get_model("eve_sde", name)
         for name in ("Region", "SolarSystem", "Stargate")
@@ -76,7 +77,9 @@ def resolve_region(region_model, value) -> MapRegion:
     value = str(value or "")
     if value in MERGED_REGIONS:
         label, names = MERGED_REGIONS[value]
-        ids = list(region_model.objects.filter(name__in=names).values_list("pk", flat=True))
+        ids = list(
+            region_model.objects.filter(name__in=names).values_list("pk", flat=True)
+        )
         if len(ids) != len(names):
             raise Http404("Merged region is not in the installed SDE.")
         return MapRegion(value, label, ids)
@@ -95,6 +98,7 @@ def merged_region_options(regions) -> list:
 
 
 def validate(params):
+    """Reject unsupported relationship, time-window and range filters."""
     if params.get("relationship", "all") not in {"all", *RELATIONSHIPS}:
         raise ValueError("Unknown relationship filter.")
     if params.get("window", "preliminary") not in {"preliminary", "4", "24", "all"}:
@@ -124,8 +128,24 @@ def _region_layout(systems):
         if positive:
             nearest.append(min(positive))
     scale = sorted(nearest)[len(nearest) // 2] / 150 if nearest else 1
-    positions = {s.pk: [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale] for s in positioned}
+    positions = {
+        s.pk: [(s.x_2d - ox) / scale, -(s.y_2d - oy) / scale] for s in positioned
+    }
     return positions, (ox, oy), scale
+
+
+def _measured_layouts(groups):
+    """Measure each populated region before arranging the merged map."""
+    layouts = []
+    for members in groups.values():
+        positions, _, _ = _region_layout(members)
+        if not positions:
+            continue
+        xs = [p[0] for p in positions.values()]
+        ys = [p[1] for p in positions.values()]
+        west = sum(s.x_2d for s in members if finite(s.x_2d, s.y_2d)) / len(positions)
+        layouts.append((west, positions, max(xs) - min(xs), min(ys), max(ys)))
+    return layouts
 
 
 def _merged_layout(systems):
@@ -137,15 +157,7 @@ def _merged_layout(systems):
     groups = defaultdict(list)
     for s in systems:
         groups[s.constellation.region_id if s.constellation else None].append(s)
-    layouts = []
-    for members in groups.values():
-        positions, _, _ = _region_layout(members)
-        if not positions:
-            continue
-        xs = [p[0] for p in positions.values()]
-        ys = [p[1] for p in positions.values()]
-        west = sum(s.x_2d for s in members if finite(s.x_2d, s.y_2d)) / len(positions)
-        layouts.append((west, positions, max(xs) - min(xs), min(ys), max(ys)))
+    layouts = _measured_layouts(groups)
     layouts.sort(key=lambda item: item[0])
     height = max((bottom - top for _, _, _, top, bottom in layouts), default=0)
     merged, offset = {}, 0
@@ -204,7 +216,11 @@ def geography_payload(region, systems, gate_model):
                 "crossing": crossing(a, b),
                 # Gates between regions arc outward, alternating sides, so they
                 # read as links between the two maps rather than cutting across.
-                **({"curve": 5 if index % 2 else -5} if crossing(a, b) == "region" else {}),
+                **(
+                    {"curve": 5 if index % 2 else -5}
+                    if crossing(a, b) == "region"
+                    else {}
+                ),
                 "directed": False,
             }
             for index, (a, b) in enumerate(pairs)
@@ -270,6 +286,84 @@ def map_page(request):
     return redirect(reverse("structuretimers:timer_list") + "?tab=current")
 
 
+def _system_layer(request, layer, system_model, systems, ids):
+    """Return a range overlay or one system's permitted structure details."""
+    if layer == "range":
+        preset = request.GET.get("range", "none")
+        if preset == "none":
+            return JsonResponse({"systems": []})
+        source = get_object_or_404(system_model, pk=int(request.GET.get("source", "0")))
+        return JsonResponse(
+            {
+                "limit_ly": RANGES[preset],
+                "source": {"id": source.id, "name": source.name},
+                "systems": [
+                    {"id": s.pk, "distance_ly": distance_ly(source, s)} for s in systems
+                ],
+            }
+        )
+    if layer == "details":
+        sid = int(request.GET.get("system", "0"))
+        if sid not in ids:
+            return JsonResponse({"error": "System is outside this region."}, status=404)
+        timers = permitted_timers(request.user, [sid], request.GET)
+        return JsonResponse(
+            {
+                "timers": [
+                    {
+                        "id": t.pk,
+                        "name": t.structure_name or "Unnamed structure",
+                        "type": (
+                            t.structure_type.name
+                            if t.structure_type
+                            else "Unknown structure"
+                        ),
+                        "relationship": RELATIONSHIPS[t.objective],
+                        "timer_type": t.get_timer_type_display(),
+                        "date": t.date.isoformat() if t.date else None,
+                        "owner": t.owner_name,
+                        "location": t.location_details,
+                        "edit_url": (
+                            reverse(
+                                (
+                                    "structuretimers:edit_structure"
+                                    if isinstance(t, Structure)
+                                    else "structuretimers:edit"
+                                ),
+                                args=[t.pk],
+                            )
+                            if t.user_can_edit(request.user)
+                            else None
+                        ),
+                        "delete_url": (
+                            reverse(
+                                (
+                                    "structuretimers:delete_structure"
+                                    if isinstance(t, Structure)
+                                    else "structuretimers:delete"
+                                ),
+                                args=[t.pk],
+                            )
+                            if t.user_can_edit(request.user)
+                            else None
+                        ),
+                        "refresh_url": (
+                            reverse(
+                                "structuretimers:recon_action",
+                                args=[t.pk, "refresh"],
+                            )
+                            if isinstance(t, Structure)
+                            and t.user_can_edit(request.user)
+                            else None
+                        ),
+                    }
+                    for t in timers
+                ]
+            }
+        )
+    return JsonResponse({"error": "Unknown map layer."}, status=404)
+
+
 @login_required
 @permission_required("structuretimers.basic_access", raise_exception=True)
 @require_GET
@@ -310,10 +404,8 @@ def map_data(request, layer):
                 )
                 .order_by("name")
                 .values("id", "name")
-                    )
-            return JsonResponse(
-                {"regions": merged_region_options(regions) + regions}
             )
+            return JsonResponse({"regions": merged_region_options(regions) + regions})
         if layer == "search":
             term = request.GET.get("q", "").strip()[:100]
             qs = (
@@ -332,84 +424,12 @@ def map_data(request, layer):
         )
         ids = {s.id for s in systems}
         if layer == "geography":
-            return JsonResponse(geography_payload(region, systems, gate_model))
-        if layer == "structures":
-            return JsonResponse(structure_payload(request.user, ids, request.GET))
-        if layer == "range":
-            preset = request.GET.get("range", "none")
-            if preset == "none":
-                return JsonResponse({"systems": []})
-            source = get_object_or_404(
-                system_model, pk=int(request.GET.get("source", "0"))
-            )
-            return JsonResponse(
-                {
-                    "limit_ly": RANGES[preset],
-                    "source": {"id": source.id, "name": source.name},
-                    "systems": [
-                        {"id": s.pk, "distance_ly": distance_ly(source, s)}
-                        for s in systems
-                    ],
-                }
-            )
-        if layer == "details":
-            sid = int(request.GET.get("system", "0"))
-            if sid not in ids:
-                return JsonResponse(
-                    {"error": "System is outside this region."}, status=404
-                )
-            timers = permitted_timers(request.user, [sid], request.GET)
-            return JsonResponse(
-                {
-                    "timers": [
-                        {
-                            "id": t.pk,
-                            "name": t.structure_name or "Unnamed structure",
-                            "type": (
-                                t.structure_type.name
-                                if t.structure_type
-                                else "Unknown structure"
-                            ),
-                            "relationship": RELATIONSHIPS[t.objective],
-                            "timer_type": t.get_timer_type_display(),
-                            "date": t.date.isoformat() if t.date else None,
-                            "owner": t.owner_name,
-                            "location": t.location_details,
-                            "edit_url": (
-                                reverse(
-                                    "structuretimers:edit_structure"
-                                    if isinstance(t, Structure)
-                                    else "structuretimers:edit",
-                                    args=[t.pk],
-                                )
-                                if t.user_can_edit(request.user)
-                                else None
-                            ),
-                            "delete_url": (
-                                reverse(
-                                    "structuretimers:delete_structure"
-                                    if isinstance(t, Structure)
-                                    else "structuretimers:delete",
-                                    args=[t.pk],
-                                )
-                                if t.user_can_edit(request.user)
-                                else None
-                            ),
-                            "refresh_url": (
-                                reverse(
-                                    "structuretimers:recon_action",
-                                    args=[t.pk, "refresh"],
-                                )
-                                if isinstance(t, Structure)
-                                and t.user_can_edit(request.user)
-                                else None
-                            ),
-                        }
-                        for t in timers
-                    ]
-                }
-            )
-        return JsonResponse({"error": "Unknown map layer."}, status=404)
+            response = JsonResponse(geography_payload(region, systems, gate_model))
+        elif layer == "structures":
+            response = JsonResponse(structure_payload(request.user, ids, request.GET))
+        else:
+            response = _system_layer(request, layer, system_model, systems, ids)
+        return response
     except (ValueError, TypeError):
         return JsonResponse(
             {"error": "Invalid map filters or system/region ID."}, status=400

@@ -14,9 +14,9 @@ from django.db.models import Count
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
+from eveuniverse.helpers import meters_to_ly
 
 from allianceauth.eveonline.evelinks import dotlan
-from eveuniverse.helpers import meters_to_ly
 from app_utils.views import link_html
 
 #: Prefix for aa-structures row ids, so they never collide with Database records.
@@ -34,9 +34,9 @@ def visible_structures(user: User):
     """Structures this user may see in aa-structures itself, or None."""
     if not is_available():
         return None
-    from structures.models import Structure  # pylint: disable=import-outside-toplevel
+    structure_model = apps.get_model("structures", "Structure")
 
-    return Structure.objects.visible_for_user(user).select_related(
+    return structure_model.objects.visible_for_user(user).select_related(
         "eve_solar_system__eve_constellation__eve_region",
         "eve_type",
         "owner__corporation__alliance",
@@ -52,10 +52,10 @@ def find_structure_id(timer) -> Optional[int]:
     name = (timer.structure_name or "").strip()
     if not is_available() or not name or not timer.structure_type_id:
         return None
-    from structures.models import Structure  # pylint: disable=import-outside-toplevel
+    structure_model = apps.get_model("structures", "Structure")
 
     return (
-        Structure.objects.filter(
+        structure_model.objects.filter(
             eve_solar_system_id=timer.eve_solar_system_id,
             eve_type_id=timer.structure_type_id,
             name__iexact=name,
@@ -74,10 +74,12 @@ def get_structure(user: User, structure_id: int):
 
 
 def display_name(structure) -> str:
+    """Format the type, name and system of an external structure."""
     return f'{structure.eve_type.name} "{structure.name}" in {structure.eve_solar_system.name}'
 
 
 def reinforce_time(structure) -> Optional[str]:
+    """Return an external structure's reinforcement hour as HH:MM."""
     if structure.reinforce_hour is None:
         return None
     return f"{structure.reinforce_hour:02d}:00"
@@ -105,9 +107,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
         system = structure.eve_solar_system
         region = system.eve_constellation.eve_region
         corporation = structure.owner.corporation
-        light_years = (
-            meters_to_ly(staging.distance_to(system)) if staging else None
-        )
+        light_years = meters_to_ly(staging.distance_to(system)) if staging else None
         distance_text = (
             f"{math.ceil(light_years * 10) / 10} ly" if light_years is not None else "?"
         )

@@ -1,6 +1,6 @@
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
@@ -14,9 +14,11 @@ class Migration(migrations.Migration):
             model_name="timer",
             name="assigned_to",
             field=models.ForeignKey(
-                blank=True, null=True,
+                blank=True,
+                null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
-                related_name="+", to=settings.AUTH_USER_MODEL,
+                related_name="+",
+                to=settings.AUTH_USER_MODEL,
                 verbose_name="Assigned to",
             ),
         ),
