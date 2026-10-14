@@ -48,7 +48,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: [pre-commit, pylint]
     strategy:
       matrix:
         django-version: ["42", "52"]
