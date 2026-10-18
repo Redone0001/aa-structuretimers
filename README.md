@@ -110,7 +110,7 @@ CELERYBEAT_SCHEDULE['structuretimers_sync_standings'] = {
 }
 ```
 
-> **Standings**: owner standings come from your alliance's contacts. A recon coordinator adds a character with the `esi-alliances.read_contacts.v1` scope on the Standings tab; `structuretimers_sync_standings` keeps them current. Coordinators can override any standing there.
+> **Standings**: owner standings come from your alliance's contacts. A recon coordinator adds a character with the `esi-alliances.read_contacts.v1` scope on the Standings tab; `structuretimers_sync_standings` keeps them current. Coordinators can override any standing there. Tokens are never selected automatically from other Auth apps. In Django admin, use **Standings sources** to explicitly select or replace a scoped character token, inspect the last successful sync and error, retry a sync, or remove a source. Use **Organizations** to correct owner alliance links and standing overrides; saving recalculates timer and structure objectives. Removing the last source clears cached automatic standings while preserving overrides. Existing sources remain configured after upgrading; inspect and replace or delete any previously auto-selected source in admin.
 
 > **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
 

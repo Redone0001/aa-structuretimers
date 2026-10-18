@@ -89,13 +89,20 @@ class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
     def post(self, request):
         """Apply the requested standings update and return to the standings tab."""
         standings.sync_all()
-        if StandingsSource.objects.exists():
+        errors = list(
+            StandingsSource.objects.exclude(last_error="").values_list(
+                "last_error", flat=True
+            )
+        )
+        if errors:
+            messages.error(request, "Could not refresh standings: " + "; ".join(errors))
+        elif StandingsSource.objects.exists():
             messages.info(request, "Standings refreshed from alliance contacts.")
         else:
             messages.warning(
                 request,
-                "No character in Auth has alliance-contacts access yet. "
-                "Add one to get automatic standings.",
+                "No standings source configured. "
+                "Add a character explicitly to enable alliance standings.",
             )
         return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
 
@@ -128,6 +135,8 @@ def add_standings_source(request, token):
         count = standings.sync_source(source)
         standings.refresh_objectives()
     except Exception as ex:  # pylint: disable=broad-exception-caught
+        source.last_error = str(ex)[:254]
+        source.save(update_fields=["last_error"])
         messages.error(request, f"Could not read alliance contacts: {ex}")
     else:
         messages.info(request, f"Loaded {count} standings for {source.alliance_name}.")

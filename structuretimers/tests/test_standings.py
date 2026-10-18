@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+from django.contrib.messages import get_messages
 from django.urls import reverse
 from esi.models import Token
 from eveuniverse.helpers import EveEntityNameResolver
@@ -137,8 +138,34 @@ class TestStandingsTab(NoSocketsTestCase):
         self.client.force_login(self.coordinator)
         response = self.client.post(reverse("structuretimers:standings_sync"))
         self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            any(
+                "No standings source configured" in str(message)
+                for message in get_messages(response.wsgi_request)
+            )
+        )
+
+    @patch(
+        "structuretimers.standings.sync_source",
+        side_effect=RuntimeError("Token revoked"),
+    )
+    def test_failed_sync_is_reported_instead_of_success(self, sync):
+        (token,) = Token.objects.bulk_create(
+            [Token(character_id=7, character_name="Diplomat", character_owner_hash="x")]
+        )
+        source = StandingsSource.objects.create(token=token, alliance_id=999)
+        self.client.force_login(self.coordinator)
+        response = self.client.post(reverse("structuretimers:standings_sync"))
+        source.refresh_from_db()
+        self.assertEqual(source.last_error, "Token revoked")
+        messages = list(get_messages(response.wsgi_request))
+        self.assertTrue(any("Token revoked" in str(message) for message in messages))
+        self.assertFalse(
+            any("Standings refreshed" in str(message) for message in messages)
+        )
 
 
+@patch("structuretimers.models._task_calc_structure_distances", Mock())
 @patch(
     "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
 )
@@ -176,32 +203,15 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
         )
 
 
-class TestBorrowToken(NoSocketsTestCase):
-    @patch(
-        "structuretimers.standings.EveEntity.objects.resolve_name",
-        return_value="Our Alliance",
-    )
+class TestExplicitSourceRequired(NoSocketsTestCase):
     @patch("structuretimers.standings.requests.get")
-    def test_existing_contacts_token_is_reused(self, get, _):
+    def test_sync_does_not_discover_an_existing_scoped_token(self, get):
         from esi.models import Scope
 
-        get.return_value.json.return_value = {"alliance_id": 999}
-        user = UserMainFactory()
         (token,) = Token.objects.bulk_create(
-            [
-                Token(
-                    user=user,
-                    character_id=7,
-                    character_name="Diplo",
-                    character_owner_hash="y",
-                )
-            ]
+            [Token(character_id=7, character_name="Diplo", character_owner_hash="y")]
         )
         token.scopes.add(Scope.objects.create(name=standings.CONTACTS_SCOPE))
-        source = standings.borrow_existing_token()
-        self.assertEqual(source.token, token)
-        self.assertEqual(source.alliance_id, 999)
-        self.assertEqual(source.alliance_name, "Our Alliance")
-
-    def test_nothing_to_borrow(self):
-        self.assertIsNone(standings.borrow_existing_token())
+        standings.sync_all()
+        get.assert_not_called()
+        self.assertFalse(StandingsSource.objects.exists())

@@ -4,8 +4,10 @@
 
 from typing import Any, Dict, List, Optional, Tuple
 
+import requests
+
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
@@ -13,21 +15,167 @@ from django.db.models.functions import Lower
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
-from eveuniverse.models import EveRegion
+from esi.models import Token
+from eveuniverse.models import EveEntity, EveRegion
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
-from . import tasks
+from . import owners, standings, tasks
 from .models import (
     DiscordTimerboard,
     DiscordWebhook,
     NotificationRule,
+    Organization,
     ReconCampaign,
     ReconCampaignSystem,
     ScheduledNotification,
     StagingSystem,
+    StandingsSource,
     Timer,
 )
+
+
+class StandingsSourceAdminForm(forms.ModelForm):
+    class Meta:
+        model = StandingsSource
+        fields = ("token",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["token"].queryset = (
+            Token.objects.all()
+            .require_scopes(standings.CONTACTS_SCOPE)
+            .order_by("character_name")
+        )
+        self.fields["token"].help_text = (
+            "Explicitly select a character with alliance-contacts access. "
+            "The alliance is verified from ESI when saved."
+        )
+
+    def clean(self):
+        data = super().clean()
+        if StandingsSource.objects.exclude(pk=self.instance.pk).exists():
+            raise ValidationError(
+                "Only one standings source is supported. Edit the existing source."
+            )
+        token = data.get("token")
+        if token:
+            try:
+                response = requests.get(
+                    f"{owners.ESI_URL}/characters/{token.character_id}/",
+                    headers={"User-Agent": owners.USER_AGENT},
+                    timeout=(5, 30),
+                )
+                response.raise_for_status()
+                alliance_id = response.json().get("alliance_id")
+                if not alliance_id:
+                    raise ValidationError(
+                        "The selected character is not in an alliance."
+                    )
+                alliance_name = EveEntity.objects.resolve_name(alliance_id)
+            except (requests.RequestException, ValueError) as exc:
+                raise ValidationError(
+                    "Could not verify the character's alliance. Try again."
+                ) from exc
+            self.instance.alliance_id = alliance_id
+            self.instance.alliance_name = alliance_name
+        return data
+
+
+@admin.register(StandingsSource)
+class StandingsSourceAdmin(admin.ModelAdmin):
+    form = StandingsSourceAdminForm
+    list_display = (
+        "alliance_name",
+        "character",
+        "added_by",
+        "last_sync_at",
+        "last_error",
+    )
+    list_select_related = ("token", "added_by")
+    search_fields = ("alliance_name", "token__character_name")
+    readonly_fields = (
+        "alliance_id",
+        "alliance_name",
+        "added_by",
+        "last_sync_at",
+        "last_error",
+    )
+    fields = ("token",) + readonly_fields
+    actions = ("sync_now",)
+
+    @admin.display(description="Character")
+    def character(self, obj):
+        return obj.token.character_name
+
+    def has_add_permission(self, request):
+        return (
+            super().has_add_permission(request) and not StandingsSource.objects.exists()
+        )
+
+    def save_model(self, request, obj, form, change):
+        obj.added_by = request.user
+        obj.last_sync_at = None
+        obj.last_error = ""
+        super().save_model(request, obj, form, change)
+        self.sync_now(request, StandingsSource.objects.filter(pk=obj.pk))
+
+    @admin.action(
+        description="Sync selected standings source now", permissions=["change"]
+    )
+    def sync_now(self, request, queryset):
+        for source in queryset.select_related("token"):
+            try:
+                standings.sync_source(source)
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                source.last_error = str(exc)[:254]
+                source.save(update_fields=["last_error"])
+                self.message_user(
+                    request,
+                    f"Standings sync failed: {source.last_error}",
+                    messages.ERROR,
+                )
+            else:
+                self.message_user(
+                    request,
+                    f"Standings synced for {source.alliance_name}.",
+                    messages.SUCCESS,
+                )
+        standings.refresh_objectives()
+
+    def _clear_unused_standings(self):
+        if not StandingsSource.objects.exists():
+            Organization.objects.update(standing_auto=None)
+            standings.refresh_objectives()
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        self._clear_unused_standings()
+
+    def delete_queryset(self, request, queryset):
+        super().delete_queryset(request, queryset)
+        self._clear_unused_standings()
+
+
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "category",
+        "alliance",
+        "standing_auto",
+        "standing_override",
+        "effective_standing",
+    )
+    list_filter = ("category", "standing_auto", "standing_override")
+    search_fields = ("name", "=id", "alliance__name")
+    list_select_related = ("alliance",)
+    autocomplete_fields = ("alliance",)
+    readonly_fields = ("standing_auto", "effective_standing", "updated_at")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        standings.refresh_objectives()
 
 
 @admin.register(DiscordWebhook)
