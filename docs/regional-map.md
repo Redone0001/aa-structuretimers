@@ -50,7 +50,7 @@ Structure, gate and label layers toggle independently. With structures off, stru
 | `static/structuretimers/css/regional_map.css` | Scoped AA theme tokens and responsive map/sidebar layout |
 | `templates/structuretimers/regional_map.html` | AA Bootstrap page, controls, legend, loading/error status and sidebar |
 | `templates/structuretimers/timer_list.html`, `urls.py` | Navigation and routes |
-| `pyproject.toml`, `testauth/settings_aa{4,5}/local.py` | SDE dependency and test-project configuration |
+| `pyproject.toml`, `testauth/settings_aa5/local.py` | SDE dependency and test-project configuration |
 | `tests/test_regional_map.py`, `tests/js/test_system_map.cjs`, `tests/browser/*` | Adapter, geometry and browser regression coverage |
 
 The page inherits the existing `allianceauth/base-bs5.html` integration. No extra Bootstrap, jQuery or icon library is loaded.

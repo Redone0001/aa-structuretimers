@@ -12,7 +12,6 @@ authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
@@ -25,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "allianceauth-app-utils>=1.33.2",
-    "allianceauth>=4,<6",
+    "allianceauth>=5,<6",
     "dhooks_lite>=1.1",
     "discordproxy @ git+https://github.com/Redone0001/discordproxy.git@41b0bbd0377bcb426f11675d59e45ddf14f0827a",
     "django-eveuniverse>=2",

@@ -68,6 +68,10 @@ Here is an overview of **Structure Timers II**'s main features.
 
 ### Step 1 - Check Preconditions
 
+This branch supports **Alliance Auth 5 only** (`allianceauth>=5,<6`).
+Upgrade an existing Auth 4 installation to Auth 5 before installing this branch.
+CI tests Python 3.10, 3.11 and 3.12 against the Auth 5 / Django 5.2 test settings.
+
 Please make sure you meet all preconditions before proceeding:
 
 1. Structure Timers is a plugin for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth). If you don't have Alliance Auth running already, please install it first before proceeding. (see the official [AA installation guide](https://allianceauth.readthedocs.io/en/latest/installation/auth/allianceauth/) for details)
