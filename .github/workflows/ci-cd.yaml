@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        django-version: ["42", "52"]
+        django-version: ["52"]
         python-version: ["10", "11", "12"]
     steps:
       - name: Checkout code
