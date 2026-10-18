@@ -15,8 +15,9 @@ from django.views.decorators.http import require_http_methods
 
 from . import destruction
 from .alliance_directory import lookup_alliances, resolve_alliance
+from .battle_reinforcement import editable_timer, reinforce, reinforcement_options
 from .models import MapFleetToken, MapTimerState, Structure, Timer
-from .operation_access import get_operation, operation_timers
+from .operation_access import get_operation
 from .regional_map import RANGES, RELATIONSHIPS, distance_ly, resolve_region, sde_models
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
@@ -91,8 +92,12 @@ def timer_status(timer, events, instant):
     if timer.date is None:
         return "unscheduled"
     elapsed, paused, killed, remaining = timer_clock(timer, events, instant)
-    if killed:
-        return "killed"
+    reinforced = any(
+        e["action"] == "reinforce" and datetime.fromisoformat(e["at"]) <= instant
+        for e in events
+    )
+    if killed or reinforced:
+        return "killed" if killed else "reinforced"
     if elapsed < 0:
         return "upcoming"
     if paused:
@@ -338,7 +343,9 @@ def battle_data(request, layer):
                     "server_time": now().isoformat(),
                 }
             )
-        if layer in ("snapshot", "updates"):
+        if layer == "reinforcement":
+            response = JsonResponse(reinforcement_options(request.user, request.GET))
+        elif layer in ("snapshot", "updates"):
             response = _battle_snapshot(request, include_fleets=layer == "snapshot")
         else:
             response = JsonResponse({"error": "Unknown layer."}, status=404)
@@ -354,20 +361,7 @@ def battle_data(request, layer):
 @transaction.atomic
 def update_timer(user, body):
     """Apply a permitted observation to a locked timer revision."""
-    timer = get_object_or_404(
-        Timer.objects.filter(
-            pk__in=Timer.objects.visible_to_user(user).values("pk")
-        ).select_for_update(),
-        pk=int(body.get("id", 0)),
-    )
-    if body.get("operation"):
-        operation = get_operation(user, body["operation"])
-        get_object_or_404(operation_timers(operation, user), pk=timer.pk)
-        permitted = user.has_perm("structuretimers.op_coordinator")
-    else:
-        permitted = timer.user_can_edit(user)
-    if not permitted:
-        return JsonResponse({"error": "You cannot edit this timer."}, status=403)
+    timer = editable_timer(user, body, lock=True)
     if timer.date is None:
         raise ValueError("Only scheduled timers support battle observations.")
     # All destruction writers lock the structure before changing map events.
@@ -380,7 +374,8 @@ def update_timer(user, body):
     if body.get("revision") != state.revision:
         transaction.set_rollback(True)
         return JsonResponse(
-            {"error": "Timer changed. Wait for the latest state and try again."}, status=409
+            {"error": "Timer changed. Wait for the latest state and try again."},
+            status=409,
         )
     events, _ = timer_events(timer)
     instant = now()
@@ -390,7 +385,10 @@ def update_timer(user, body):
         "pause": status == "open",
         "resume": status == "paused",
         "adjust": status == "paused",
-        "kill": status != "killed",
+        "kill": timer.timer_type in (Timer.Type.FINAL, Timer.Type.HULL)
+        and status != "killed",
+        "reinforce": timer.timer_type == Timer.Type.ARMOR
+        and status not in ("reinforced", "killed"),
         "restore": status == "killed",
     }
     if not allowed.get(action):
@@ -398,6 +396,11 @@ def update_timer(user, body):
             "This action is unavailable for the timer's current live state."
         )
     adjustment = {}
+    result = {}
+    if action == "reinforce":
+        if structure is None:
+            structure = destruction.structure_for_timer(timer)
+        result = reinforce(timer, structure, user, body, instant)
     if action == "adjust":
         seconds = body.get("seconds")
         # JSON booleans must not be accepted as integer adjustments.
@@ -430,8 +433,8 @@ def update_timer(user, body):
             structure = destruction.structure_for_timer(timer)
         destruction.mark_destroyed(structure, user, instant, timer)
     elif action == "restore" and structure is not None:
-        destruction.undo_timer_kill(structure, timer)
-    return JsonResponse({"ok": True})
+        destruction.undo_timer_kill(structure, timer, user)
+    return JsonResponse({"ok": True, **result})
 
 
 @transaction.atomic

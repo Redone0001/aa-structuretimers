@@ -132,11 +132,11 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
                 const timer=this.timers.find(t=>t.id===Number(button.dataset.timerId));
                 if(!timer)continue;
                 const status=timeline.stateAt(timer,this.now()).name, action=button.dataset.battleAction;
-                button.hidden=!this.live||(action==='pause'&&status!=='open')||(action==='resume'&&status!=='paused')||(action==='adjust'&&status!=='paused')||(action==='kill'&&['won','lost','killed'].includes(status))||(action==='restore'&&!['won','lost','killed'].includes(status));
+                button.hidden=!this.live||(action==='pause'&&status!=='open')||(action==='resume'&&status!=='paused')||(action==='adjust'&&status!=='paused')||(['kill','reinforce'].includes(action)&&!timeline.completionActions(timer,status).some(item=>item[0]===action))||(action==='restore'&&!['won','lost','killed'].includes(status));
             }
         }
         statusText(status){
-            const names={open:'OPEN',paused:'PAUSED',won:'WON · hostile killed',lost:'LOST · friendly killed',killed:'KILLED',repaired:'Auto-repaired (estimated)',unanchored:'Unanchored · instant',occurred:'Occurred',upcoming:'Upcoming'};
+            const names={reinforced:'REINFORCED · armor destroyed',open:'OPEN',paused:'PAUSED',won:'WON · hostile killed',lost:'LOST · friendly killed',killed:'KILLED',repaired:'Auto-repaired (estimated)',unanchored:'Unanchored · instant',occurred:'Occurred',upcoming:'Upcoming'};
             return (names[status.name]||status.name)+(status.seconds!==undefined?` · ${Math.floor(status.seconds/60)}m ${status.seconds%60}s`:'');
         }
         overlays(base){
@@ -166,9 +166,9 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             const title=el('button',`${clock(Date.parse(timer.date))} · ${timer.system} · ${timer.name}`,'btn btn-link p-0 text-start');title.type='button';title.addEventListener('click',()=>this.hooks.select(timer.system_id));
             const status=el('p',undefined,'st-battle-status small mb-1');status.dataset.battleStatus=timer.id;
             card.append(title,el('p',`${timer.type} · ${timer.timer_label} · ${timer.relationship}`,'small mb-1'),status);
-            if(timer.can_edit){const actions=el('div',undefined,'d-flex flex-wrap gap-2');for(const [action,label] of [['pause','Pause'],['resume','Resume'],['adjust','−1 min'],['adjust','+1 min'],['kill','Mark killed'],['restore','Undo killed']]){
+            if(timer.can_edit){const actions=el('div',undefined,'d-flex flex-wrap gap-2');for(const [action,label] of [['pause','Pause'],['resume','Resume'],['adjust','−1 min'],['adjust','+1 min'],...timeline.completionActions(timer,timeline.stateAt(timer,this.now()).name)]){
                 const button=el('button',label,'btn btn-sm btn-outline-secondary');button.type='button';button.dataset.battleAction=action;button.dataset.timerId=timer.id;if(action==='adjust'){button.title='Adjust paused remaining repair time';button.setAttribute('aria-label',label+' remaining repair time');}
-                button.addEventListener('click',async()=>{button.disabled=true;try{await this.post('timer',{id:timer.id,revision:timer.revision,action,...(action==='adjust'?{seconds:label.startsWith('+')?60:-60}:{})});await this.load();}catch(e){$('error').textContent=e.message;}finally{button.disabled=false;}});actions.append(button);
+                button.addEventListener('click',async()=>{button.disabled=true;try{let reinforcement={};if(action==='reinforce'){reinforcement=await timeline.reinforcementPrompt(()=>this.api('reinforcement',{id:timer.id}));if(reinforcement===null)return;}await this.post('timer',{...reinforcement,id:timer.id,revision:timer.revision,action,...(action==='adjust'?{seconds:label.startsWith('+')?60:-60}:{})});await this.load();}catch(e){$('error').textContent=e.message;}finally{button.disabled=false;}});actions.append(button);
             }card.append(actions);}
             return card;
         }

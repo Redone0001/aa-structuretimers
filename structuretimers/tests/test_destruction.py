@@ -173,3 +173,59 @@ class TestDestruction(NoSocketsTestCase):
         stale.structure.refresh_from_db()
         self.assertIsNone(restored.structure.destroyed_at)
         self.assertIsNone(stale.structure.destroyed_at)
+
+    def test_history_migration_keeps_old_schedules_undo_and_manual_destruction(self):
+        migration = import_module(
+            "structuretimers.migrations.0026_reinforcement_history"
+        )
+        at = now()
+        MapTimerState.objects.create(
+            timer=self.timer,
+            events=[
+                {
+                    "action": "kill",
+                    "at": at.isoformat(),
+                    "schedule": (self.timer.date - timedelta(days=1)).isoformat(),
+                    "user": self.user.pk,
+                },
+                {
+                    "action": "restore",
+                    "at": (at + timedelta(seconds=1)).isoformat(),
+                    "schedule": (self.timer.date - timedelta(days=1)).isoformat(),
+                    "user": self.user.pk,
+                },
+            ],
+        )
+        manual = TimerFactory(user=self.user).structure
+        destruction.mark_destroyed(manual, self.user)
+        manual.history.all().delete()
+        editor = SimpleNamespace(connection=SimpleNamespace(alias="default"))
+        migration.preserve_existing_outcomes(apps, editor)
+        migration.preserve_existing_outcomes(apps, editor)
+        self.assertEqual(
+            list(
+                self.structure.history.order_by("at").values_list("action", flat=True)
+            ),
+            ["destroyed", "restored"],
+        )
+        self.assertEqual(
+            self.structure.history.first().scheduled_at,
+            self.timer.date - timedelta(days=1),
+        )
+        self.assertEqual(manual.history.get().action, "destroyed")
+
+    def test_deleted_restricted_timer_history_stays_in_backend_without_exposing_scope(
+        self,
+    ):
+        hidden = TimerFactory(user=self.user, structure=self.structure, is_opsec=True)
+        outcome = destruction.record_outcome(
+            self.structure, "reinforced", self.user, timer=hidden
+        )
+        self.assertFalse(
+            self.structure.visible_history(self.user).filter(pk=outcome.pk).exists()
+        )
+        hidden.delete()
+        self.assertTrue(self.structure.history.filter(pk=outcome.pk).exists())
+        self.assertFalse(
+            self.structure.visible_history(self.user).filter(pk=outcome.pk).exists()
+        )

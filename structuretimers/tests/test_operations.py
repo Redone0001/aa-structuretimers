@@ -257,7 +257,29 @@ class TestOperations(NoSocketsTestCase):
         )
         self.assertTrue(self.operation.timers.filter(pk=self.hidden.pk).exists())
 
+    def test_coordinator_can_record_armor_and_viewer_cannot_use_prompt_or_action(self):
+        prompt_url = reverse("structuretimers:battle_map_data", args=["reinforcement"])
+        params = {"operation": self.operation.pk, "id": self.timer.pk}
+        self.assertEqual(self.client.get(prompt_url, params).status_code, 200)
+        self.client.force_login(self.viewer)
+        self.assertEqual(self.client.get(prompt_url, params).status_code, 403)
+        self.assertEqual(self.mutate(action="reinforce").status_code, 403)
+        self.client.force_login(self.coordinator)
+        response = self.mutate(
+            action="reinforce",
+            reinforcement_date=(now() + timedelta(days=2)).isoformat(),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.timer.structure.history.get().action, "reinforced")
+        self.assertEqual(
+            self.client.get(self.url("live")).json()["timers"][0]["events"][0][
+                "action"
+            ],
+            "reinforce",
+        )
+
     def test_selected_destroyed_timers_remain_in_operation_history(self):
+        Timer.objects.filter(pk=self.timer.pk).update(timer_type=Timer.Type.FINAL)
         self.assertEqual(self.mutate(action="kill").status_code, 200)
         self.client.force_login(self.viewer)
         self.assertEqual(

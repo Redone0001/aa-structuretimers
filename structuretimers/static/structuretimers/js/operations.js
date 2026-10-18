@@ -13,7 +13,7 @@
     const status = document.getElementById('operation-sync-status');
     let latest = null, etag = '', schema = '', pending = null, offset = 0, stopped = false;
     const state = timer => window.StructureBattleTimeline.stateAt(timer, Date.now() + offset);
-    const names = {upcoming: 'Upcoming', open: 'OPEN', paused: 'PAUSED', won: 'WON · hostile killed', lost: 'LOST · friendly killed', killed: 'KILLED', repaired: 'Repaired (estimated)', unanchored: 'Unanchored', occurred: 'Occurred'};
+    const names = {reinforced: 'REINFORCED · armor destroyed', upcoming: 'Upcoming', open: 'OPEN', paused: 'PAUSED', won: 'WON · hostile killed', lost: 'LOST · friendly killed', killed: 'KILLED', repaired: 'Repaired (estimated)', unanchored: 'Unanchored', occurred: 'Occurred'};
     function syncSelection() {
         if (!editor) return;
         const rows = table()?.rows({search: 'applied'}).data().toArray() || [];
@@ -37,11 +37,11 @@
         },
         controls(timer) {
             if (!timer.can_edit) return '';
-            const current = state(timer).name, killed = ['won', 'lost', 'killed'].includes(current);
+            const current = state(timer).name;
             const actions = [];
             if (current === 'open') actions.push(['pause', 'Pause']);
             if (current === 'paused') actions.push(['resume', 'Resume'], ['adjust', '−1 min', -60], ['adjust', '+1 min', 60]);
-            actions.push(killed ? ['restore', 'Undo killed'] : ['kill', 'Mark killed']);
+            actions.push(...window.StructureBattleTimeline.completionActions(timer, current));
             return '<div class="d-flex flex-wrap gap-1 mt-1">' + actions.map(([action, label, seconds]) =>
                 `<button type="button" class="btn btn-sm btn-outline-secondary" data-op-action="${action}" data-timer-id="${Number(timer.id)}"${seconds ? ` data-seconds="${seconds}"` : ''}>${label}</button>`).join('') + '</div>';
         },
@@ -131,10 +131,21 @@
             if (!timer) return;
             button.disabled = true;
             try {
+                let reinforcement = {};
+                if (button.dataset.opAction === 'reinforce') {
+                    reinforcement = await window.StructureBattleTimeline.reinforcementPrompt(async () => {
+                        const url = new URL(root.dataset.reinforcementUrl, location.origin);
+                        url.searchParams.set('id', id); url.searchParams.set('operation', root.dataset.operationId);
+                        const response = await fetch(url, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+                        if (!response.ok || response.redirected) throw new Error('Unable to check for an existing reinforcement timer.');
+                        return response.json();
+                    });
+                    if (reinforcement === null) return;
+                }
                 const response = await fetch(root.dataset.battleUrl, {method: 'POST', credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('#timer-assignment-csrf input').value},
                     body: JSON.stringify({operation: Number(root.dataset.operationId), id, revision: timer.revision,
-                        action: button.dataset.opAction, ...(button.dataset.seconds ? {seconds: Number(button.dataset.seconds)} : {})})});
+                        action: button.dataset.opAction, ...reinforcement, ...(button.dataset.seconds ? {seconds: Number(button.dataset.seconds)} : {})})});
                 if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Could not update the timer.'); }
                 pending?.abort(); pending = null; await poll(true);
             } catch (error) { status.className = 'small text-danger'; status.textContent = error.message; }

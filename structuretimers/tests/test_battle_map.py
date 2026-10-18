@@ -164,6 +164,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_pause_resume_kill_restore_and_conflict(self):
         timer = self.active_timer(objective="HO")
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         original = timer.date
         for revision, action in enumerate(["pause", "resume", "kill", "restore"]):
             response = self.post("timer", id=timer.pk, revision=revision, action=action)
@@ -189,6 +190,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_expired_timer_cannot_pause_and_schedule_change_discards_observations(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         Timer.objects.filter(pk=timer.pk).update(date=now() - timedelta(hours=1))
         self.assertEqual(
             self.post("timer", id=timer.pk, revision=0, action="pause").status_code, 400
@@ -397,6 +399,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_kill_archives_structure_and_undo_restores_it(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         original_date = timer.date
         structure = timer.structure
         structure.fitting = "[Astrahus, Recon]"
@@ -430,6 +433,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_stale_restore_cannot_clear_destroyed_flag(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         self.post("timer", id=timer.pk, revision=0, action="kill")
         self.assertEqual(
             self.post("timer", id=timer.pk, revision=0, action="restore").status_code,
@@ -440,7 +444,13 @@ class BattleMapTests(RegionalMapTests):
 
     def test_undo_does_not_clear_another_kill(self):
         timer = self.active_timer()
-        other = TimerFactory(structure=timer.structure, user=self.user, date=timer.date)
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        other = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=timer.date,
+            timer_type=Timer.Type.FINAL,
+        )
         self.post("timer", id=timer.pk, revision=0, action="kill")
         self.post("timer", id=other.pk, revision=0, action="kill")
         self.post("timer", id=other.pk, revision=1, action="restore")
@@ -450,6 +460,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_recon_restore_also_undoes_map_kill_and_keeps_observations(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         self.post("timer", id=timer.pk, revision=0, action="kill")
         url = reverse(
             "structuretimers:recon_action", args=[timer.structure_id, "refresh"]
@@ -463,6 +474,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_undo_map_kill_does_not_clear_manual_destruction(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         self.post("timer", id=timer.pk, revision=0, action="kill")
         self.client.post(
             reverse(
@@ -476,6 +488,7 @@ class BattleMapTests(RegionalMapTests):
 
     def test_kill_external_timer_keeps_local_history_snapshot(self):
         timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         Timer.objects.filter(pk=timer.pk).update(
             structure=None, structures_structure_id=1000000000001
         )
@@ -486,6 +499,202 @@ class BattleMapTests(RegionalMapTests):
         self.assertIsNotNone(timer.structure)
         self.assertIsNotNone(timer.structure.destroyed_at)
         self.assertEqual(timer.structures_structure_id, 1000000000001)
+
+    def test_armor_cannot_be_killed_and_other_types_have_no_completion_action(self):
+        for timer_type in ("AR", "AN", "UA", "NO", "MM"):
+            timer = self.active_timer()
+            Timer.objects.filter(pk=timer.pk).update(timer_type=timer_type)
+            self.assertEqual(
+                self.post("timer", id=timer.pk, revision=0, action="kill").status_code,
+                400,
+            )
+            timer.structure.refresh_from_db()
+            self.assertIsNone(timer.structure.destroyed_at)
+            self.assertFalse(timer.structure.history.exists())
+
+    def test_armor_outcome_without_date_is_persistent_and_does_not_destroy_structure(
+        self,
+    ):
+        timer = self.active_timer()
+        original = timer.date
+        response = self.post("timer", id=timer.pk, revision=0, action="reinforce")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(response.json()["timer_created"])
+        timer.refresh_from_db()
+        self.assertIsNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.date, original)
+        self.assertEqual(
+            timer_status(timer, timer.map_state.events, now()), "reinforced"
+        )
+        outcome = timer.structure.history.get()
+        self.assertEqual(outcome.action, "reinforced")
+        self.assertEqual(outcome.user, self.user)
+        self.assertEqual(outcome.scheduled_at, original)
+        self.assertIsNone(outcome.next_timer)
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=1, action="reinforce").status_code,
+            400,
+        )
+        page = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+        )
+        self.assertContains(page, "Armor destroyed / reinforced")
+        # Editing or removing the timer must not erase the confirmed outcome.
+        Timer.objects.filter(pk=timer.pk).update(date=now() + timedelta(days=3))
+        self.assertEqual(timer.structure.history.get().scheduled_at, original)
+        timer.delete()
+        self.assertIsNone(timer.structure.history.get().timer)
+
+    def test_armor_registers_final_timer_and_preserves_access_and_original_schedule(
+        self,
+    ):
+        timer = self.active_timer()
+        original = timer.date
+        date = now() + timedelta(days=2)
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=date.isoformat(),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["timer_created"])
+        following = Timer.objects.exclude(pk=timer.pk).get()
+        self.assertEqual(following.timer_type, Timer.Type.FINAL)
+        self.assertEqual(following.date, date)
+        self.assertEqual(following.structure, timer.structure)
+        self.assertEqual(following.visibility, timer.visibility)
+        self.assertEqual(following.user, timer.user)
+        self.assertEqual(timer.structure.history.get().next_timer, following)
+        timer.refresh_from_db()
+        self.assertEqual(timer.date, original)
+
+    def test_existing_later_timer_is_detected_and_never_duplicated_or_disclosed(self):
+        timer = self.active_timer()
+        later = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=now() + timedelta(days=2),
+            timer_type="FI",
+            is_opsec=True,
+        )
+        prompt = self.client.get(self.url("reinforcement"), {"id": timer.pk})
+        self.assertEqual(prompt.json(), {"already_registered": True})
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=(now() + timedelta(days=3)).isoformat(),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["already_registered"])
+        self.assertFalse(response.json()["timer_created"])
+        self.assertEqual(Timer.objects.count(), 2)
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+        self.assertNotContains(
+            self.client.get(
+                reverse("structuretimers:structure_detail", args=[timer.structure_id])
+            ),
+            str(later.date),
+        )
+
+    def test_later_timer_is_rechecked_when_saved_and_only_exact_record_matches(self):
+        timer = self.active_timer()
+        TimerFactory(
+            user=self.user,
+            structure_name=timer.structure_name,
+            date=now() + timedelta(days=1),
+        )
+        self.assertFalse(
+            self.client.get(self.url("reinforcement"), {"id": timer.pk}).json()[
+                "already_registered"
+            ]
+        )
+        later = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=now() + timedelta(days=2),
+            timer_type="FI",
+        )
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=(now() + timedelta(days=3)).isoformat(),
+        )
+        self.assertTrue(response.json()["already_registered"])
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+        self.assertEqual(Timer.objects.count(), 3)
+
+    def test_reinforcement_dates_and_permissions_are_validated_without_partial_writes(
+        self,
+    ):
+        timer = self.active_timer()
+        for date in ("bad date", "2020-01-01T00:00:00Z", "2030-01-01T00:00:00", True):
+            response = self.post(
+                "timer",
+                id=timer.pk,
+                revision=0,
+                action="reinforce",
+                reinforcement_date=date,
+            )
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertFalse(timer.structure.history.exists())
+            self.assertFalse(MapTimerState.objects.filter(timer=timer).exists())
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(
+            self.client.get(self.url("reinforcement"), {"id": timer.pk}).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="reinforce").status_code,
+            403,
+        )
+
+    def test_external_armor_matches_later_external_timer_without_local_record(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(
+            structure=None, structures_structure_id=123456789
+        )
+        later = TimerFactory(
+            user=self.user, date=now() + timedelta(days=2), timer_type="FI"
+        )
+        Timer.objects.filter(pk=later.pk).update(
+            structure=None, structures_structure_id=123456789
+        )
+        response = self.post("timer", id=timer.pk, revision=0, action="reinforce")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["already_registered"])
+        timer.refresh_from_db()
+        self.assertIsNotNone(timer.structure_id)
+        self.assertIsNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+
+    def test_destruction_and_undo_leave_history_after_restore(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type="FI")
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.post("timer", id=timer.pk, revision=1, action="restore")
+        self.assertEqual(
+            list(
+                timer.structure.history.order_by("pk").values_list("action", flat=True)
+            ),
+            ["destroyed", "restored"],
+        )
+        page = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+        )
+        self.assertContains(page, "Structure destroyed")
+        self.assertContains(page, "Destruction undone")
+        self.client.post(
+            reverse(
+                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
+            )
+        )
+        self.assertEqual(timer.structure.history.count(), 3)
 
     def test_operation_snapshot_is_scoped_and_updates_do_not_reload_fleets(self):
         from unittest.mock import patch

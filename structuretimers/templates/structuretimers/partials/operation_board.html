@@ -3,7 +3,8 @@
 <div id="operation-board" data-editor="{{ operation_editor|yesno:'true,false' }}"
      data-operation-id="{{ operation.pk|default:'' }}"
      {% if operation %}data-live-url="{% url 'structuretimers:operation_live' operation.pk %}"{% endif %}
-     data-battle-url="{% url 'structuretimers:battle_map_data' 'timer' %}">
+     data-battle-url="{% url 'structuretimers:battle_map_data' 'timer' %}"
+     data-reinforcement-url="{% url 'structuretimers:battle_map_data' 'reinforcement' %}">
     <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
         <div><h2 class="h4" id="operation-name">{% if operation_editor %}{% if operation %}Edit operation{% else %}Create operation{% endif %}{% else %}{{ operation.name }}{% endif %}</h2>
             {% if not operation_editor %}<p class="text-muted" id="operation-visibility">{{ operation.get_visibility_display }}</p>{% endif %}</div>

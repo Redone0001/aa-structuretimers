@@ -733,6 +733,7 @@ class StructureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
             .filter(structure=self.object)
             .order_by("-date")
         )
+        context["outcomes"] = self.object.visible_history(self.request.user)
         return context
 
 

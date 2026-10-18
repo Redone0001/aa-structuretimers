@@ -79,3 +79,15 @@ test('fleet summary groups ship classes and preserves unknown counts',()=>{
     assert.equal(rows[2].name,'Unknown / unspecified');
     assert.deepEqual(fleetSummary([]),[]);
 });
+
+test('armor completion records reinforcement without a kill and controls follow timer type',()=>{
+    const {completionActions}=require('../../static/structuretimers/js/battle_timeline.js');
+    const armor={...timer,timer_type:'AR',events:[event('reinforce',60)]};
+    assert.equal(stateAt(armor,start+59000).name,'open');
+    assert.equal(stateAt(armor,start+60000).name,'reinforced');
+    assert.equal(onMap(armor,start+60000),false);
+    assert.deepEqual(completionActions(armor,'open'),[['reinforce','Mark reinforced']]);
+    assert.deepEqual(completionActions(armor,'reinforced'),[]);
+    for(const timer_type of ['FI','HL'])assert.deepEqual(completionActions({...timer,timer_type},'open'),[['kill','Mark killed']]);
+    for(const timer_type of ['AN','UA','NO','MM'])assert.deepEqual(completionActions({...timer,timer_type},'open'),[]);
+});

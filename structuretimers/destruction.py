@@ -5,7 +5,20 @@ from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 
-from .models import MapTimerState, Structure, Timer
+from .models import MapTimerState, Structure, StructureHistory, Timer
+
+
+def record_outcome(structure, action, user, at=None, timer=None, next_timer=None):
+    """Keep a dated audit record independently of the timer's current schedule."""
+    return StructureHistory.objects.create(
+        structure=structure,
+        action=action,
+        user=user,
+        at=at or now(),
+        timer=timer,
+        scheduled_at=timer.date if timer else None,
+        next_timer=next_timer,
+    )
 
 
 def structure_for_timer(timer):
@@ -45,6 +58,7 @@ def _set_status(structure, at, user_id=None, timer_id=None):
 
 def mark_destroyed(structure, user, at=None, timer=None):
     """Store the destruction marker; a battle event cannot replace a manual mark."""
+    record_outcome(structure, StructureHistory.Action.DESTROYED, user, at, timer)
     if timer and structure.destroyed_at and not structure.destroyed_by_timer_id:
         return
     _set_status(structure, at or now(), user.pk, timer.pk if timer else None)
@@ -67,8 +81,9 @@ def _live_kills(structure):
             yield state, observations[-1]
 
 
-def undo_timer_kill(structure, timer):
+def undo_timer_kill(structure, timer, user):
     """Undo this timer's marker, retaining other kills or a manual destruction."""
+    record_outcome(structure, StructureHistory.Action.RESTORED, user, timer=timer)
     if structure.destroyed_by_timer_id != timer.pk:
         return
     remaining = list(_live_kills(structure))
@@ -90,6 +105,8 @@ def undo_timer_kill(structure, timer):
 def restore_structure(structure, user):
     """An explicit recon/admin correction also undoes outstanding map kills."""
     instant = now()
+    if structure.destroyed_at:
+        record_outcome(structure, StructureHistory.Action.RESTORED, user, instant)
     for state, _ in _live_kills(structure):
         state.events = [
             *state.events,

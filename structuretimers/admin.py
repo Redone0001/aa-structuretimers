@@ -33,8 +33,17 @@ from .models import (
     StagingSystem,
     StandingsSource,
     Structure,
+    StructureHistory,
     Timer,
 )
+
+
+@admin.register(StructureHistory)
+class StructureHistoryAdmin(admin.ModelAdmin):
+    list_display = ("structure", "action", "at", "scheduled_at", "user")
+    list_filter = ("action",)
+    search_fields = ("structure__structure_name",)
+    raw_id_fields = ("structure", "timer", "next_timer", "user")
 
 
 @admin.register(Operation)

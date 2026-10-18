@@ -281,6 +281,10 @@ timer observations every two seconds. No additional Celery schedule is required.
 
 ### Destroyed structures
 
+Armor timers offer **Mark reinforced**, which records armor destruction and prompts for an optional new Final timer in UTC. A later timer linked to the same Database record or external structure ID is detected before the prompt and checked again when saving; an existing entry is kept rather than duplicated. **Record without new timer** saves the armor outcome alone. Only Final timers (including legacy Hull records) offer **Mark killed**; anchoring and other timer types do not.
+
+Reinforcement history includes dated armor destruction, structure destruction and undo records with the acting user and original scheduled date. These records survive changes to a timer's date and deletion of the timer, and are available in Django admin. The migration also copies existing battle kill/undo observations and manual destruction markers into this history.
+
 Destroyed structures are archived rather than deleted. **Mark killed** on the battle
 timeline also archives the linked Database record, preserving fittings, notes,
 reinforcement timers and battle observations. Enable **Show destroyed structures and

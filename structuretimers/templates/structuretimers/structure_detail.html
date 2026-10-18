@@ -18,13 +18,20 @@
 {% endif %}
 
 <h5>Reinforcement history</h5>
+{% if outcomes %}
+    <ul class="st-reinforcement-outcomes">
+        {% for event in outcomes %}
+            <li>{{ event.at|date:"Y-m-d H:i" }} UTC · {{ event.get_action_display }}{% if event.scheduled_at %} · Timer: {{ event.scheduled_at|date:"Y-m-d H:i" }} UTC{% endif %}{% if event.user %} · {{ event.user }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
 {% if linked_timers %}
     <ul>
         {% for timer in linked_timers %}
             <li>{{ timer.get_timer_type_display }} · {{ timer.date|date:"Y-m-d H:i" }} UTC{% if timer.date and timer.date < now %} <span class="text-muted">(past)</span>{% endif %}</li>
         {% endfor %}
     </ul>
-{% else %}
+{% elif not outcomes %}
     <p class="text-muted">Never reinforced</p>
 {% endif %}
 

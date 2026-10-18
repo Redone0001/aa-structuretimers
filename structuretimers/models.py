@@ -18,6 +18,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
+from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from eveuniverse.helpers import meters_to_ly
 from eveuniverse.models import EveRegion, EveSolarSystem, EveType
@@ -991,6 +992,53 @@ class Structure(StructureDetails):
     def label_type_for_timer_type(self) -> str:
         """Provide the badge style for a Database record."""
         return "secondary"
+
+    def visible_history(self, user):
+        """Keep restricted timer observations out of another user's history."""
+        # Deleted timers have no remaining visibility scope. Keep their scheduled
+        # outcomes in admin; manual structure observations remain visible here.
+        return self.history.filter(
+            models.Q(timer__isnull=True, scheduled_at__isnull=True)
+            | models.Q(timer__in=Timer.objects.visible_to_user(user))
+        ).select_related("user")
+
+
+class StructureHistory(models.Model):
+    """Persistent outcomes, retained even when a timer is edited or removed."""
+
+    class Action(models.TextChoices):
+        """Confirmed outcomes and corrections shown in reinforcement history."""
+
+        REINFORCED = "reinforced", _("Armor destroyed / reinforced")
+        DESTROYED = "destroyed", _("Structure destroyed")
+        RESTORED = "restored", _("Destruction undone")
+
+    structure = models.ForeignKey(
+        Structure, on_delete=models.CASCADE, related_name="history"
+    )
+    timer = models.ForeignKey(
+        Timer, null=True, blank=True, on_delete=models.SET_NULL, related_name="outcomes"
+    )
+    next_timer = models.ForeignKey(
+        Timer,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="previous_outcomes",
+    )
+    action = models.CharField(max_length=16, choices=Action.choices)
+    at = models.DateTimeField(default=now)
+    scheduled_at = models.DateTimeField(null=True, blank=True)
+    user = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        ordering = ("-at", "-pk")
+        verbose_name_plural = "Structure history"
+
+    def __str__(self):
+        return f"{self.structure} · {self.get_action_display()}"
 
 
 #: Structure details a timer copies from its Database record.
