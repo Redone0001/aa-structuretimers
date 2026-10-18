@@ -19,6 +19,7 @@
             {% bootstrap_field operation_form.description %}
             {% bootstrap_field operation_form.visibility %}
             {{ operation_form.version }}
+            {% include "structuretimers/partials/operation_roster.html" %}
             <div id="operation-timer-inputs">{{ operation_form.timers }}</div>
             {% for error in operation_form.timers.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
         </form>
@@ -30,6 +31,7 @@
         </div>
         <p class="small text-muted">Select timers using the checkboxes on the right. Filtered selection includes every matching page. Existing selected timers remain available even after leaving Current.</p>
     {% else %}
+        {% include "structuretimers/partials/operation_roster.html" %}
         <p id="operation-description" class="text-break" style="white-space:pre-wrap">{{ operation.description }}</p>
         <p class="small text-muted" id="operation-sync-status" role="status" aria-live="polite">Connecting to live updates…</p>
     {% endif %}

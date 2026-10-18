@@ -19,7 +19,7 @@ from app_utils.testing import (
     json_response_to_python,
 )
 
-from structuretimers.models import Timer
+from structuretimers.models import Operation, Timer
 from structuretimers.tests.test_forms import make_owner
 from structuretimers.tests.testdata.factory import (
     CitadelTypeFactory,
@@ -623,47 +623,79 @@ class TestSelect2Views_StructureTypes(NoSocketsTestCase):
 
 class TestInlineAssignment(NoSocketsTestCase):
     def setUp(self):
-        self.editor = UserWithCreateFactory()
-        self.assignee = UserWithAccessFactory()
-        self.timer = TimerFactory(user=self.editor, date=now() + dt.timedelta(hours=4))
+        self.editor = UserMainFactory(
+            permissions__=[
+                "structuretimers.basic_access",
+                "structuretimers.op_coordinator",
+            ]
+        )
+        self.viewer = UserMainFactory(
+            permissions__=["structuretimers.basic_access", "structuretimers.op_viewer"]
+        )
+        self.owner = UserWithCreateFactory()
+        self.timer = TimerFactory(user=self.owner, date=now() + dt.timedelta(hours=4))
+        self.operation = Operation.objects.create(
+            name="Fleet operation", visibility="all", created_by=self.editor
+        )
+        self.private = Operation.objects.create(
+            name="Private operation", created_by=self.editor
+        )
         self.url = reverse("structuretimers:assign", args=[self.timer.pk])
         self.client.force_login(self.editor)
 
-    def test_assign_and_clear_preserves_timer_details(self):
+    def test_assign_multiple_operations_and_clear_preserves_timer_and_legacy_data(self):
+        self.timer.assigned_to = self.owner
+        self.timer.save()
         original_date = self.timer.date
-        for value in (str(self.assignee.pk), ""):
-            response = self.client.post(self.url, {"assigned_to": value})
-            self.assertEqual(response.status_code, 200)
+        for values in ([self.operation.pk, self.private.pk], [self.operation.pk], [""]):
+            response = self.client.post(self.url, {"operation_ids": values})
+            self.assertEqual(response.status_code, 200, response.content)
             self.timer.refresh_from_db()
-            self.assertEqual(self.timer.assigned_to_id, int(value) if value else None)
+            self.assertEqual(
+                set(self.timer.operations.values_list("pk", flat=True)),
+                {pk for pk in values if pk},
+            )
+            self.assertEqual(self.timer.assigned_to, self.owner)
             self.assertEqual(self.timer.date, original_date)
-            self.assertEqual(self.timer.user, self.editor)
+            self.assertEqual(self.timer.user, self.owner)
+        self.operation.refresh_from_db()
+        self.assertEqual(self.operation.revision, 3)
 
-    def test_other_user_cannot_assign(self):
-        self.client.force_login(self.assignee)
-        response = self.client.post(self.url, {"assigned_to": self.assignee.pk})
-        self.assertEqual(response.status_code, 403)
-        self.timer.refresh_from_db()
-        self.assertIsNone(self.timer.assigned_to_id)
+    def test_timer_owner_and_viewer_cannot_change_operation_assignment(self):
+        for user in (self.owner, self.viewer):
+            self.client.force_login(user)
+            self.assertEqual(
+                self.client.post(
+                    self.url, {"operation_ids": self.operation.pk}
+                ).status_code,
+                403,
+            )
+            self.assertEqual(self.client.get(self.url).status_code, 403)
 
     def test_hidden_timer_cannot_be_assigned(self):
         self.timer.is_opsec = True
         self.timer.save()
-        response = self.client.post(self.url, {"assigned_to": self.assignee.pk})
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            self.client.post(
+                self.url, {"operation_ids": self.operation.pk}
+            ).status_code,
+            404,
+        )
 
-    def test_invalid_or_missing_assignee_does_not_change_assignment(self):
-        self.timer.assigned_to = self.assignee
-        self.timer.save()
-        for data in ({}, {"assigned_to": "invalid"}):
+    def test_invalid_missing_or_legacy_assignment_cannot_change_operations(self):
+        self.operation.timers.add(self.timer)
+        for data in (
+            {},
+            {"assigned_to": self.owner.pk},
+            {"operation_ids": "bad"},
+            {"operation_ids": 999999},
+        ):
             self.assertEqual(self.client.post(self.url, data).status_code, 400)
-            self.timer.refresh_from_db()
-            self.assertEqual(self.timer.assigned_to, self.assignee)
+            self.assertEqual(list(self.timer.operations.all()), [self.operation])
 
-    def test_get_does_not_change_assignment(self):
+    def test_search_does_not_change_assignment(self):
         self.assertEqual(self.client.get(self.url).status_code, 200)
-        self.timer.refresh_from_db()
-        self.assertIsNone(self.timer.assigned_to_id)
+        self.assertFalse(self.timer.operations.exists())
 
     def test_assignment_requires_csrf(self):
         from django.test import Client
@@ -671,37 +703,41 @@ class TestInlineAssignment(NoSocketsTestCase):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.editor)
         self.assertEqual(
-            client.post(self.url, {"assigned_to": self.assignee.pk}).status_code, 403
+            client.post(self.url, {"operation_ids": self.operation.pk}).status_code, 403
         )
 
-    def test_current_list_has_assignment_dropdown(self):
-        response = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["current"])
+    def test_current_list_has_operation_editor_only_for_coordinators(self):
+        self.operation.timers.add(self.timer)
+        url = reverse("structuretimers:timer_list_data", args=["current"])
+        row = next(
+            row for row in self.client.get(url).json() if row["id"] == self.timer.pk
         )
-        self.assertEqual(response.status_code, 200)
-        row = next(row for row in response.json() if row["id"] == self.timer.pk)
-        self.assertIn(
-            'class="form-select form-select-sm timer-assignee"', row["assignment"]
+        self.assertIn("timer-operation", row["assignment"])
+        self.assertIn(self.operation.get_absolute_url(), row["assignment"])
+        self.client.force_login(self.viewer)
+        row = next(
+            row for row in self.client.get(url).json() if row["id"] == self.timer.pk
         )
-        self.assertNotIn("timer-assignee", row["name_objective"])
-        self.assertNotIn(
-            self.assignee.profile.main_character.character_name, row["name_objective"]
+        self.assertNotIn("timer-operation", row["assignment"])
+        self.assertIn(self.operation.get_absolute_url(), row["assignment"])
+
+    def test_search_finds_operations_instead_of_users(self):
+        response = self.client.get(self.url, {"term": "Fleet"})
+        self.assertEqual(
+            response.json()["results"],
+            [{"id": self.operation.pk, "text": self.operation.name}],
         )
 
-    def test_assignment_search_uses_main_character_names(self):
-        name = self.assignee.profile.main_character.character_name
-        response = self.client.get(self.url, {"term": name})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(
-            {"id": self.assignee.pk, "text": name}, response.json()["results"]
-        )
-
-    def test_assignment_search_requires_edit_permission(self):
-        self.client.force_login(self.assignee)
-        self.assertEqual(self.client.get(self.url, {"term": "a"}).status_code, 403)
-
-    def test_empty_search_does_not_load_all_users(self):
-        self.assertEqual(self.client.get(self.url).json()["results"], [])
+    def test_private_and_all_links_are_hidden_from_unprivileged_users(self):
+        self.operation.timers.add(self.timer)
+        self.private.timers.add(self.timer)
+        url = reverse("structuretimers:timer_list_data", args=["current"])
+        self.client.force_login(self.viewer)
+        self.assertNotIn(self.private.name.encode(), self.client.get(url).content)
+        self.client.force_login(self.owner)
+        response = self.client.get(url)
+        self.assertNotIn(self.operation.name.encode(), response.content)
+        self.assertNotIn(self.private.name.encode(), response.content)
 
 
 class TestFrontendPrivacy(NoSocketsTestCase):

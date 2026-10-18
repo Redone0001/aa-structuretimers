@@ -28,6 +28,13 @@ from .operation_access import (
     operation_timers,
     require_operation_access,
 )
+from .operation_assignments import assignment_html
+from .operation_roster import (
+    clean_roster,
+    roster_payload,
+    save_roster,
+    template_payload,
+)
 from .views import TimerListDataView, TimerListView, fit_buttons_html
 
 
@@ -37,6 +44,7 @@ class OperationForm(forms.ModelForm):
     timers = forms.ModelMultipleChoiceField(
         queryset=Timer.objects.none(), widget=forms.MultipleHiddenInput
     )
+    roster = forms.JSONField(required=False, widget=forms.HiddenInput)
     version = forms.IntegerField(widget=forms.HiddenInput, min_value=0)
 
     class Meta:
@@ -58,7 +66,14 @@ class OperationForm(forms.ModelForm):
             self.initial["timers"] = list(
                 operation_timers(self.instance, user).values_list("pk", flat=True)
             )
+        self.initial["roster"] = roster_payload(
+            self.instance if self.instance.pk else None
+        )
         self.initial["version"] = self.instance.revision if self.instance.pk else 0
+
+    def clean_roster(self):
+        """Validate only operation-local planning labels and existing AA accounts."""
+        return clean_roster(self.cleaned_data.get("roster"), self.instance)
 
 
 def board_context(context, user, operation=None, form=None):
@@ -78,6 +93,12 @@ def board_context(context, user, operation=None, form=None):
     context.update(
         {
             "operation_page": True,
+            "operation_roster": (
+                (form.cleaned_data.get("roster") or roster_payload(operation))
+                if editor and form.is_bound
+                else (form.initial["roster"] if editor else roster_payload(operation))
+            ),
+            "operation_role_templates": template_payload() if editor else [],
             "operation": operation,
             "operation_form": form,
             "operation_editor": editor,
@@ -169,6 +190,7 @@ class OperationEditorView(TimerListView):
             saved.timers.set(
                 hidden | {timer.pk for timer in form.cleaned_data["timers"]}
             )
+            save_roster(saved, form.cleaned_data.get("roster"))
             return redirect(saved)
         return self.render_to_response(self.get_context_data(operation_form=form))
 
@@ -216,7 +238,7 @@ class OperationTimerDataView(TimerListDataView):
 
     def _calc_assignment(self, timer):
         """Operation viewing does not grant assignment-edit permissions."""
-        return timer.assigned_character_name or "Unassigned"
+        return assignment_html(timer, self.request.user)
 
     def _get_data_actions(self, timer):
         """Keep timer details available without granting global edit rights."""
@@ -257,6 +279,7 @@ def operation_live(request, pk):
             "description": operation.description,
             "visibility": operation.get_visibility_display(),
             "can_edit": can_edit,
+            "roster": roster_payload(operation),
         },
         "timers": [
             {

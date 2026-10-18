@@ -26,6 +26,8 @@ from .models import (
     DiscordWebhook,
     NotificationRule,
     Operation,
+    OperationRole,
+    OperationRoleTemplate,
     Organization,
     ReconCampaign,
     ReconCampaignSystem,
@@ -36,6 +38,7 @@ from .models import (
     StructureHistory,
     Timer,
 )
+from .operation_roster import clean_systems
 
 
 @admin.register(StructureHistory)
@@ -46,12 +49,48 @@ class StructureHistoryAdmin(admin.ModelAdmin):
     raw_id_fields = ("structure", "timer", "next_timer", "user")
 
 
+@admin.register(OperationRoleTemplate)
+class OperationRoleTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name", "systems__name")
+    raw_id_fields = ("systems",)
+
+
+class OperationRoleInlineForm(forms.ModelForm):
+    systems = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+        help_text="System names separated by commas or new lines; changes apply only to this operation.",
+    )
+
+    class Meta:
+        model = OperationRole
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["systems"] = ", ".join(self.instance.systems)
+
+    def clean_systems(self):
+        names = self.cleaned_data["systems"].replace("\n", ",").split(",")
+        return clean_systems([name.strip() for name in names if name.strip()])
+
+
+class OperationRoleInline(admin.TabularInline):
+    form = OperationRoleInlineForm
+    model = OperationRole
+    extra = 0
+    raw_id_fields = ("users", "template")
+
+
 @admin.register(Operation)
 class OperationAdmin(admin.ModelAdmin):
     list_display = ("name", "visibility", "created_by", "updated_at")
     list_filter = ("visibility",)
     search_fields = ("name", "description")
-    raw_id_fields = ("timers",)
+    raw_id_fields = ("timers", "participants")
+    inlines = (OperationRoleInline,)
     readonly_fields = (
         "created_by",
         "updated_by",
@@ -66,6 +105,12 @@ class OperationAdmin(admin.ModelAdmin):
         obj.updated_by = request.user
         obj.revision += 1 if change else 0
         super().save_model(request, obj, form, change)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.participants.add(
+            *{user for role in form.instance.roles.all() for user in role.users.all()}
+        )
 
 
 @admin.register(Structure)

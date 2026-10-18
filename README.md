@@ -267,6 +267,27 @@ the right. **Select all matching filters** includes every matching page; changin
 filters does not discard previous selections. Coordinators can edit the operation
 and its selected timers later. Stale simultaneous edits are rejected for review.
 
+Timer **Assigned to** links now refer to operations, and a timer can belong to
+several operations. Only operation viewers and coordinators see links they may
+open; coordinator-only operations stay hidden from viewers. Coordinators can
+change membership directly on Current. The former per-timer user picker is no
+longer offered; existing legacy user assignment data is retained in the backend.
+
+In Django admin, **Operation role templates** defines reusable roles (FC, Recon
+coord, Cyno alt, etc.) with zero or more known solar systems. The operation editor
+can add one template, **Add all roles**, or add temporary roles. Imported role names
+and system lists are snapshots: editing the operation or adding unknown system
+names never updates a template or the global system database. Later template
+changes apply only to future copies.
+
+The operation roster is shown as **Operation → Roles → Users**. A role may be
+unfilled or contain multiple users, and a user may have several roles. Other
+participants appear under **No role**. Coordinators manage roles and participants
+while creating or editing an operation; viewers receive live, read-only roster
+updates. These planning roles never create AA groups, grant permissions, or give
+an assigned participant access to an operation. Admin can also repair an
+operation's local roster through its inline roles and participants fields.
+
 Opening an operation shows the Current layout with only its selected, permitted
 timers. Selection references the original timers, so pause, resume, adjustments and
 kill observations are shared with other operations and maps. Timer visibility and

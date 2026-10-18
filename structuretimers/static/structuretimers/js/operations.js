@@ -68,6 +68,7 @@
     function clearDenied() {
         stopped = true;
         table()?.clear().draw();
+        window.OperationRoster?.render({roles: [], participants: [], people: {}});
         document.getElementById('operation-name').textContent = 'Operation unavailable';
         document.getElementById('operation-description').textContent = '';
         document.getElementById('operation-edit-link').hidden = true;
@@ -87,6 +88,7 @@
             offset = Date.parse(data.server_time) - Date.now();
             const nextSchema = JSON.stringify([data.operation.revision, data.operation.can_edit, data.timers.map(timer => [timer.id, timer.updated_at, timer.destroyed_at, timer.date, timer.system_id, timer.name, timer.type_id, timer.relationship, timer.timer_type])]);
             latest = data;
+            window.OperationRoster?.render(data.operation.roster || {roles: [], participants: [], people: {}});
             document.getElementById('operation-name').textContent = data.operation.name;
             document.getElementById('operation-description').textContent = data.operation.description;
             document.getElementById('operation-visibility').textContent = data.operation.visibility;

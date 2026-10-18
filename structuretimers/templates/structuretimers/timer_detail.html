@@ -32,7 +32,7 @@
 {% endif %}
 
 <h5>{% translate "Assigned to" %}</h5>
-<p>{{ object.assigned_character_name|default:_("Unassigned") }}</p>
+<div>{{ operation_assignment }}</div>
 
 {% if object.reinforcement_time != None %}
     <h5>{% translate "Vulnerability windows" %}</h5>

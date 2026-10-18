@@ -8,13 +8,12 @@ import requests
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.utils.translation import gettext as _
 from django.views import View
 from django.views.generic import ListView
 from esi.decorators import token_required
@@ -23,7 +22,6 @@ from eveuniverse.models import EveEntity, EveSolarSystem, EveType
 from app_utils.views import JSONResponseMixin
 
 from . import destruction, information, owners, standings, structures_bridge
-from .forms import TimerForm
 from .models import Organization, StandingsSource, Structure, Timer
 from .selectors import supported_eve_types
 
@@ -258,58 +256,3 @@ class Select2StructureTypesView(JSONResponseMixin, ListView):
     def render_to_response(self, context, **response_kwargs):
         """Return the select2 context as JSON."""
         return self.render_to_json_response(context, **response_kwargs)
-
-
-class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Update only the assignee, enforcing the usual timer edit permissions."""
-
-    permission_required = "structuretimers.basic_access"
-
-    def get(self, request, pk):
-        """Return matching main characters for an editable timer."""
-        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
-        if not timer.user_can_edit(request.user):
-            raise PermissionDenied()
-        query = request.GET.get("term", "").strip()
-        try:
-            page = max(1, int(request.GET.get("page", 1)))
-        except ValueError:
-            page = 1
-        users = TimerForm.base_fields["assigned_to"].queryset.filter(
-            profile__main_character__character_name__icontains=query
-        )
-        offset = (page - 1) * 20
-        matches = list(users[offset : offset + 21]) if query else []
-        return JsonResponse(
-            {
-                "results": [
-                    {"id": user.pk, "text": user.profile.main_character.character_name}
-                    for user in matches[:20]
-                ],
-                "pagination": {"more": len(matches) > 20},
-            }
-        )
-
-    def post(self, request, pk):
-        """Validate and save the assignee without modifying other timer fields."""
-        timer = get_object_or_404(Timer.objects.visible_to_user(request.user), pk=pk)
-        if not timer.user_can_edit(request.user):
-            raise PermissionDenied()
-        if "assigned_to" not in request.POST:
-            return JsonResponse(
-                {"error": _("Choose an assignee or Unassigned.")}, status=400
-            )
-        try:
-            assignee = TimerForm.base_fields["assigned_to"].clean(
-                request.POST["assigned_to"]
-            )
-        except ValidationError as ex:
-            return JsonResponse({"error": " ".join(ex.messages)}, status=400)
-        timer.assigned_to = assignee
-        timer.save(update_fields=["assigned_to", "last_updated_at"])
-        return JsonResponse(
-            {
-                "assigned_to": timer.assigned_to_id,
-                "assigned_character_name": timer.assigned_character_name,
-            }
-        )

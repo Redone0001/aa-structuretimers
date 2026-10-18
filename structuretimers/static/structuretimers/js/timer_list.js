@@ -206,67 +206,27 @@ $(document).ready(function () {
     /* retrieve generated data from HTML page */
     const elem = document.getElementById("dataExport");
     function initializeAssignees() {
-        $("#tbl_timers_current .timer-assignee").not(".select2-hidden-accessible").each(function () {
-            const select = $(this);
-            select.select2({
-                theme: "bootstrap",
-                dropdownCssClass: "st-select2-dropdown",
-                width: "100%",
-                placeholder: select.attr("data-placeholder"),
-                allowClear: true,
-                minimumInputLength: 1,
-                ajax: {
-                    url: select.attr("data-url"),
-                    dataType: "json",
-                    delay: 250,
-                    data: params => ({term: params.term, page: params.page || 1}),
-                },
-            });
-            select.next(".select2").find(".select2-selection").attr("aria-labelledby",
-                select.attr("id") + "-label select2-" + select.attr("id") + "-container");
+        $("#tbl_timers_current .timer-operation").not(".select2-hidden-accessible").each(function () {
+            const select = $(this); select.data('saved', select.val() || []);
+            select.select2({theme: "bootstrap", width: "100%", placeholder: select.attr('data-placeholder'), allowClear: true,
+                ajax: {url: select.attr('data-url'), dataType: 'json', delay: 250, data: params => ({term: params.term || ''})}});
         });
     }
     $("#tbl_timers_current").on("draw.dt", initializeAssignees);
-    $("#tbl_timers_current").on("select2:open", ".timer-assignee", function () {
-        const search = document.querySelector(".select2-container--open .select2-search__field");
-        if (search) {
-            search.setAttribute("aria-label", elem.dataset.assignmentSearch);
-            search.focus();
-        }
-    });
-    $("#tbl_timers_current").on("change", ".timer-assignee", function () {
-        const select = $(this);
-        const status = select.siblings(".assignment-status");
-        const previous = select.attr("data-saved-value");
-        select.prop("disabled", true);
-        status.removeClass("text-danger").text(elem.dataset.assignmentSaving);
-        $.ajax({
-            url: select.attr("data-url"),
-            method: "POST",
-            data: {
-                assigned_to: select.val() || "",
-                csrfmiddlewaretoken: $("#timer-assignment-csrf input").val(),
-            },
-        }).done(function () {
-            select.attr("data-saved-value", select.val() || "");
-            status.text(elem.dataset.assignmentSaved);
-            select.prop("disabled", false);
-            select.find("option").each(function () {
-                $(this).attr("selected", this.selected ? "selected" : null);
-            });
-            select.select2("destroy");
-            const cell = select.closest("td");
-            $("#tbl_timers_current").DataTable().cell(cell).data(cell.html());
+    $("#tbl_timers_current").on("change", ".timer-operation", function () {
+        const select = $(this), status = select.siblings('.assignment-status');
+        const values = select.val() || [], previous = select.data('saved');select.prop('disabled', true);
+        status.removeClass('text-danger').text(elem.dataset.assignmentSaving);
+        $.ajax({url: select.attr('data-url'), method: 'POST', data: [
+            ...(values.length ? values : ['']).map(value => ({name: 'operation_ids', value})),
+            {name: 'csrfmiddlewaretoken', value: $('#timer-assignment-csrf input').val()},
+        ]}).done(function (data) {
+            select.select2('destroy');
+            const cell = select.closest('td');$('#tbl_timers_current').DataTable().cell(cell).data(data.assignment);
             initializeAssignees();
-            cell.find(".select2-selection").trigger("focus");
         }).fail(function (xhr) {
-            select.val(previous).trigger("change.select2");
-            status.addClass("text-danger").text(
-                (xhr.responseJSON && xhr.responseJSON.error) || elem.dataset.assignmentError
-            );
-        }).always(function () {
-            select.prop("disabled", false);
-        });
+            select.val(previous).trigger('change.select2');status.addClass('text-danger').text(xhr.responseJSON?.error || elem.dataset.assignmentError);
+        }).always(function () {select.prop('disabled', false);});
     });
     const listDataCurrentUrl = elem.getAttribute("data-listDataCurrentUrl");
     const listDataPastUrl = elem.getAttribute("data-listDataPastUrl");

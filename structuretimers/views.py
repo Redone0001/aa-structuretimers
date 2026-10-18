@@ -63,6 +63,10 @@ from structuretimers.models import (
     StructureDistance,
     Timer,
 )
+from structuretimers.operation_assignments import (
+    assignment_html,
+    operation_prefetch,
+)
 from structuretimers.selectors import timer_type_rules
 
 # Keep the established view import paths available to callers.
@@ -74,7 +78,6 @@ Select2StructureTypesView = lookup_views.Select2StructureTypesView
 StandingSetView = lookup_views.StandingSetView
 StandingsSyncView = lookup_views.StandingsSyncView
 add_standings_source = lookup_views.add_standings_source
-AssignTimerView = lookup_views.AssignTimerView
 
 logger = get_extension_logger(__name__)
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
@@ -284,7 +287,7 @@ class TimerListDataView(
             "structure",
             "map_state",
         )
-        return timers_qs
+        return timers_qs.prefetch_related(operation_prefetch(self.request.user))
 
     def filter_timers(self, qs):
         """Apply board membership separately from the common row presentation."""
@@ -362,7 +365,7 @@ class TimerListDataView(
                     ),
                     "owner_name": owner_name,
                     "assignment": self._calc_assignment(timer),
-                    "assigned_character_name": timer.assigned_character_name,
+                    "assigned_character_name": "",
                     "visibility": visibility,
                     "opsec_str": yesno_str(timer.is_opsec),
                     "is_opsec": timer.is_opsec,
@@ -401,26 +404,12 @@ class TimerListDataView(
 
         structure_name = timer.structure_name if timer.structure_name else "-"
         name = format_html("{}<br>{}", structure_name, owner)
-        if (
-            self.kwargs.get("tab_name") not in ("current", "past")
-            and timer.assigned_to_id
-        ):
-            name = format_html(
-                '{}<br><span class="text-muted">{}: {}</span>',
-                name,
-                _("Assigned to"),
-                timer.assigned_character_name,
-            )
         return owner_name, name
 
     def _calc_assignment(self, timer):
-        if self.kwargs.get("tab_name") == "current" and timer.user_can_edit(
-            self.request.user
-        ):
-            return render_to_string(
-                "structuretimers/partials/timer_assignment.html", {"timer": timer}
-            )
-        return format_html("{}", timer.assigned_character_name or _("Unassigned"))
+        return assignment_html(
+            timer, self.request.user, editable=self.kwargs.get("tab_name") == "current"
+        )
 
     @staticmethod
     def _calc_standing_name(timer) -> str:
@@ -525,9 +514,7 @@ class TimerListDataView(
 
     def _get_data_actions(self, timer: Timer):
         actions = ""
-        if any(
-            (timer.details_image_url, timer.details_notes, timer.assigned_to_id)
-        ) or (
+        if any((timer.details_image_url, timer.details_notes)) or (
             (timer.structure_id or timer.structures_structure_id)
             and self.request.user.has_perm("structuretimers.recon_member")
         ):
@@ -752,6 +739,9 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["now"] = now()
+        context["operation_assignment"] = assignment_html(
+            self.object, self.request.user
+        )
         user = self.request.user
         if user.has_perm("structuretimers.recon_member"):
             if self.object.structure_id:

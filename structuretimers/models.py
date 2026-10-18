@@ -115,6 +115,9 @@ class Operation(models.Model):
         max_length=16, choices=Visibility.choices, default=Visibility.COORDINATORS
     )
     timers = models.ManyToManyField("Timer", related_name="operations", blank=True)
+    participants = models.ManyToManyField(
+        User, related_name="timer_operations", blank=True
+    )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name="created_operations"
     )
@@ -145,6 +148,46 @@ class Operation(models.Model):
         if user.has_perm("structuretimers.op_viewer"):
             return cls.objects.filter(visibility=cls.Visibility.ALL)
         return cls.objects.none()
+
+
+class OperationRoleTemplate(models.Model):
+    """Reusable planning labels and systems; these never grant AA permissions."""
+
+    name = models.CharField(max_length=200, unique=True)
+    systems = models.ManyToManyField(
+        EveSolarSystem, blank=True, related_name="operation_role_templates"
+    )
+
+    class Meta:
+        ordering = ("name", "pk")
+
+    def __str__(self):
+        return self.name
+
+
+class OperationRole(models.Model):
+    """An operation's independent role snapshot, including temporary systems."""
+
+    operation = models.ForeignKey(
+        Operation, on_delete=models.CASCADE, related_name="roles"
+    )
+    template = models.ForeignKey(
+        OperationRoleTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    name = models.CharField(max_length=200)
+    systems = models.JSONField(default=list, blank=True)
+    users = models.ManyToManyField(User, blank=True, related_name="operation_roles")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("position", "pk")
+
+    def __str__(self):
+        return f"{self.operation} · {self.name}"
 
 
 class Organization(models.Model):

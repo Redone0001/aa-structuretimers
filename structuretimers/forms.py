@@ -9,7 +9,6 @@ import puremagic
 import requests
 
 from django import forms
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -123,13 +122,6 @@ def parse_eve_timer_text(value: str) -> ParsedEveTimer:
     )
 
 
-class AssigneeChoiceField(forms.ModelChoiceField):
-    """Identify users by their main character rather than their login name."""
-
-    def label_from_instance(self, obj):
-        return obj.profile.main_character.character_name
-
-
 class TimerForm(forms.ModelForm):
     """Form for timers."""
 
@@ -177,16 +169,6 @@ class TimerForm(forms.ModelForm):
         label="Fitting",
         help_text="Paste the structure's fitting, e.g. copied from EVE.",
         widget=forms.Textarea(attrs={"rows": 6, "class": "font-monospace"}),
-    )
-    assigned_to = AssigneeChoiceField(
-        queryset=get_user_model()
-        .objects.filter(is_active=True, profile__main_character__isnull=False)
-        .select_related("profile__main_character")
-        .order_by("profile__main_character__character_name", "pk"),
-        required=False,
-        label=_("Assigned to"),
-        empty_label=_("Unassigned"),
-        widget=forms.Select(attrs={"class": "select2-render"}),
     )
     timer_type = forms.ChoiceField(
         required=False,
@@ -240,7 +222,6 @@ class TimerForm(forms.ModelForm):
             "reinforcement_time",
             "location_details",
             "fitting",
-            "assigned_to",
             "details_image_url",
             "details_notes",
             "visibility",
@@ -667,7 +648,6 @@ class FastTimerForm(TimerForm):
 
     fast_fields = (
         "pasted_timer",
-        "assigned_to",
         "structure_type_2",
         "timer_type",
         "owner_2",

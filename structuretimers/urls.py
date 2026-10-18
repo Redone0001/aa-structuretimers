@@ -2,7 +2,14 @@
 
 from django.urls import path
 
-from . import battle_map, campaigns, operations, regional_map, views
+from . import (
+    battle_map,
+    campaigns,
+    operation_assignments,
+    operations,
+    regional_map,
+    views,
+)
 
 app_name = "structuretimers"
 
@@ -88,7 +95,16 @@ urlpatterns = [
     ),
     path("add_fast/", views.FastCreateTimerView.as_view(), name="add_fast"),
     path("remove/<int:pk>", views.RemoveTimerView.as_view(), name="delete"),
-    path("assign/<int:pk>/", views.AssignTimerView.as_view(), name="assign"),
+    path(
+        "assign/<int:pk>/",
+        operation_assignments.AssignTimerView.as_view(),
+        name="assign",
+    ),
+    path(
+        "ops/lookup/<str:kind>/",
+        operation_assignments.roster_lookup,
+        name="operation_roster_lookup",
+    ),
     path("edit/<int:pk>", views.EditTimerView.as_view(), name="edit"),
     path("copy/<int:pk>", views.CopyTimerView.as_view(), name="copy"),
     path(
