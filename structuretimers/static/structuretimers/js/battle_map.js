@@ -25,6 +25,13 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             $('close').addEventListener('click',()=>$('editor').close());
             $('form').addEventListener('submit',event=>{event.preventDefault();this.saveToken(false);setTimeout(()=>{if(!this.saving)$('form').classList.remove('is-submitting');},0);});
             $('delete').addEventListener('click',()=>this.saveToken(true));
+            $('reinforcement').addEventListener('change',()=>{
+                for(const name of ['dps','logi']){
+                    const input=$('form').elements[name], saved=String(this.editing?.[name]??'');
+                    if($('reinforcement').checked&&input.value===saved)input.value='';
+                    else if(!$('reinforcement').checked&&!input.value)input.value=saved;
+                }
+            });
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
             this.interval=setInterval(()=>{if(!document.hidden){this.tick();if(this.enabled&&!this.root.dataset.operation&&Date.now()-(this.lastStateSync||0)>=2000)this.syncTimers();if($('fleets').checked&&Date.now()-this.fleetLoaded>=120000)this.loadFleets();}},1000);
@@ -277,6 +284,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             card.append(el('p',`${token.system_name||token.system_id} · ${token.region_name?'('+token.region_name+') · ':''}${token.stance} · DPS ${token.dps??'?'} / Logi ${token.logi??'?'} · ${token.mobility}`,'small mb-1'));
             if(token.note)card.append(el('p',token.note,'small st-battle-note'));
             if(token.dscan){const details=el('details');details.append(el('summary','D-scan text'),el('pre',token.dscan,'st-battle-note'));card.append(details);}
+            if(token.dscan_url){const link=el('a','View D-scan source','small');link.href=token.dscan_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}
             card.append(el('p',`Updated ${utc(Date.parse(token.updated_at)).replace('T',' ').slice(0,19)} UTC`,'small text-muted mb-1'));
             const actions=el('div',undefined,'d-flex gap-2 flex-wrap');
             if(token.can_edit){const edit=el('button','Edit / move','btn btn-sm btn-outline-secondary');edit.type='button';edit.addEventListener('click',()=>this.edit(token));actions.append(edit);}
@@ -307,7 +315,12 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
         edit(token=null){
             if(!this.data)return;
             this.editing=token;$('form').reset();if(!this.saving)$('form').classList.remove('is-submitting');$('form-error').textContent='';$('delete').hidden=!token;
-            for(const field of $('form').elements)if(field.name&&token)field.value=token[field.name]??'';
+            for(const field of $('form').elements)if(field.name&&token&&field.type!=='checkbox')field.value=token[field.name]??'';
+            // These are new import inputs, not the previous scan to replay.
+            $('form').elements.dscan.value='';$('form').elements.dscan_url.value='';
+            $('reinforcement').checked=false;$('reinforcement-field').hidden=!token;
+            $('saved-scan').hidden=!(token?.dscan||token?.dscan_url);
+            $('saved-scan').textContent=token?.dscan_url?`Saved source: ${token.dscan_url}. Enter a new scan below to import again.`:'Previous pasted scan is saved. Enter a new scan below to import again.';
             const node=this.mapNodes().find(n=>n.id===(token?.system_id||this.selected));
             $('token-system').value=token?.system_id||node?.id||'';
             $('token-system-name').value=token?.system_name||node?.name||'';
@@ -341,7 +354,11 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;
             this.saving=true;$('form').setAttribute('aria-busy','true');
             $('save').disabled=true;$('delete').disabled=true;$('form-error').textContent='';
-            const body=Object.fromEntries(new FormData($('form')));if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';
+            const body=Object.fromEntries(new FormData($('form')));
+            body.reinforcement=$('reinforcement').checked;
+            body.dscan_import=Boolean(body.dscan.trim()||body.dscan_url.trim());
+            if(!body.dscan_import&&this.editing){delete body.dscan;delete body.dscan_url;}
+            if(this.editing){body.id=this.editing.id;body.revision=this.editing.revision;}if(remove)body.action='delete';
             try{await this.post('fleet',body);$('editor').close();await this.load(true);}catch(e){$('form-error').textContent=e.message;}finally{this.saving=false;$('form').classList.remove('is-submitting');$('form').removeAttribute('aria-busy');$('save').disabled=false;$('delete').disabled=false;}
         }
         autocomplete(kind){

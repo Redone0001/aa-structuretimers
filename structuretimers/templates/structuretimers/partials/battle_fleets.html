@@ -27,7 +27,18 @@
     <datalist id="st-battle-alliance-options"></datalist><datalist id="st-battle-ship-options"></datalist>
     <p id="st-battle-lookup-status" class="small text-muted" role="status"></p>
     <label class="d-block mt-2">{% translate 'Note' %}<textarea name="note" class="form-control" rows="2" maxlength="5000"></textarea></label>
-    <details class="mt-2"><summary>{% translate 'D-scan · raw text for later parsing' %}</summary><textarea name="dscan" aria-label="D-scan raw text" class="form-control" rows="5" maxlength="50000"></textarea></details>
+    <fieldset class="border rounded p-3 mt-3">
+      <legend class="float-none w-auto fs-6 px-1">{% translate 'Import D-scan' %}</legend>
+      <p id="st-battle-saved-scan" class="small text-muted" hidden></p>
+      <label class="d-block">{% translate 'dscan.info URL' %}<input name="dscan_url" type="text" inputmode="url" class="form-control" maxlength="500" placeholder="https://dscan.info/v/03b7e51b4e04"></label>
+      <label class="d-block mt-2">{% translate 'Paste D-scan from EVE' %}<textarea name="dscan" aria-label="D-scan raw text" class="form-control" rows="4" maxlength="50000" placeholder="Copy the full D-scan from EVE and paste here"></textarea></label>
+      <p class="small text-muted mt-2 mb-0">{% translate 'Imported when you save. Pasted text takes priority over the URL. The largest non-logistics class sets DPS; the larger Logistics or Logistics Frigate count sets logi. The most numerous ship sets the token ship. Leave both empty to keep manual values.' %}</p>
+    </fieldset>
+    <div id="st-battle-reinforcement-field" class="form-check mt-3" hidden>
+      <input id="st-battle-reinforcement" name="reinforcement" type="checkbox" class="form-check-input">
+      <label for="st-battle-reinforcement" class="form-check-label">{% translate 'Reinforcement' %}</label>
+      <div class="small text-muted">{% translate 'Add the new DPS and logi counts to the saved counts. Otherwise the counts are replaced. Ship and other fields are updated normally.' %}</div>
+    </div>
     <p id="st-battle-form-error" class="text-danger" role="alert"></p>
     <div class="d-flex gap-2 mt-3"><button id="st-battle-save" type="submit" class="btn btn-primary">{% translate 'Save token' %}</button><button id="st-battle-delete" type="button" class="btn btn-outline-danger" hidden>{% translate 'Delete token' %}</button></div>
   </form>

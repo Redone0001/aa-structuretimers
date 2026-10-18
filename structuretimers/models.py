@@ -1754,6 +1754,7 @@ class MapFleetToken(models.Model):
         max_length=10, default="foe", choices=[("friend", "Friend"), ("foe", "Foe")]
     )
     dscan = models.TextField(blank=True, max_length=50000)
+    dscan_url = models.URLField(blank=True, max_length=500)
     note = models.TextField(blank=True, max_length=5000)
     updated_at = models.DateTimeField(auto_now=True)
     revision = models.PositiveIntegerField(default=0)

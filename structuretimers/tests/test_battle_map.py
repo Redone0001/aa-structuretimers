@@ -243,6 +243,7 @@ class BattleMapTests(RegionalMapTests):
             logi=5,
             note="<script>text only</script>",
             dscan="unparsed\nscan",
+            dscan_import=False,
         )
         self.assertEqual(result.status_code, 200, result.content)
         self.assertIsNone(result.json()["token"]["alliance_id"])
@@ -331,6 +332,7 @@ class BattleMapTests(RegionalMapTests):
             stance="friend",
             note="Keep this note",
             dscan="raw scan",
+            dscan_import=False,
         )
         token = result.json()["token"]
         moved = self.post(

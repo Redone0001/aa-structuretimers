@@ -13,7 +13,7 @@ from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from . import destruction
+from . import destruction, dscan
 from .alliance_directory import lookup_alliances, resolve_alliance
 from .battle_reinforcement import editable_timer, reinforce, reinforcement_options
 from .models import MapFleetToken, MapTimerState, Structure, Timer
@@ -128,6 +128,7 @@ class FleetForm(forms.ModelForm):
             "mobility",
             "stance",
             "dscan",
+            "dscan_url",
             "note",
         ]
 
@@ -437,8 +438,57 @@ def update_timer(user, body):
     return JsonResponse({"ok": True, **result})
 
 
-@transaction.atomic
 def update_fleet(user, body):
+    """Resolve new scan input before acquiring a database write lock."""
+    token = (
+        get_object_or_404(visible_tokens(user), pk=int(body["id"]))
+        if body.get("id")
+        else MapFleetToken(creator=user)
+    )
+    if not token.user_can_edit(user):
+        return JsonResponse({"error": "You cannot edit this token."}, status=403)
+    if token.pk and body.get("revision") != token.revision:
+        return JsonResponse(
+            {"error": "Token changed. Refresh before editing."}, status=409
+        )
+    body = dict(body)
+    if not body.get("action"):
+        has_scan = bool(body.get("dscan") or body.get("dscan_url"))
+        if body.get("dscan_import", has_scan):
+            body.update(dscan.import_scan(body))
+            # Persist only the source actually used, never reuse an older source.
+            if body.get("dscan", "").strip():
+                body["dscan_url"] = ""
+            else:
+                body["dscan"] = ""
+        for field in ("dscan", "dscan_url"):
+            body.setdefault(field, getattr(token, field))
+    return _write_fleet(user, body)
+
+
+def _fleet_form(token, body):
+    """Apply optional additions against the locked counts before form validation."""
+    if body.get("reinforcement") not in (None, False, True):
+        raise ValueError("Reinforcement must be a checkbox value.")
+    if token.pk and body.get("reinforcement") is True:
+        for field in ("dps", "logi"):
+            incoming = body.get(field)
+            if incoming not in (None, ""):
+                if not str(incoming).isdigit():
+                    raise ValueError(
+                        "Reinforcement counts must be whole positive numbers."
+                    )
+                body[field] = (getattr(token, field) or 0) + int(incoming)
+            else:
+                body[field] = getattr(token, field)
+    for field in ("dps", "logi"):
+        if body.get(field) not in (None, "") and int(body[field]) > 2147483647:
+            raise ValueError("Fleet counts cannot exceed 2,147,483,647.")
+    return FleetForm({"mobility": "gate", "stance": "foe", **body}, instance=token)
+
+
+@transaction.atomic
+def _write_fleet(user, body):
     """Create, update, move or delete a permitted fleet token."""
     token_id = body.get("id")
     token = (
@@ -466,7 +516,7 @@ def update_fleet(user, body):
         token.revision += 1
         token.save(update_fields=["system_id", "revision", "updated_at"])
         return JsonResponse({"token": token_payload(token, user)})
-    form = FleetForm({"mobility": "gate", "stance": "foe", **body}, instance=token)
+    form = _fleet_form(token, body)
     if not form.is_valid():
         return JsonResponse(
             {

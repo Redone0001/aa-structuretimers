@@ -401,6 +401,31 @@ system imports, and the **Retry failed campaign imports** action queues retries.
 Create new campaigns through the regular campaign creation page. Non-superuser
 staff need the appropriate Django campaign and campaign-system model permissions.
 
+### D-scan fleet imports
+
+The fleet token editor in an operation map accepts either a public
+`https://dscan.info/v/…` URL or a full D-scan copied directly from EVE. They are
+separate inputs; pasted text takes priority when both are entered. Saving imports
+the largest non-logistics class count as DPS, the larger of Logistics and
+Logistics Frigate as logi (not their sum), and the most numerous individual ship
+as the token ship. Ties use alphabetical ship names. Other classes are not added
+to DPS. A new scan replaces the ship and counts; an invalid scan leaves the token
+unchanged. URL imports read the public scan once on save, with no periodic fetch.
+
+When editing, **Reinforcement** starts unchecked. Check it to add the new imported
+or manually entered DPS/logi counts to the existing counts. Unknown existing
+counts count as zero when adding a known number. Empty incoming manual counts
+keep the corresponding saved count. Saved scan inputs are kept in the backend,
+but are not automatically replayed during unrelated edits: enter a fresh scan to
+import again. The token's other fields, including ship, update normally.
+
+Pasted scans use the existing EVE SDE to identify ships and their classes. Keep
+the SDE current; missing type IDs produce an error instead of a partial import.
+The standalone parser follows the type-ID counting and SDE classification
+approach used by [AA Intel Tool](https://github.com/ppfeufer/aa-intel-tool);
+that app does not need to be installed. Apply migrations and collect static files
+when upgrading. No new `local.py` or Celery settings are required.
+
 ### Discord timerboard bot
 
 Discord timerboards reuse bot messages, splitting rows across messages when needed.
