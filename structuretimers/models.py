@@ -180,6 +180,11 @@ class OperationRole(models.Model):
     )
     name = models.CharField(max_length=200)
     systems = models.JSONField(default=list, blank=True)
+    user_systems = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Coverage by user ID: each list must contain systems from this role.",
+    )
     users = models.ManyToManyField(User, blank=True, related_name="operation_roles")
     position = models.PositiveIntegerField(default=0)
 

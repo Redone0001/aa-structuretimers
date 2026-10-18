@@ -38,7 +38,7 @@ from .models import (
     StructureHistory,
     Timer,
 )
-from .operation_roster import clean_systems
+from .operation_roster import clean_systems, clean_user_systems
 
 
 @admin.register(StructureHistory)
@@ -75,6 +75,19 @@ class OperationRoleInlineForm(forms.ModelForm):
     def clean_systems(self):
         names = self.cleaned_data["systems"].replace("\n", ",").split(",")
         return clean_systems([name.strip() for name in names if name.strip()])
+
+    def clean(self):
+        cleaned = super().clean()
+        if all(key in cleaned for key in ("systems", "users", "user_systems")):
+            try:
+                cleaned["user_systems"] = clean_user_systems(
+                    cleaned["user_systems"] or {},
+                    {user.pk for user in cleaned["users"]},
+                    cleaned["systems"],
+                )
+            except forms.ValidationError as error:
+                self.add_error("user_systems", error)
+        return cleaned
 
 
 class OperationRoleInline(admin.TabularInline):

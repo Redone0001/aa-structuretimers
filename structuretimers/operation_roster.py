@@ -32,6 +32,10 @@ def roster_payload(operation):
                 "name": role.name,
                 "systems": role.systems,
                 "users": [user.pk for user in users],
+                "user_systems": {
+                    str(user.pk): role.user_systems.get(str(user.pk), [])
+                    for user in users
+                },
                 "template_id": role.template_id,
             }
         )
@@ -54,7 +58,7 @@ def template_payload():
     ]
 
 
-def clean_systems(value):
+def clean_systems(value, *, canonicalize=True):
     """Allow canonical names and operation-only text for unknown systems."""
     if not isinstance(value, list) or len(value) > 100:
         raise forms.ValidationError("Use at most 100 systems per role.")
@@ -69,6 +73,8 @@ def clean_systems(value):
         if name.casefold() not in seen:
             systems.append(name)
             seen.add(name.casefold())
+    if not canonicalize:
+        return systems
     canonical = {
         name.casefold(): name
         for name in EveSolarSystem.objects.filter(name__in=systems).values_list(
@@ -76,6 +82,32 @@ def clean_systems(value):
         )
     }
     return [canonical.get(name.casefold(), name) for name in systems]
+
+
+def clean_user_systems(value, users, systems):
+    """A user's coverage is an explicit subset of their role's system list."""
+    if not isinstance(value, dict) or len(value) > 500:
+        raise forms.ValidationError("Choose valid system assignments for role users.")
+    available = {name.casefold(): name for name in systems}
+    coverage = {}
+    for key, names in value.items():
+        if (
+            not isinstance(key, str)
+            or len(key) > 20
+            or not key.isdecimal()
+            or key != str(int(key))
+            or int(key) not in users
+        ):
+            raise forms.ValidationError(
+                "System coverage must belong to a user selected for this role."
+            )
+        selected = clean_systems(names, canonicalize=False)
+        if any(name.casefold() not in available for name in selected):
+            raise forms.ValidationError(
+                "Each user's systems must be selected in the role's system list."
+            )
+        coverage[key] = [available[name.casefold()] for name in selected]
+    return coverage
 
 
 def clean_roster(value, operation):
@@ -122,11 +154,15 @@ def clean_roster(value, operation):
             not isinstance(template, int) or isinstance(template, bool) or template <= 0
         ):
             raise forms.ValidationError("Choose a valid role template.")
+        systems = clean_systems(role.get("systems", []))
         roles.append(
             {
                 "name": name,
-                "systems": clean_systems(role.get("systems", [])),
+                "systems": systems,
                 "users": users,
+                "user_systems": clean_user_systems(
+                    role.get("user_systems", {}), set(users), systems
+                ),
                 "template_id": template,
             }
         )
@@ -181,6 +217,9 @@ def save_roster(operation, value):
         role = OperationRole.objects.create(
             operation=operation,
             position=position,
-            **{key: row[key] for key in ("name", "systems", "template_id")},
+            **{
+                key: row[key]
+                for key in ("name", "systems", "template_id", "user_systems")
+            },
         )
         role.users.set(row["users"])

@@ -9,8 +9,8 @@
     </div>
     <div class="collapse" id="st-map-collapse">
         <div class="card-body">
-{# data-forces="off" hides fleet tokens; a future tab can turn them on with data-forces="on". #}
-<section id="st-regional-map" data-forces="off" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" {% if operation and not operation_editor %}data-operation="{{ operation.pk }}"{% endif %} data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
+{# Fleet intelligence is available on an opened operation, not Current or Database. #}
+<section id="st-regional-map" data-forces="{% if operation and not operation_editor %}on{% else %}off{% endif %}" data-default-region="{{ selected_staging_system.eve_solar_system.eve_constellation.eve_region_id|default:'' }}" {% if operation and not operation_editor %}data-operation="{{ operation.pk }}"{% endif %} data-battle-api="{% url 'structuretimers:battle_map_data' 'LAYER' %}" data-api="{% url 'structuretimers:regional_map_data' 'LAYER' %}">
     <div hidden id="st-map-csrf">{% csrf_token %}</div>
 
     {# Above the map: only the time and the region. #}

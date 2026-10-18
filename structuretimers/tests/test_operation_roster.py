@@ -229,3 +229,125 @@ class TestOperationRoster(NoSocketsTestCase):
         self.assertTrue(
             Permission.objects.filter(codename="change_operationroletemplate").exists()
         )
+
+    def test_people_cover_independent_subsets_of_one_roles_systems(self):
+        data = self.roster(
+            roles=[
+                {
+                    "name": "Cyno team",
+                    "systems": ["Alpha", "Beta", "Gamma"],
+                    "users": [self.person.pk, self.other_person.pk],
+                    "user_systems": {
+                        str(self.person.pk): ["Alpha"],
+                        str(self.other_person.pk): ["Beta", "Gamma"],
+                    },
+                }
+            ]
+        )
+        self.assertEqual(self.save(data).status_code, 302)
+        role = self.operation.roles.get()
+        self.assertEqual(role.systems, ["Alpha", "Beta", "Gamma"])
+        self.assertEqual(role.user_systems[str(self.person.pk)], ["Alpha"])
+        self.assertEqual(
+            role.user_systems[str(self.other_person.pk)], ["Beta", "Gamma"]
+        )
+        self.client.force_login(self.viewer)
+        payload = self.client.get(self.url("live")).json()["operation"]["roster"][
+            "roles"
+        ][0]
+        self.assertEqual(payload["user_systems"], role.user_systems)
+        self.assertEqual(self.save(data).status_code, 403)
+
+    def test_coverage_must_reference_the_roles_users_and_systems(self):
+        for coverage in (
+            {str(self.person.pk): ["Outside role"]},
+            {str(self.other_person.pk): ["Alpha"]},
+            {"not a user": []},
+            {str(self.person.pk): "Alpha"},
+        ):
+            data = self.roster(
+                roles=[
+                    {
+                        "name": "Cyno",
+                        "systems": ["Alpha"],
+                        "users": [self.person.pk],
+                        "user_systems": coverage,
+                    }
+                ]
+            )
+            response = self.save(data)
+            self.assertTrue(response.context["operation_form"].errors)
+            self.assertFalse(self.operation.roles.exists())
+
+    def test_empty_coverage_is_not_implicitly_all_systems_and_can_be_cleared(self):
+        data = self.roster(
+            roles=[
+                {
+                    "name": "Recon",
+                    "systems": ["Alpha", "Beta"],
+                    "users": [self.person.pk],
+                }
+            ]
+        )
+        self.assertEqual(self.save(data).status_code, 302)
+        self.assertEqual(self.operation.roles.get().user_systems, {})
+        self.operation.refresh_from_db()
+        data["roles"][0]["user_systems"] = {
+            str(self.person.pk): ["alpha", "Beta", "ALPHA"]
+        }
+        self.assertEqual(
+            self.save(data, version=self.operation.revision).status_code, 302
+        )
+        self.assertEqual(
+            self.operation.roles.get().user_systems,
+            {str(self.person.pk): ["Alpha", "Beta"]},
+        )
+        self.operation.refresh_from_db()
+        data["roles"][0]["user_systems"] = {str(self.person.pk): []}
+        self.assertEqual(
+            self.save(data, version=self.operation.revision).status_code, 302
+        )
+        self.assertEqual(
+            self.operation.roles.get().user_systems, {str(self.person.pk): []}
+        )
+
+    def test_admin_checks_person_system_coverage_against_selected_role(self):
+        from structuretimers.admin import OperationRoleInlineForm
+
+        form = OperationRoleInlineForm(
+            data={
+                "operation": self.operation.pk,
+                "name": "Admin role",
+                "systems": "Alpha, Beta",
+                "users": [self.person.pk],
+                "user_systems": json.dumps({str(self.person.pk): ["Alpha", "Beta"]}),
+                "position": 0,
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        role = form.save()
+        self.assertEqual(role.user_systems[str(self.person.pk)], ["Alpha", "Beta"])
+        data = dict(form.data)
+        data["user_systems"] = json.dumps({str(self.person.pk): ["Not in role"]})
+        bad = OperationRoleInlineForm(data=data, instance=role)
+        self.assertFalse(bad.is_valid())
+        self.assertIn("user_systems", bad.errors)
+
+    def test_fleet_overlay_enabled_only_on_operation_detail_maps(self):
+        from bs4 import BeautifulSoup
+
+        for page, expected in (
+            (self.url("detail"), "on"),
+            (self.url("edit"), "off"),
+            (reverse("structuretimers:timer_list") + "?tab=current", "off"),
+            (reverse("structuretimers:timer_list") + "?tab=preliminary", "off"),
+        ):
+            root = BeautifulSoup(self.client.get(page).content, "html.parser").find(
+                id="st-regional-map"
+            )
+            self.assertEqual(root["data-forces"], expected)
+        self.client.force_login(self.viewer)
+        root = BeautifulSoup(
+            self.client.get(self.url("detail")).content, "html.parser"
+        ).find(id="st-regional-map")
+        self.assertEqual(root["data-forces"], "on")

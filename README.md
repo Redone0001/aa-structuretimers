@@ -281,12 +281,20 @@ names never updates a template or the global system database. Later template
 changes apply only to future copies.
 
 The operation roster is shown as **Operation → Roles → Users**. A role may be
-unfilled or contain multiple users, and a user may have several roles. Other
-participants appear under **No role**. Coordinators manage roles and participants
-while creating or editing an operation; viewers receive live, read-only roster
-updates. These planning roles never create AA groups, grant permissions, or give
-an assigned participant access to an operation. Admin can also repair an
-operation's local roster through its inline roles and participants fields.
+unfilled or contain multiple users, and a user may have several roles. Each role
+can cover multiple systems; each user can be assigned one or more of that role's
+systems independently. Unassigned coverage is shown explicitly and is never
+assumed to mean all systems. Roles with no systems (such as FC) need no system
+assignment. Other participants appear under **No role**. Coordinators manage roles,
+participants and per-person system coverage while creating or editing an
+operation; viewers receive live, read-only roster updates. Planning roles never
+create AA groups, grant permissions, or give an assigned participant access.
+Admin can also repair local role coverage using the operation's inline roster.
+
+Opened **Ops maps** include fleet intelligence, token placement/editing and fleet
+range overlays. These use the existing shared regional-map intelligence and token
+edit permissions; tokens are not private to an operation. Fleet controls remain
+hidden on Current, Database and the operation selection editor.
 
 Opening an operation shows the Current layout with only its selected, permitted
 timers. Selection references the original timers, so pause, resume, adjustments and
