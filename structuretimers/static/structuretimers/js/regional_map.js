@@ -174,9 +174,15 @@
         if(database&&battle.enabled){document.getElementById('st-battle-enabled').checked=false;battle.updateControls();}
         if(started&&state.data)refresh();
     }
-    document.getElementById('st-map-collapse').addEventListener('shown.bs.collapse',()=>{
+    const panel=$('collapse');
+    panel.addEventListener('show.bs.collapse',()=>preferences.save('st_regional_map_panel',{open:true}));
+    panel.addEventListener('hide.bs.collapse',()=>preferences.save('st_regional_map_panel',{open:false}));
+    panel.addEventListener('shown.bs.collapse',()=>{
         if(!started){started=true;init(true);}else map.fit();
     });
     window.StructureRegionalMap={tableChanged,modeChanged};
     modeChanged();
+    if(preferences.load('st_regional_map_panel').open===true){
+        bootstrap.Collapse.getOrCreateInstance(panel,{toggle:false}).show();
+    }
 })();
