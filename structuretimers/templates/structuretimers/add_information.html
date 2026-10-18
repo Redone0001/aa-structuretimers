@@ -2,7 +2,8 @@
 {% load i18n static %}
 
 {% block form_intro %}
-    <div id="st-add-info" data-parse-url="{% url 'structuretimers:add_info_parse' %}" data-start="{% if form.is_bound %}form{% else %}paste{% endif %}">
+    {{ timer_type_rules|json_script:"st-timer-type-rules" }}
+    <div id="st-add-info" data-timer-event="{{ parsed_timer_event }}" data-parse-url="{% url 'structuretimers:add_info_parse' %}" data-start="{% if form.is_bound %}form{% else %}paste{% endif %}">
         <p class="text-muted mb-2" id="st-add-info-intro">
             Paste a timer or a fitting from EVE and press <strong>Parse</strong>, or choose <strong>Manual</strong> to fill in everything yourself.
             Information about a structure that is already in the Database updates it instead of adding a duplicate.
@@ -19,5 +20,6 @@
 
 {% block extra_javascript %}
     {{ block.super }}
+    <script src="{% static 'structuretimers/js/timer_options.js' %}"></script>
     <script src="{% static 'structuretimers/js/add_information.js' %}"></script>
 {% endblock extra_javascript %}

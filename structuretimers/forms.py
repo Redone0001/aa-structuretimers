@@ -29,7 +29,7 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 
 EVE_TIMER_DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 EVE_TIMER_UNTIL_PATTERN = re.compile(
-    r"^(?:Reinforced|Anchoring) until\s+"
+    r"^(?P<event>Reinforced|Anchoring) until\s+"
     r"(?P<date>\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*$",
     re.IGNORECASE,
 )
@@ -50,6 +50,7 @@ class ParsedEveTimer:
     location_details: str = ""
     owner_name: str = ""
     structure_type_name: str = ""
+    timer_event: str = ""
 
 
 def parse_eve_timer_text(value: str) -> ParsedEveTimer:
@@ -118,6 +119,7 @@ def parse_eve_timer_text(value: str) -> ParsedEveTimer:
         location_details=location_details,
         owner_name=owner_name,
         structure_type_name=structure_type_name,
+        timer_event=until_match.group("event").lower(),
     )
 
 
@@ -204,7 +206,7 @@ class TimerForm(forms.ModelForm):
             attrs={"id": "timer-date-field"}, format=DATETIME_FORMAT
         ),
         # input_formats=[DATETIME_FORMAT],
-        help_text="When the reinforcement timer ends, in EVE time (UTC).",
+        help_text="When the timer ends, in EVE time (UTC).",
     )
     reinforcement_time = forms.TimeField(
         required=False,
@@ -233,8 +235,8 @@ class TimerForm(forms.ModelForm):
             "eve_solar_system_2",
             "structure_type_2",
             "owner_2",
-            "date",
             "timer_type",
+            "date",
             "reinforcement_time",
             "location_details",
             "fitting",
@@ -262,11 +264,7 @@ class TimerForm(forms.ModelForm):
         self.fields["structure_name"].label = format_html(
             "{} {}", _("Structure name"), self.ASTERISK_HTML
         )
-        self.fields["timer_type"].widget.choices = [
-            choice
-            for choice in self.fields["timer_type"].choices
-            if choice[0] != Timer.Type.PRELIMINARY
-        ]
+        self._configure_timer_type(my_instance)
         if my_instance and my_instance.owner_corporation_id:
             self.fields["owner_2"].widget.choices = [
                 (
@@ -329,6 +327,16 @@ class TimerForm(forms.ModelForm):
                         my_instance.structure_type.name,
                     )
                 ]
+
+    def _configure_timer_type(self, instance):
+        """Offer Final for hull timers while preserving existing stored history."""
+        self.fields["timer_type"].widget.choices = [
+            choice
+            for choice in self.fields["timer_type"].choices
+            if choice[0] not in (Timer.Type.PRELIMINARY, Timer.Type.HULL)
+        ]
+        if instance and instance.timer_type == Timer.Type.HULL:
+            self.initial["timer_type"] = Timer.Type.FINAL
 
     def clean(self):
         cleaned_data = super().clean()
@@ -769,8 +777,8 @@ class ReconForm(TimerForm):
         "eve_solar_system_2",
         "structure_type_2",
         "owner_2",
-        "date",
         "timer_type",
+        "date",
         "reinforcement_time",
         "location_details",
         "fitting",
@@ -784,8 +792,8 @@ class ReconForm(TimerForm):
             "eve_solar_system_2",
             "structure_type_2",
             "owner_2",
-            "date",
             "timer_type",
+            "date",
             "reinforcement_time",
             "location_details",
             "fitting",

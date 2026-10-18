@@ -46,7 +46,12 @@ from structuretimers.app_settings import (
 )
 from structuretimers.constants import EveTypeId
 from structuretimers.distance_ranges import JUMP_RANGES, distance_range
-from structuretimers.forms import FastTimerForm, ReconForm, TimerForm
+from structuretimers.forms import (
+    FastTimerForm,
+    ReconForm,
+    TimerForm,
+    parse_eve_timer_text,
+)
 from structuretimers.models import (
     DistancesFromStaging,
     Organization,
@@ -57,6 +62,7 @@ from structuretimers.models import (
     StructureDistance,
     Timer,
 )
+from structuretimers.selectors import timer_type_rules
 
 # Keep the established view import paths available to callers.
 Select2DatabaseEntriesView = lookup_views.Select2DatabaseEntriesView
@@ -812,6 +818,17 @@ class AddInformationView(CreateTimerView):
 
     template_name = "structuretimers/add_information.html"
     title = "Add information"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["timer_type_rules"] = timer_type_rules()
+        try:
+            context["parsed_timer_event"] = parse_eve_timer_text(
+                context["form"].data.get("paste_info", "")
+            ).timer_event
+        except ValueError:
+            context["parsed_timer_event"] = ""
+        return context
 
 
 class ParseInformationView(LoginRequiredMixin, PermissionRequiredMixin, View):

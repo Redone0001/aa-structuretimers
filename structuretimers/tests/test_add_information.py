@@ -3,9 +3,11 @@
 from unittest.mock import Mock, patch
 
 from django.urls import reverse
+from eveuniverse.tests.testdata.factories_2 import EveTypeFactory
 
 from app_utils.testing import NoSocketsTestCase
 
+from structuretimers.constants import EveGroupId, EveTypeId
 from structuretimers.models import Structure, Timer
 from structuretimers.tests.testdata.factory import (
     EveSolarSystemLowSecFactory,
@@ -42,6 +44,9 @@ class TestAddInformation(NoSocketsTestCase):
         self.assertEqual(
             fields[:3], ["database_entry_2", "paste_info", "structure_name"]
         )
+        self.assertEqual(fields.index("date"), fields.index("timer_type") + 1)
+        choices = dict(response.context["form"].fields["timer_type"].widget.choices)
+        self.assertNotIn(Timer.Type.HULL, choices)
 
     def test_timer_paste_is_read_and_matched_to_existing_structure(self):
         record = StructureFactory(
@@ -54,6 +59,7 @@ class TestAddInformation(NoSocketsTestCase):
         self.assertEqual(data["values"]["solar_system"]["id"], str(self.system.pk))
         self.assertEqual(data["values"]["structure_name"], "KONGBAO")
         self.assertEqual(data["values"]["date"], "2030-09-05 03:47")
+        self.assertEqual(data["values"]["timer_event"], "reinforced")
         self.assertEqual(data["match"]["id"], record.pk)
 
     def test_fitting_paste_fills_type_name_and_fitting(self):
@@ -71,6 +77,33 @@ class TestAddInformation(NoSocketsTestCase):
         data = self.parse("hello there")
         self.assertEqual(data["found"], [])
         self.assertIsNone(data["match"])
+
+    def test_anchoring_paste_identifies_anchoring(self):
+        data = self.parse("SVM-3K - Home\nAnchoring until 2030.09.05 03:47:08")
+        self.assertEqual(data["values"]["timer_event"], "anchoring")
+
+    def test_structure_rules_include_large_and_faction_citadels(self):
+        EveTypeFactory(id=EveTypeId.ASTRAHUS, eve_group__id=EveGroupId.CITADEL)
+        faction = EveTypeFactory(id=47512, eve_group__id=EveGroupId.CITADEL)
+        refinery = EveTypeFactory(
+            id=EveTypeId.ATHANOR, eve_group__id=EveGroupId.REFINERY
+        )
+        response = self.client.get(reverse("structuretimers:add_info"))
+        rules = response.context["timer_type_rules"]
+        self.assertNotIn(EveTypeId.ASTRAHUS, rules["large"])
+        self.assertIn(faction.pk, rules["large"])
+        self.assertIn(EveTypeId.AZBEL, rules["large"])
+        self.assertIn(refinery.pk, rules["refineries"])
+
+    def test_validation_error_retains_parsed_timer_context(self):
+        response = self.client.post(
+            reverse("structuretimers:add_info"),
+            {
+                "paste_info": "SVM-3K - Home\nAnchoring until 2030.09.05 03:47:08",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["parsed_timer_event"], "anchoring")
 
     def test_saving_updates_the_picked_structure_instead_of_duplicating(self):
         record = StructureFactory(

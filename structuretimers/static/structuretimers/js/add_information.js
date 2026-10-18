@@ -6,6 +6,29 @@ $(function () {
     if (!root || !form) return;
     const paste = document.getElementById('id_paste_info');
     const result = document.getElementById('st-add-info-result');
+    const timerType = document.getElementById('id_timer_type');
+    const date = document.getElementById('timer-date-field');
+    const structureType = document.getElementById('id_structure_type_2');
+    const rules = JSON.parse(document.getElementById('st-timer-type-rules').textContent);
+    const choices = [...timerType.options].map(option => ({value: option.value, text: option.text}));
+    let timerEvent = root.dataset.timerEvent || '';
+
+    function defaultUnanchoringDate() {
+        if (timerType.value === 'UA') date.value = StructureTimerOptions.unanchoringDate(date.value);
+    }
+    function updateTimerChoices() {
+        const allowed = StructureTimerOptions.choicesFor(timerEvent, structureType.value, rules);
+        const previous = timerType.value === 'HL' ? 'FI' : timerType.value;
+        timerType.replaceChildren(...choices.filter(option => allowed.includes(option.value))
+            .map(option => new Option(option.text, option.value)));
+        timerType.value = allowed.includes(previous) ? previous : allowed[0];
+        $(timerType).trigger('change.select2');
+        defaultUnanchoringDate();
+    }
+    $(structureType).on('change', updateTimerChoices);
+    $(timerType).on('change', defaultUnanchoringDate);
+    paste.addEventListener('input', () => { timerEvent = ''; updateTimerChoices(); });
+    updateTimerChoices();
     const groups = () => [...form.querySelectorAll('.mb-3')].filter(g => !g.contains(paste));
     const submitRow = [...form.children].filter(el => el.tagName === 'BUTTON' || el.tagName === 'P' || el.tagName === 'BR' || el.matches('a'));
 
@@ -45,14 +68,21 @@ $(function () {
         button.disabled = true;
         try {
             const body = new FormData();
-            body.append('text', paste.value);
+            const text = paste.value;
+            body.append('text', text);
             const response = await fetch(root.dataset.parseUrl, {
                 method: 'POST', credentials: 'same-origin', body,
                 headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value},
             });
             if (!response.ok) throw new Error('Could not read the paste (' + response.status + ').');
             const data = await response.json();
+            if (paste.value !== text) {
+                showForm();
+                note('The pasted text changed. Press Parse to read the new text.', 'warning');
+                return;
+            }
             const v = data.values;
+            timerEvent = v.timer_event || '';
             showForm();
             if (data.match) {
                 // Known structure: fill everything from the record, then the paste on top.
@@ -66,6 +96,7 @@ $(function () {
             setValue('timer-date-field', v.date);
             setValue('id_location_details', v.location_details);
             setValue('id_fitting', v.fitting);
+            updateTimerChoices();
             if (!data.found.length) {
                 note('Nothing could be read from this paste. Fill in the boxes below, or paste a timer or an EFT fitting.', 'warning');
             } else if (data.match) {

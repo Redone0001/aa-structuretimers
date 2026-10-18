@@ -388,6 +388,7 @@ class TestTimerFormIsValid(NoSocketsTestCase):
 
 
 @patch(MODELS_PATH + "._task_calc_timer_distances_for_all_staging_systems", Mock())
+@patch(MODELS_PATH + "._task_calc_structure_distances", Mock())
 @patch(MODELS_PATH + "._task_schedule_notifications_for_timer", Mock())
 class TestTimerFormSave(NoSocketsTestCase):
     @classmethod
@@ -398,6 +399,24 @@ class TestTimerFormSave(NoSocketsTestCase):
         cls.type_astrahus = CitadelTypeFactory(id=35832, name="Astrahus")
         cls.type_athanor = RefineryTypeFactory(id=35835, name="Athanor")
         SkyhookTypeFactory()
+
+    def test_existing_hull_timer_is_offered_as_final_when_editing(self):
+        form = TimerForm(
+            user=self.user,
+            data=create_form_data(
+                date=FUTURE,
+                timer_type=Timer.Type.HULL,
+            ),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        timer = form.save()
+        edit_form = TimerForm(user=self.user, instance=timer)
+        self.assertEqual(edit_form.initial["timer_type"], Timer.Type.FINAL)
+        self.assertNotIn(
+            Timer.Type.HULL, dict(edit_form.fields["timer_type"].widget.choices)
+        )
+        timer.refresh_from_db()
+        self.assertEqual(timer.timer_type, Timer.Type.HULL)
 
     def test_assignment_can_be_created_changed_and_cleared(self):
         assignee = UserWithAccessFactory()

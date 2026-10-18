@@ -60,6 +60,7 @@ def parse(text: str, user) -> dict:
                 values["solar_system"] = _option(system)
             values["structure_name"] = parsed.structure_name
             values["date"] = parsed.date.strftime("%Y-%m-%d %H:%M")
+            values["timer_event"] = parsed.timer_event
             if parsed.location_details:
                 values["location_details"] = parsed.location_details
             if parsed.owner_name:
