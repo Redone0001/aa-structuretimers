@@ -126,7 +126,9 @@ def render_board(board):
         else Value(None, output_field=FloatField())
     )
     timers = Timer.objects.filter(
-        date__gte=current_time - dt.timedelta(hours=1), timer_type__in=board.timer_types
+        date__gte=current_time - dt.timedelta(hours=1),
+        timer_type__in=board.timer_types,
+        structure__destroyed_at__isnull=True,
     ).exclude(timer_type=Timer.Type.PRELIMINARY)
     if not board.include_unflagged:
         timers = timers.filter(discord_timerboard=True)

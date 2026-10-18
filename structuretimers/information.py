@@ -92,7 +92,9 @@ def find_match(user, values):
     system_id = (values.get("solar_system") or {}).get("id")
     type_id = (values.get("structure_type") or {}).get("id")
     if user.has_perm("structuretimers.recon_member"):
-        qs = Structure.objects.visible_to_user(user).filter(structure_name__iexact=name)
+        qs = Structure.objects.visible_to_user(user).filter(
+            destroyed_at__isnull=True, structure_name__iexact=name
+        )
         if system_id:
             qs = qs.filter(eve_solar_system_id=system_id)
         if type_id:

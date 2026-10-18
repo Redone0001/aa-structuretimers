@@ -394,3 +394,95 @@ class BattleMapTests(RegionalMapTests):
             ).status_code,
             403,
         )
+
+    def test_kill_archives_structure_and_undo_restores_it(self):
+        timer = self.active_timer()
+        original_date = timer.date
+        structure = timer.structure
+        structure.fitting = "[Astrahus, Recon]"
+        structure.details_notes = "Keep this intelligence"
+        structure.save()
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 200
+        )
+        structure.refresh_from_db()
+        self.assertIsNotNone(structure.destroyed_at)
+        self.assertEqual(structure.destroyed_by, self.user)
+        self.assertEqual(structure.destroyed_by_timer, timer)
+        timer.refresh_from_db()
+        self.assertEqual(timer.date, original_date)
+        self.assertEqual(structure.fitting, "[Astrahus, Recon]")
+        self.assertEqual(structure.details_notes, "Keep this intelligence")
+        self.assertEqual(timer.map_state.events[-1]["action"], "kill")
+        database_url = reverse("structuretimers:recon_data")
+        self.assertEqual(self.client.get(database_url).json(), [])
+        archived = self.client.get(database_url, {"include_destroyed": "1"}).json()
+        self.assertEqual([row["id"] for row in archived], [structure.pk])
+        self.assertEqual(archived[0]["timer_count"], 1)
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=1, action="restore").status_code,
+            200,
+        )
+        structure.refresh_from_db()
+        self.assertIsNone(structure.destroyed_at)
+        self.assertEqual(len(self.client.get(database_url).json()), 1)
+        self.assertEqual(Timer.objects.count(), 1)
+
+    def test_stale_restore_cannot_clear_destroyed_flag(self):
+        timer = self.active_timer()
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="restore").status_code,
+            409,
+        )
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+
+    def test_undo_does_not_clear_another_kill(self):
+        timer = self.active_timer()
+        other = TimerFactory(structure=timer.structure, user=self.user, date=timer.date)
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.post("timer", id=other.pk, revision=0, action="kill")
+        self.post("timer", id=other.pk, revision=1, action="restore")
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structure.destroyed_by_timer, timer)
+
+    def test_recon_restore_also_undoes_map_kill_and_keeps_observations(self):
+        timer = self.active_timer()
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        url = reverse(
+            "structuretimers:recon_action", args=[timer.structure_id, "refresh"]
+        )
+        self.assertEqual(self.client.post(url).status_code, 200)
+        state = MapTimerState.objects.get(timer=timer)
+        self.assertEqual([e["action"] for e in state.events], ["kill", "restore"])
+        self.assertEqual(state.revision, 2)
+        timer.structure.refresh_from_db()
+        self.assertIsNone(timer.structure.destroyed_at)
+
+    def test_undo_map_kill_does_not_clear_manual_destruction(self):
+        timer = self.active_timer()
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.client.post(
+            reverse(
+                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
+            )
+        )
+        self.post("timer", id=timer.pk, revision=1, action="restore")
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertIsNone(timer.structure.destroyed_by_timer)
+
+    def test_kill_external_timer_keeps_local_history_snapshot(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(
+            structure=None, structures_structure_id=1000000000001
+        )
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 200
+        )
+        timer.refresh_from_db()
+        self.assertIsNotNone(timer.structure)
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structures_structure_id, 1000000000001)

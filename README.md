@@ -249,6 +249,17 @@ The following management commands are available:
 - **structuretimers_migrate_timers**: Migrate pending timers from Alliance Auth's Structure Timers app
 
 
+### Destroyed structures
+
+Destroyed structures are archived rather than deleted. **Mark killed** on the battle
+timeline also archives the linked Database record, preserving fittings, notes,
+reinforcement timers and battle observations. Enable **Show destroyed structures and
+timers** on the Database tab to browse archived records and their history. **Restore**
+undoes the destruction marker and outstanding map kills; Django admin also provides
+archive and restore actions under **Structures**. Archived records are excluded from
+active lists and Discord timerboards. Apply migrations after upgrading: migration
+0024 also archives existing current-schedule map kills.
+
 ### Recon campaigns
 
 The **Recon campaigns** navigation link lists active and finished campaigns.

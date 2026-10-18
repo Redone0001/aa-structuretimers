@@ -176,6 +176,7 @@ class StructureManagerBase(models.Manager):
             return None
         return (
             self.filter(
+                destroyed_at__isnull=True,
                 eve_solar_system_id=eve_solar_system_id,
                 structure_type_id=structure_type_id,
                 structure_name__iexact=name,

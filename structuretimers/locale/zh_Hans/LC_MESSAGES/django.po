@@ -751,3 +751,19 @@ msgstr ""
 #: views.py:592
 msgid "Updated"
 msgstr "已更新"
+
+
+msgid "Mark this structure as destroyed? Its information and timer history will be kept."
+msgstr "将此建筑标记为已摧毁？其信息和计时器历史将被保留。"
+
+
+msgid "Marked as destroyed. Information and history kept."
+msgstr "已标记为摧毁。信息和历史已保留。"
+
+
+msgid "Show destroyed structures and timers"
+msgstr "显示已摧毁的建筑和计时器"
+
+
+msgid "Restore"
+msgstr "恢复"

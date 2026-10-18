@@ -90,6 +90,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
     structures = visible_structures(user)
     if structures is None:
         return []
+    structures = structures.exclude(pk__in=_local_snapshot_ids(user))
     structures = list(structures)
     counts = {}
     if visible_timers is not None and structures:
@@ -183,6 +184,7 @@ def picker_results(user: User, term: str) -> list:
     structures = visible_structures(user)
     if structures is None:
         return []
+    structures = structures.exclude(pk__in=_local_snapshot_ids(user))
     from django.db.models import Q  # pylint: disable=import-outside-toplevel
 
     matches = structures.filter(
@@ -214,3 +216,14 @@ def picker_results(user: User, term: str) -> list:
         }
         for structure in matches
     ]
+
+
+def _local_snapshot_ids(user):
+    """External rows already represented by a local battle-history record."""
+    from .models import Timer  # pylint: disable=import-outside-toplevel
+
+    return (
+        Timer.objects.visible_to_user(user)
+        .filter(structure__isnull=False, structures_structure_id__isnull=False)
+        .values_list("structures_structure_id", flat=True)
+    )

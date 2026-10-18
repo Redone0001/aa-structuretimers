@@ -13,8 +13,9 @@ from django.utils.timezone import now
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
+from . import destruction
 from .alliance_directory import lookup_alliances, resolve_alliance
-from .models import MapFleetToken, MapTimerState, Timer
+from .models import MapFleetToken, MapTimerState, Structure, Timer
 from .regional_map import RANGES, RELATIONSHIPS, distance_ly, resolve_region, sde_models
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
@@ -345,8 +346,15 @@ def update_timer(user, body):
         return JsonResponse({"error": "You cannot edit this timer."}, status=403)
     if timer.date is None:
         raise ValueError("Only scheduled timers support battle observations.")
+    # All destruction writers lock the structure before changing map events.
+    structure = (
+        Structure.objects.select_for_update().get(pk=timer.structure_id)
+        if timer.structure_id
+        else None
+    )
     state, _ = MapTimerState.objects.get_or_create(timer=timer)
     if body.get("revision") != state.revision:
+        transaction.set_rollback(True)
         return JsonResponse(
             {"error": "Timer changed. Refresh before editing."}, status=409
         )
@@ -393,6 +401,12 @@ def update_timer(user, body):
     ]
     state.revision += 1
     state.save(update_fields=["events", "revision"])
+    if action == "kill":
+        if structure is None:
+            structure = destruction.structure_for_timer(timer)
+        destruction.mark_destroyed(structure, user, instant, timer)
+    elif action == "restore" and structure is not None:
+        destruction.undo_timer_kill(structure, timer)
     return JsonResponse({"ok": True})
 
 

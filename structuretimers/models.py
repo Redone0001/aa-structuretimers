@@ -879,6 +879,23 @@ class Structure(StructureDetails):
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
+    destroyed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    destroyed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="destroyed_structure_records",
+    )
+    destroyed_by_timer = models.ForeignKey(
+        "Timer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="destroyed_structure_records",
+        help_text="Battle timer that marked this structure destroyed, if applicable.",
+    )
+
     objects = StructureManager()
 
     # Database records behave like unscheduled timers in shared table code.

@@ -52,6 +52,15 @@ def permitted_timers(user, systems, params):
     # "preliminary" shows the Database; the other windows show upcoming timers.
     model = Structure if window == "preliminary" else Timer
     qs = model.objects.visible_to_user(user).filter(eve_solar_system_id__in=systems)
+    qs = qs.filter(
+        **{
+            (
+                "destroyed_at__isnull"
+                if model is Structure
+                else "structure__destroyed_at__isnull"
+            ): True
+        }
+    )
     relation = params.get("relationship", "all")
     if relation != "all":
         qs = qs.filter(objective=relation)

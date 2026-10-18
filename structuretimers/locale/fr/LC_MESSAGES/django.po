@@ -758,3 +758,19 @@ msgstr ""
 #: views.py:592
 msgid "Updated"
 msgstr "Mis à jour"
+
+
+msgid "Mark this structure as destroyed? Its information and timer history will be kept."
+msgstr "Marquer cette structure comme détruite ? Ses informations et son historique de timers seront conservés."
+
+
+msgid "Marked as destroyed. Information and history kept."
+msgstr "Structure marquée comme détruite. Informations et historique conservés."
+
+
+msgid "Show destroyed structures and timers"
+msgstr "Afficher les structures détruites et leurs timers"
+
+
+msgid "Restore"
+msgstr "Restaurer"

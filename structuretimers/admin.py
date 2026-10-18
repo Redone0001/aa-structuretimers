@@ -20,7 +20,7 @@ from eveuniverse.models import EveEntity, EveRegion
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
-from . import owners, standings, tasks
+from . import destruction, owners, standings, tasks
 from .models import (
     DiscordTimerboard,
     DiscordWebhook,
@@ -31,8 +31,50 @@ from .models import (
     ScheduledNotification,
     StagingSystem,
     StandingsSource,
+    Structure,
     Timer,
 )
+
+
+@admin.register(Structure)
+class StructureAdmin(admin.ModelAdmin):
+    list_display = ("structure_name", "eve_solar_system", "owner_name", "destroyed_at")
+    list_filter = (("destroyed_at", admin.EmptyFieldListFilter),)
+    search_fields = ("structure_name", "owner_name", "eve_solar_system__name")
+    list_select_related = ("eve_solar_system",)
+    readonly_fields = ("destroyed_at", "destroyed_by", "destroyed_by_timer")
+    fields = (
+        "structure_name",
+        "location_details",
+        "fitting",
+        "details_notes",
+        "destroyed_at",
+        "destroyed_by",
+        "destroyed_by_timer",
+    )
+    actions = ("restore_structures", "mark_structures_destroyed")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description="Restore selected structures", permissions=["change"])
+    def restore_structures(self, request, queryset):
+        with transaction.atomic():
+            for structure in queryset.select_for_update():
+                destruction.restore_structure(structure, request.user)
+        self.message_user(request, "Selected structures restored; history retained.")
+
+    @admin.action(
+        description="Mark selected structures destroyed", permissions=["change"]
+    )
+    def mark_structures_destroyed(self, request, queryset):
+        with transaction.atomic():
+            for structure in queryset.select_for_update():
+                destruction.mark_destroyed(structure, request.user)
+        self.message_user(request, "Selected structures archived; history retained.")
 
 
 class StandingsSourceAdminForm(forms.ModelForm):

@@ -92,6 +92,11 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
         return
 
     timer = scheduled_notification.timer
+    if timer.structure_id and timer.structure.destroyed_at:
+        logger.info(
+            "Discarding notification for destroyed structure: %s", timer.structure_id
+        )
+        return
     grace_cutoff = now() - dt.timedelta(
         minutes=STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
     )
@@ -133,6 +138,8 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
 def notify_about_new_timer(timer_pk: int, notification_rule_pk: int) -> None:
     """Send notification about new timer."""
     timer = Timer.objects.get(pk=timer_pk)
+    if timer.structure_id and timer.structure.destroyed_at:
+        return
     notification_rule = NotificationRule.objects.select_related("webhook").get(
         pk=notification_rule_pk
     )
@@ -166,6 +173,8 @@ def dispatch_scheduled_notifications() -> None:
 def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> None:
     """Schedule notifications for this timer based on notification rules."""
     timer: Timer = Timer.objects.select_related_for_matching().get(pk=timer_pk)
+    if timer.structure_id and timer.structure.destroyed_at:
+        return
     if not timer.date:
         raise ValueError(f"Not supported for preliminary timers: {timer}")
 

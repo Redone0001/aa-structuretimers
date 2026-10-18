@@ -40,6 +40,10 @@
         </div>
         <div><label class="form-label" for="recon-from">{% translate "Updated from (UTC)" %}</label><input id="recon-from" class="form-control" type="date"></div>
         <div><label class="form-label" for="recon-to">{% translate "Updated through (UTC)" %}</label><input id="recon-to" class="form-control" type="date"></div>
+        <div class="form-check mb-2">
+            <input id="recon-show-destroyed" class="form-check-input" type="checkbox">
+            <label class="form-check-label" for="recon-show-destroyed">{% translate "Show destroyed structures and timers" %}</label>
+        </div>
         <button id="recon-reset" class="btn btn-secondary" type="button">{% translate "Reset filters" %}</button>
     </div>
     <div id="recon-status" role="status" aria-live="polite"></div>

@@ -14,6 +14,7 @@ $(document).ready(function () {
         saved = cookie ? JSON.parse(decodeURIComponent(cookie.slice(stateKey.length + 1))) : {};
         if (!saved || typeof saved !== 'object') saved = {};
     } catch (_) { /* Invalid or unavailable cookies use defaults. */ }
+    $('#recon-show-destroyed').prop('checked', saved.showDestroyed === true);
     $('#recon-age').val(saved.age || 'all');
     $('#recon-from').val(saved.from || '');
     $('#recon-to').val(saved.to || '');
@@ -26,7 +27,7 @@ $(document).ready(function () {
         for (let i = 8; i <= 12; i++) {
             columns[i] = $('#tbl_manage_recon_filterSelect' + i + '_menu input:checked').map(function () { return this.value; }).get();
         }
-        const state = {...filters(), windowFrom: $('#recon-window-from').val(), windowTo: $('#recon-window-to').val(),
+        const state = {...filters(), showDestroyed: $('#recon-show-destroyed').prop('checked'), windowFrom: $('#recon-window-from').val(), windowTo: $('#recon-window-to').val(),
             bins: [...selectedBins], columns, search: table.search(), order: table.order(), length: table.page.len(), page: table.page()};
         try {
             document.cookie = stateKey + '=' + encodeURIComponent(JSON.stringify(state)) +
@@ -69,6 +70,7 @@ $(document).ready(function () {
     const table = $('#tbl_manage_recon').DataTable({
         language: messages.table,
         ajax: {url: root.dataset.url, dataSrc: '', cache: false,
+            data: data => { data.include_destroyed = $('#recon-show-destroyed').prop('checked') ? '1' : '0'; },
             error: () => status.addClass('text-danger').text(messages.loadError)},
         columns: [
             {data: 'location'}, {data: 'distance', render: {_: 'display', sort: 'sort'}}, {data: 'structure_details'}, {data: 'name_objective'},
@@ -99,6 +101,7 @@ $(document).ready(function () {
             ready = true;
         }
     });
+    $('#recon-show-destroyed').on('change', () => { saveSettings(); table.ajax.reload(null, false); });
     $('#recon-age, #recon-from, #recon-to, #recon-window-from, #recon-window-to').on('change', () => table.draw());
     $('#recon-heatmap').on('click', 'button', function () {
         const bin = Number(this.dataset.bin);
@@ -111,12 +114,14 @@ $(document).ready(function () {
         table.draw();
     });
     $('#recon-reset').on('click', function () {
+        $('#recon-show-destroyed').prop('checked', false);
         $('#recon-age').val('all');
         $('#recon-from, #recon-to, #recon-window-from, #recon-window-to').val('');
         selectedBins.clear();
         $('#tbl_manage_recon_wrapper .timer-filter-clear:not(:disabled)').trigger('click');
         table.search('').columns().search('');
         $('#recon-age').trigger('change');
+        table.ajax.reload(null, false);
     });
     $('#tbl_manage_recon').on('click', '.recon-action', async function () {
         const button = $(this);

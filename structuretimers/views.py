@@ -65,6 +65,7 @@ from structuretimers.models import (
 from structuretimers.selectors import timer_type_rules
 
 # Keep the established view import paths available to callers.
+ReconActionView = lookup_views.ReconActionView
 Select2DatabaseEntriesView = lookup_views.Select2DatabaseEntriesView
 Select2OwnersView = lookup_views.Select2OwnersView
 Select2SolarSystemsView = lookup_views.Select2SolarSystemsView
@@ -205,10 +206,10 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                         "Could not load recon. Reload the page to try again."
                     ),
                     "confirmDestroy": _(
-                        "Mark this structure as destroyed and remove its recon timer?"
+                        "Mark this structure as destroyed? Its information and timer history will be kept."
                     ),
                     "saving": _("Saving…"),
-                    "removed": _("Recon removed."),
+                    "removed": _("Marked as destroyed. Information and history kept."),
                     "refreshed": _("Recon refreshed to today."),
                     "saveError": _(
                         "Could not save this change. Reload the page and try again."
@@ -260,7 +261,9 @@ class TimerListDataView(
 
     def get_queryset(self):
         qs = super().get_queryset()
-        timers_qs = qs.visible_to_user(self.request.user)
+        timers_qs = qs.visible_to_user(self.request.user).filter(
+            structure__destroyed_at__isnull=True
+        )
         timers_qs = timers_qs.filter_by_tab(
             tab_name=self.kwargs.get("tab_name"), max_hours_passed=MAX_HOURS_PASSED
         )
@@ -580,7 +583,10 @@ class ManageReconDataView(TimerListDataView):
 
     def get_queryset(self):
         self.kwargs["tab_name"] = "preliminary"
-        return Structure.objects.visible_to_user(self.request.user).select_related(
+        structures = Structure.objects.visible_to_user(self.request.user)
+        if self.request.GET.get("include_destroyed") != "1":
+            structures = structures.filter(destroyed_at__isnull=True)
+        return structures.select_related(
             "eve_solar_system__eve_constellation__eve_region",
             "structure_type__eve_group",
             "eve_character",
@@ -591,6 +597,11 @@ class ManageReconDataView(TimerListDataView):
 
     def get_data(self, context):
         data = super().get_data(context)
+        destroyed = {
+            record.pk: record.destroyed_at
+            for record in self.object_list
+            if record.destroyed_at
+        }
         counts = dict(
             Timer.objects.visible_to_user(self.request.user)
             .filter(structure__in=[row["id"] for row in data])
@@ -599,6 +610,16 @@ class ManageReconDataView(TimerListDataView):
             .values_list("structure", "count")
         )
         for row in data:
+            row["is_destroyed"] = row["id"] in destroyed
+            row["destroyed_at"] = (
+                destroyed[row["id"]].isoformat() if row["is_destroyed"] else None
+            )
+            if row["is_destroyed"]:
+                row["name_objective"] = format_html(
+                    '{}<br><span class="badge text-bg-danger">{}</span>',
+                    row["name_objective"],
+                    _("Destroyed"),
+                )
             row["timer_count"] = count = counts.get(row["id"], 0)
             if count:
                 row["name_objective"] = format_html(
@@ -669,33 +690,6 @@ class ManageReconDataView(TimerListDataView):
                 "fit_buttons": fit_buttons_html(timer.fitting),
             },
         )
-
-
-class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """POST-only recon mutations; enforce visibility and edit permission."""
-
-    permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
-    )
-
-    def post(self, request, pk, action):
-        structure = get_object_or_404(
-            Structure.objects.visible_to_user(request.user), pk=pk
-        )
-        if not structure.user_can_edit(request.user):
-            raise PermissionDenied()
-        if action == "refresh":
-            refreshed_at = now()
-            # Update only freshness, without touching distances or timers.
-            Structure.objects.filter(pk=structure.pk).update(
-                last_updated_at=refreshed_at
-            )
-            return JsonResponse({"last_updated_at": refreshed_at.isoformat()})
-        if action == "destroy":
-            structure.delete()
-            return JsonResponse({"deleted": True})
-        return JsonResponse({"error": "Unknown action"}, status=400)
 
 
 class StructureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):

@@ -26,8 +26,14 @@ from structuretimers.tests.testdata.factory import (
 @patch(
     "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
 )
+@patch("structuretimers.models._task_calc_structure_distances", Mock())
 class TestManageRecon(NoSocketsTestCase):
     def setUp(self):
+        distance_task = patch(
+            "structuretimers.models._task_calc_structure_distances", Mock()
+        )
+        distance_task.start()
+        self.addCleanup(distance_task.stop)
         self.user = UserWithCreateFactory()
         self.client.force_login(self.user)
         self.timer = StructureFactory(
@@ -79,9 +85,42 @@ class TestManageRecon(NoSocketsTestCase):
         self.assertIsNone(self.timer.date)
         schedule.assert_not_called()
 
-    def test_destroy_removes_timer(self):
+    def test_destroy_archives_structure_and_preserves_history(self):
+        self.timer.fitting = "[Astrahus, Home]"
+        self.timer.details_notes = "Useful recon"
+        self.timer.save()
+        timer = TimerFactory(structure=self.timer)
         self.assertEqual(self.client.post(self.action_url("destroy")).status_code, 200)
-        self.assertFalse(Structure.objects.filter(pk=self.timer.pk).exists())
+        self.timer.refresh_from_db()
+        self.assertIsNotNone(self.timer.destroyed_at)
+        self.assertEqual(self.timer.destroyed_by, self.user)
+        self.assertEqual(self.timer.fitting, "[Astrahus, Home]")
+        self.assertEqual(self.timer.details_notes, "Useful recon")
+        self.assertTrue(
+            Timer.objects.filter(pk=timer.pk, structure=self.timer).exists()
+        )
+        self.assertEqual(self.client.get(self.url).json(), [])
+        data = self.client.get(self.url, {"include_destroyed": "1"}).json()
+        self.assertEqual([row["id"] for row in data], [self.timer.pk])
+        self.assertTrue(data[0]["is_destroyed"])
+        self.assertIn("Destroyed", data[0]["name_objective"])
+        self.assertIn("Restore", data[0]["actions"])
+        self.assertContains(
+            self.client.get(reverse("structuretimers:timer_list")),
+            "recon-show-destroyed",
+        )
+
+    def test_restore_unarchives_without_losing_information(self):
+        self.client.post(self.action_url("destroy"))
+        self.assertEqual(self.client.post(self.action_url("refresh")).status_code, 200)
+        self.timer.refresh_from_db()
+        self.assertIsNone(self.timer.destroyed_at)
+        self.assertEqual(len(self.client.get(self.url).json()), 1)
+
+    def test_show_destroyed_does_not_bypass_visibility(self):
+        StructureFactory(is_opsec=True, destroyed_at=now())
+        data = self.client.get(self.url, {"include_destroyed": "1"}).json()
+        self.assertEqual([row["id"] for row in data], [self.timer.pk])
 
     def test_mutations_require_post_and_csrf(self):
         self.assertEqual(self.client.get(self.action_url("refresh")).status_code, 405)

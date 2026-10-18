@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -21,10 +22,40 @@ from eveuniverse.models import EveEntity, EveSolarSystem, EveType
 
 from app_utils.views import JSONResponseMixin
 
-from . import information, owners, standings, structures_bridge
+from . import destruction, information, owners, standings, structures_bridge
 from .forms import TimerForm
 from .models import Organization, StandingsSource, Structure, Timer
 from .selectors import supported_eve_types
+
+
+class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """POST-only recon mutations; enforce visibility and edit permission."""
+
+    permission_required = (
+        "structuretimers.basic_access",
+        "structuretimers.recon_member",
+    )
+
+    @transaction.atomic
+    def post(self, request, pk, action):
+        """Archive or restore a permitted structure without deleting its history."""
+        structure = get_object_or_404(
+            Structure.objects.filter(
+                pk__in=Structure.objects.visible_to_user(request.user).values("pk")
+            ).select_for_update(),
+            pk=pk,
+        )
+        if not structure.user_can_edit(request.user):
+            raise PermissionDenied()
+        if action == "refresh":
+            destruction.restore_structure(structure, request.user)
+            return JsonResponse(
+                {"last_updated_at": structure.last_updated_at.isoformat()}
+            )
+        if action == "destroy":
+            destruction.mark_destroyed(structure, request.user)
+            return JsonResponse({"destroyed": True, "deleted": False})
+        return JsonResponse({"error": "Unknown action"}, status=400)
 
 
 class Select2SolarSystemsView(JSONResponseMixin, ListView):
@@ -170,6 +201,7 @@ class Select2DatabaseEntriesView(
             return Timer.objects.none()
         return (
             Structure.objects.visible_to_user(self.request.user)
+            .filter(destroyed_at__isnull=True)
             .filter(
                 Q(structure_name__icontains=term)
                 | Q(eve_solar_system__name__istartswith=term)
