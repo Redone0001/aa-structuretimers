@@ -15,9 +15,11 @@
         <form method="post" id="operation-form">
             {% csrf_token %}
             {% bootstrap_form_errors operation_form %}
-            {% bootstrap_field operation_form.name %}
-            {% bootstrap_field operation_form.description %}
-            {% bootstrap_field operation_form.visibility %}
+            <div class="row g-3">
+                <div class="col-12 col-lg-8">{% bootstrap_field operation_form.name %}</div>
+                <div class="col-12 col-lg-4">{% bootstrap_field operation_form.visibility %}</div>
+                <div class="col-12">{% bootstrap_field operation_form.description %}</div>
+            </div>
             {{ operation_form.version }}
             {% include "structuretimers/partials/operation_roster.html" %}
             <div id="operation-timer-inputs">{{ operation_form.timers }}</div>

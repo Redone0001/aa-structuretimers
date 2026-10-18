@@ -208,7 +208,7 @@ $(document).ready(function () {
     function initializeAssignees() {
         $("#tbl_timers_current .timer-operation").not(".select2-hidden-accessible").each(function () {
             const select = $(this); select.data('saved', select.val() || []);
-            select.select2({theme: "bootstrap", width: "100%", placeholder: select.attr('data-placeholder'), allowClear: true,
+            select.select2({theme: "bootstrap", dropdownCssClass: "st-select2-dropdown", width: "100%", placeholder: select.attr('data-placeholder'), allowClear: true,
                 ajax: {url: select.attr('data-url'), dataType: 'json', delay: 250, data: params => ({term: params.term || ''})}});
         });
     }

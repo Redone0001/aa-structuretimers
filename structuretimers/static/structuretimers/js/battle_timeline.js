@@ -61,34 +61,46 @@
         // Legacy Hull records describe the same final fight.
         return ['FI', 'HL'].includes(timer.timer_type) ? [['kill', 'Mark killed']] : [];
     }
+    function observationForAction(timer, observations) {
+        const observed = observations.find(item => item.id === timer.id);
+        if (observed && observed.date !== timer.date) throw new Error('The timer schedule changed. Reopen the timer before recording its outcome.');
+        return observed && observed.revision >= timer.revision ? observed : timer;
+    }
     async function reinforcementPrompt(loadOptions) {
         const options = await loadOptions();
         return new Promise(resolve => {
-            const dialog = document.createElement('dialog');
-            dialog.className = 'rounded border p-4';
-            dialog.style.maxWidth = 'min(32rem, 95vw)';
-            const form = document.createElement('form');
-            const title = document.createElement('h3'); title.className = 'h5'; title.textContent = 'Mark armor destroyed / reinforced';
-            const message = document.createElement('p');
-            message.textContent = options.already_registered ? 'A later timer for this structure is already registered. No duplicate will be created.' : 'Enter the new Final timer in UTC, or record armor destruction without a new timer.';
-            form.append(title, message);
-            const input = document.createElement('input'); input.type = 'datetime-local'; input.className = 'form-control mb-3'; input.required = true; input.step = '60';
+            const element = (tag, classes, text) => {const node = document.createElement(tag);node.className = classes;if (text) node.textContent = text;return node;};
+            const modal = element('div', 'modal fade st-page');modal.tabIndex = -1;modal.setAttribute('aria-labelledby', 'reinforcement-prompt-title');
+            const dialog = element('div', 'modal-dialog modal-dialog-centered modal-dialog-scrollable');
+            const form = element('form', 'modal-content');
+            const header = element('div', 'modal-header');
+            const title = element('h3', 'modal-title h5', 'Mark armor destroyed / reinforced');title.id = 'reinforcement-prompt-title';
+            const close = element('button', 'btn-close');close.type = 'button';close.setAttribute('aria-label', 'Cancel reinforcement');
+            header.append(title, close);
+            const body = element('div', 'modal-body');
+            const message = element('p', '', options.already_registered ? 'A later timer for this structure is already registered. No duplicate will be created.' : 'Enter the new Final timer in UTC, or record armor destruction without a new timer.');
+            body.append(message);
+            const input = element('input', 'form-control');input.type = 'datetime-local';input.required = true;input.step = '60';
             input.min = new Date(Date.now() + 60000).toISOString().slice(0, 16);
             if (!options.already_registered) {
-                const label = document.createElement('label'); label.textContent = 'New reinforcement date and time (UTC)'; input.id = 'reinforcement-date'; label.htmlFor = input.id; form.append(label, input);
+                const label = element('label', 'form-label', 'New reinforcement date and time (UTC)');input.id = 'reinforcement-date';label.htmlFor = input.id;body.append(label, input);
             }
-            const buttons = document.createElement('div'); buttons.className = 'd-flex flex-wrap gap-2';
-            const finish = value => { dialog.close(); dialog.remove(); resolve(value); };
-            const addButton = (label, handler) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-outline-secondary'; button.textContent = label; button.onclick = handler; buttons.append(button); };
-            const save = document.createElement('button'); save.type = 'submit'; save.className = 'btn btn-primary'; save.textContent = options.already_registered ? 'Mark reinforced' : 'Save with new timer'; buttons.append(save);
-            if (!options.already_registered) addButton('Record without new timer', () => finish({}));
+            const buttons = element('div', 'modal-footer');
+            let result = null;
+            let instance;
+            const finish = value => {result = value;instance.hide();};
+            close.onclick = () => finish(null);
+            const addButton = (label, handler) => {const button = element('button', 'btn btn-outline-secondary', label);button.type = 'button';button.onclick = handler;buttons.append(button);};
             addButton('Cancel', () => finish(null));
-            form.addEventListener('submit', event => { event.preventDefault(); finish(options.already_registered ? {} : {reinforcement_date: input.value + ':00Z'}); });
-            dialog.addEventListener('cancel', event => { event.preventDefault(); finish(null); });
-            form.append(buttons); dialog.append(form); document.body.append(dialog); dialog.showModal();
+            if (!options.already_registered) addButton('Record without new timer', () => finish({}));
+            const save = element('button', 'btn btn-primary', options.already_registered ? 'Mark reinforced' : 'Save with new timer');save.type = 'submit';buttons.append(save);
+            form.addEventListener('submit', event => {event.preventDefault();finish(options.already_registered ? {} : {reinforcement_date: input.value + ':00Z'});});
+            modal.addEventListener('hidden.bs.modal', () => {instance.dispose();modal.remove();resolve(result);}, {once: true});
+            modal.addEventListener('shown.bs.modal', () => {if (!options.already_registered) input.focus();}, {once: true});
+            form.append(header, body, buttons);dialog.append(form);modal.append(dialog);document.body.append(modal);instance = new root.bootstrap.Modal(modal);instance.show();
         });
     }
-    const api = {stateAt, onMap, hourKey, signal, fleetRangeOverlay, fleetSummary, completionActions, reinforcementPrompt};
+    const api = {stateAt, onMap, hourKey, signal, fleetRangeOverlay, fleetSummary, completionActions, reinforcementPrompt, observationForAction};
     if (typeof module !== 'undefined') module.exports = api;
     else root.StructureBattleTimeline = api;
 })(typeof window === 'undefined' ? globalThis : window);

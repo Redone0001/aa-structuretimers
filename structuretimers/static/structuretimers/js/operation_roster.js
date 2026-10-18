@@ -10,49 +10,57 @@
         root.replaceChildren();
         const assigned = new Set();
         for (const role of value.roles || []) {
-            const section = node('section', undefined, 'border rounded p-2 mb-2');
-            section.append(node('h4', role.name, 'h6 mb-1'));
-            section.append(node('p', role.systems.length ? 'Systems: ' + role.systems.join(', ') : 'No systems linked', 'small text-muted mb-1'));
+            const column = node('div', undefined, 'col-12 col-md-6 col-xl-4');
+            const section = node('section', undefined, 'card h-100');
+            const body = node('div', undefined, 'card-body');
+            section.append(node('h4', role.name, 'card-header h6 mb-0'));
+            body.append(node('p', role.systems.length ? 'Systems: ' + role.systems.join(', ') : 'No systems linked', 'small text-muted mb-1'));
             const list = node('ul', undefined, 'mb-0');
             for (const id of role.users) {assigned.add(id); list.append(node('li', value.people[String(id)] || 'Unavailable user'));}
             if (!role.users.length) list.append(node('li', 'Unfilled', 'text-muted'));
-            section.append(list); root.append(section);
+            body.append(list);section.append(body);column.append(section);root.append(column);
         }
         const others = (value.participants || []).filter(id => !assigned.has(id));
         if (others.length) {
-            const section = node('section', undefined, 'border rounded p-2 mb-2'); section.append(node('h4', 'No role', 'h6'));
+            const column = node('div', undefined, 'col-12 col-md-6 col-xl-4');
+            const section = node('section', undefined, 'card h-100');section.append(node('h4', 'No role', 'card-header h6 mb-0'));
             const list = node('ul', undefined, 'mb-0');for (const id of others) list.append(node('li', value.people[String(id)] || 'Unavailable user'));
-            section.append(list);root.append(section);
+            const body = node('div', undefined, 'card-body');body.append(list);section.append(body);column.append(section);root.append(column);
         }
-        if (!(value.roles || []).length && !others.length) root.append(node('p', 'No roles or participants yet.', 'text-muted'));
+        if (!(value.roles || []).length && !others.length) root.append(node('p', 'No roles or participants yet.', 'col-12 text-muted'));
     }
     window.OperationRoster = {render};
     if (root.dataset.editor !== 'true') {render(initial);return;}
     const templates = JSON.parse(document.getElementById('operation-role-templates').textContent);
-    let roles = [];
+    let roles = [], nextRole = 0;
     const selector = document.getElementById('operation-role-template');
     for (const template of templates) selector.append(new Option(template.name, template.id));
     function userPicker(select, ids) {
         for (const id of ids) select.append(new Option(people[String(id)] || 'Unavailable user', id, true, true));
-        $(select).select2({theme: 'bootstrap', width: '100%', placeholder: 'Choose AA users', allowClear: true, minimumInputLength: 1,
+        $(select).select2({theme: 'bootstrap', dropdownCssClass: 'st-select2-dropdown', width: '100%', placeholder: 'Choose AA users', allowClear: true, minimumInputLength: 1,
             ajax: {url: root.dataset.usersUrl, dataType: 'json', delay: 250, data: params => ({term: params.term})}});
         $(select).on('select2:select', event => {people[String(event.params.data.id)] = event.params.data.text;});
     }
     const participants = document.getElementById('operation-participants');userPicker(participants, initial.participants || []);
     root.replaceChildren();
     function addRole(value) {
-        const section = node('section', undefined, 'border rounded p-3 mb-3');section.dataset.roleEditor = 'true';
-        const name = node('input');name.type = 'text';name.placeholder = 'Role name';name.value = value.name || '';name.maxLength = 200;name.required = true;name.className = 'form-control mb-2';name.setAttribute('aria-label', 'Role name');
+        const section = node('section', undefined, 'card mb-3');section.dataset.roleEditor = 'true';
+        const key = 'operation-role-' + (++nextRole);
+        const header = node('div', undefined, 'card-header d-flex flex-wrap gap-2 align-items-center');
+        const body = node('div', undefined, 'card-body row g-3');
+        const name = node('input');name.id = key + '-name';name.type = 'text';name.placeholder = 'Role name';name.value = value.name || '';name.maxLength = 200;name.required = true;name.className = 'form-control st-role-name';name.setAttribute('aria-label', 'Role name');
         const systemLabel = node('label', 'Systems (optional)', 'form-label');
-        const systems = node('select');systems.multiple = true;systems.setAttribute('aria-label', 'Role systems');
+        const systems = node('select');systems.id = key + '-systems';systemLabel.htmlFor = systems.id;systems.multiple = true;systems.setAttribute('aria-label', 'Role systems');
         for (const system of value.systems || []) systems.append(new Option(system, system, true, true));
-        const userLabel = node('label', 'Users with this role (optional)', 'form-label mt-2');
-        const users = node('select');users.multiple = true;users.setAttribute('aria-label', 'Users with this role');
-        const remove = node('button', 'Remove role', 'btn btn-sm btn-outline-danger mt-2');remove.type = 'button';
+        const userLabel = node('label', 'Users with this role (optional)', 'form-label');
+        const users = node('select');users.id = key + '-users';userLabel.htmlFor = users.id;users.multiple = true;users.setAttribute('aria-label', 'Users with this role');
+        const remove = node('button', 'Remove role', 'btn btn-sm btn-outline-danger');remove.type = 'button';
         const entry = {name, systems, users, template_id: value.template_id || null};roles.push(entry);
         remove.onclick = () => {$(systems).select2('destroy');$(users).select2('destroy');roles = roles.filter(role => role !== entry);section.remove();};
-        section.append(name, systemLabel, systems, userLabel, users, remove);root.append(section);
-        $(systems).select2({theme: 'bootstrap', width: '100%', tags: true, placeholder: 'Choose or type systems', tokenSeparators: [','],
+        const systemColumn = node('div', undefined, 'col-12 col-lg-6');systemColumn.append(systemLabel, systems);
+        const userColumn = node('div', undefined, 'col-12 col-lg-6');userColumn.append(userLabel, users);
+        header.append(name, remove);body.append(systemColumn, userColumn);section.append(header, body);root.append(section);
+        $(systems).select2({theme: 'bootstrap', dropdownCssClass: 'st-select2-dropdown', width: '100%', tags: true, placeholder: 'Choose or type systems', tokenSeparators: [','],
             ajax: {url: root.dataset.systemsUrl, dataType: 'json', delay: 250, data: params => ({term: params.term})}});
         userPicker(users, value.users || []);
     }

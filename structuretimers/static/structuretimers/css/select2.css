@@ -23,6 +23,26 @@
 }
 .select2-container--bootstrap .st-select2-dropdown { max-width: calc(100vw - 2rem); }
 .select2-container--bootstrap .st-select2-dropdown .select2-results__option { overflow-wrap: anywhere; }
-.select2-container--bootstrap .st-select2-dropdown .select2-results__option[aria-selected=true] { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+.select2-container--bootstrap .st-select2-dropdown .select2-results__option[aria-selected=true] { background: var(--bs-secondary-bg-subtle); color: var(--bs-secondary-text-emphasis); }
 .select2-container--bootstrap .st-select2-dropdown .select2-results__option--highlighted[aria-selected] { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
 .select2-container--bootstrap .st-select2-dropdown .select2-results__option[aria-disabled=true] { color: var(--bs-secondary-color); }
+/* Select2 4.1 multiple selections use Bootstrap 5 surface and text tokens. */
+.st-page .select2-container--bootstrap .select2-selection--multiple { padding: .35rem .5rem; }
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-selection__rendered { display: inline; width: auto; white-space: normal; }
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-selection__choice {
+    position: relative; float: none; display: inline-flex; align-items: center;
+    margin: .15rem .35rem .15rem 0; padding: .15rem .5rem .15rem 1.5rem;
+    color: var(--bs-secondary-text-emphasis); background: var(--bs-secondary-bg-subtle);
+    border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm);
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+}
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-selection__choice__remove {
+    position: absolute; inset: 0 auto 0 0; margin: 0; padding: 0 .3rem;
+    color: inherit; background: transparent; border: 0; border-right: 1px solid var(--bs-border-color);
+    border-radius: 0; font: inherit;
+}
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-selection__choice__remove:hover { color: inherit; background: var(--bs-secondary-bg-subtle); }
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-search--inline { display: inline; float: none; }
+.st-page .select2-container--bootstrap .select2-selection--multiple .select2-search__field {
+    color: var(--bs-body-color); font: inherit; vertical-align: middle; height: 1.6rem; padding: 0 .25rem; margin: .1rem 0;
+}

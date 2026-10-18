@@ -11,6 +11,7 @@
     const selected = new Set(JSON.parse(document.getElementById('operation-selected-ids').textContent).map(Number));
     const table = () => $.fn.dataTable.isDataTable('#tbl_timers_current') ? $('#tbl_timers_current').DataTable() : null;
     const status = document.getElementById('operation-sync-status');
+    const busyTimers = new Set();
     let latest = null, etag = '', schema = '', pending = null, offset = 0, stopped = false;
     const state = timer => window.StructureBattleTimeline.stateAt(timer, Date.now() + offset);
     const names = {reinforced: 'REINFORCED · armor destroyed', upcoming: 'Upcoming', open: 'OPEN', paused: 'PAUSED', won: 'WON · hostile killed', lost: 'LOST · friendly killed', killed: 'KILLED', repaired: 'Repaired (estimated)', unanchored: 'Unanchored', occurred: 'Occurred'};
@@ -43,7 +44,7 @@
             if (current === 'paused') actions.push(['resume', 'Resume'], ['adjust', '−1 min', -60], ['adjust', '+1 min', 60]);
             actions.push(...window.StructureBattleTimeline.completionActions(timer, current));
             return '<div class="d-flex flex-wrap gap-1 mt-1">' + actions.map(([action, label, seconds]) =>
-                `<button type="button" class="btn btn-sm btn-outline-secondary" data-op-action="${action}" data-timer-id="${Number(timer.id)}"${seconds ? ` data-seconds="${seconds}"` : ''}>${label}</button>`).join('') + '</div>';
+                `<button type="button" class="btn btn-sm btn-outline-secondary" data-op-action="${action}" data-timer-id="${Number(timer.id)}"${busyTimers.has(Number(timer.id)) ? ' disabled' : ''}${seconds ? ` data-seconds="${seconds}"` : ''}>${label}</button>`).join('') + '</div>';
         },
         controlKey(timer) { return [state(timer).name, timer.can_edit, timer.revision].join(':'); },
     };
@@ -130,8 +131,9 @@
         $('#tbl_timers_current').on('click', '[data-op-action]', async function () {
             const button = this, id = Number(button.dataset.timerId);
             const timer = table()?.rows().data().toArray().find(row => row.id === id)?.battle;
-            if (!timer) return;
-            button.disabled = true;
+            if (!timer || busyTimers.has(id)) return;
+            busyTimers.add(id);
+            $(`#tbl_timers_current [data-timer-id="${id}"]`).prop('disabled', true);
             try {
                 let reinforcement = {};
                 if (button.dataset.opAction === 'reinforce') {
@@ -144,14 +146,18 @@
                     });
                     if (reinforcement === null) return;
                 }
+                const observed = window.StructureBattleTimeline.observationForAction(timer, latest?.timers || []);
                 const response = await fetch(root.dataset.battleUrl, {method: 'POST', credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('#timer-assignment-csrf input').value},
-                    body: JSON.stringify({operation: Number(root.dataset.operationId), id, revision: timer.revision,
+                    body: JSON.stringify({operation: Number(root.dataset.operationId), id, revision: observed.revision,
                         action: button.dataset.opAction, ...reinforcement, ...(button.dataset.seconds ? {seconds: Number(button.dataset.seconds)} : {})})});
                 if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Could not update the timer.'); }
                 pending?.abort(); pending = null; await poll(true);
             } catch (error) { status.className = 'small text-danger'; status.textContent = error.message; }
-            finally { button.disabled = false; }
+            finally {
+                busyTimers.delete(id);
+                $(`#tbl_timers_current [data-timer-id="${id}"]`).prop('disabled', false);
+            }
         });
         poll(true);
         const interval = setInterval(poll, 2000);

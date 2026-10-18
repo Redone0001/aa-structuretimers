@@ -91,3 +91,13 @@ test('armor completion records reinforcement without a kill and controls follow 
     for(const timer_type of ['FI','HL'])assert.deepEqual(completionActions({...timer,timer_type},'open'),[['kill','Mark killed']]);
     for(const timer_type of ['AN','UA','NO','MM'])assert.deepEqual(completionActions({...timer,timer_type},'open'),[]);
 });
+
+test('actions use current observations after a prompt and reject a changed schedule',()=>{
+    const {observationForAction}=require('../../static/structuretimers/js/battle_timeline.js');
+    const original={...timer,id:1,revision:2};
+    const newer={...original,revision:3,events:[event('pause',60)]};
+    assert.equal(observationForAction(original,[newer]),newer);
+    assert.equal(observationForAction(newer,[original]),newer);
+    assert.equal(observationForAction(original,[]),original);
+    assert.throws(()=>observationForAction(original,[{...newer,date:new Date(start+86400000).toISOString()}]),/schedule changed/);
+});

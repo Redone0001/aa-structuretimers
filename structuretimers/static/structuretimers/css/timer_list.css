@@ -78,3 +78,5 @@
 .st-page .recon-heat-cell { appearance: none; padding: 0; color: var(--bs-body-color); border: 1px solid var(--bs-border-color, var(--bs-body-color)); }
 .st-page .recon-heat-cell[aria-pressed="true"] { outline: 2px solid var(--bs-body-color); outline-offset: -2px; }
 .st-page .recon-heat-cell:focus-visible { outline: 3px solid var(--bs-primary); outline-offset: 1px; }
+
+.st-page .st-role-name { flex: 1 1 12rem; width: auto; min-width: 0; }
