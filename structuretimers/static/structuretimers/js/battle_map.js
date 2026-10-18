@@ -27,9 +27,10 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             $('delete').addEventListener('click',()=>this.saveToken(true));
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
-            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if($('fleets').checked&&Date.now()-this.fleetLoaded>=120000)this.loadFleets();}},1000);
-            window.addEventListener('pagehide',event=>{this.abort?.abort();this.fleetAbort?.abort();if(!event.persisted)clearInterval(this.interval);});
-            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data&&this.now()-(this.loaded||0)>=15*60000)this.load();});
+            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if(this.enabled&&!this.root.dataset.operation&&Date.now()-(this.lastStateSync||0)>=2000)this.syncTimers();if($('fleets').checked&&Date.now()-this.fleetLoaded>=120000)this.loadFleets();}},1000);
+            window.addEventListener('pagehide',event=>{this.abort?.abort();this.stateAbort?.abort();this.fleetAbort?.abort();if(!event.persisted)clearInterval(this.interval);});
+            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data){if(!this.root.dataset.operation)this.syncTimers();if(this.now()-(this.loaded||0)>=15*60000)this.load();}});
+            window.addEventListener('st:timer-sync', event=>{if(this.root.dataset.operation)this.acceptObservations(event.detail.timers,event.detail.server_time);});
             this.updateControls();
         }
         get enabled(){return $('enabled').checked;}
@@ -39,10 +40,11 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             for(const id of ['day','slider','time','live'])$(id).disabled=!this.enabled;
             $('hours-panel').hidden=!this.enabled;
         }
-        reset(){this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;this.fleetLoaded=0;this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
+        reset(){this.stateAbort?.abort();this.stateAbort=null;this.observationSignature=null;this.fleetVersion++;this.fleetAbort?.abort();this.fleetAbort=null;this.fleetLoaded=0;this.rangeGeneration++;this.rangeSelected.clear();this.rangeCache.clear();this.abort?.abort();this.abort=null;this.data=null;this.timers=[];this.tokens=[];this.ready=false;this.selected=null;this.signature=null;$('hours').replaceChildren();$('fleet-list').replaceChildren();$('summary').textContent='';$('sync').textContent='';$('editor').close();}
         async setRegion(data){this.data=data;await this.load();}
         async api(layer, params={}, options={}){
             const url=new URL(this.root.dataset.battleApi.replace('LAYER',layer),location.origin);
+            if(this.root.dataset.operation)url.searchParams.set('operation',this.root.dataset.operation);
             Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
             const response=await fetch(url,{...options,headers:{Accept:'application/json',...options.headers}});
             let data;try{data=await response.json();}catch(_){throw new Error('Session expired or server unavailable. Reload to reconnect.');}
@@ -68,6 +70,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
         }
         async load(forceFleets=false){
             if(!this.data||!$('day').value)return;
+            this.stateAbort?.abort();this.stateAbort=null;
             this.abort?.abort();const controller=new AbortController();this.abort=controller;
             this.fleetAbort?.abort();this.fleetAbort=null;const fleetVersion=++this.fleetVersion;
             const region=this.data.region.id, day=$('day').value;
@@ -76,10 +79,34 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             try{
                 const data=await this.api('snapshot',{region,day,fleets:forceFleets||$('fleets').checked?'1':'0'},{signal:controller.signal});
                 if(this.abort!==controller)return;
-                this.timers=data.timers;if(data.tokens&&fleetVersion===this.fleetVersion)this.applyFleets(data.tokens);this.offset=Date.parse(data.server_time)-Date.now();this.ready=true;
+                this.timers=this.reconcileObservations(data.timers);this.observationSignature=JSON.stringify(data.timers);if(data.tokens&&fleetVersion===this.fleetVersion)this.applyFleets(data.tokens);this.offset=Date.parse(data.server_time)-Date.now();this.ready=true;
                 this.loaded=Date.parse(data.server_time);this.loadedDay=day;this.syncForceRanges();this.signature=null;this.renderHours();this.renderFleets();this.tick();
                 if(this.selected!==null)this.hooks.select(this.selected);
             }catch(e){if(e.name!=='AbortError')$('error').textContent=e.message+' Use Refresh to retry.';}
+        }
+        reconcileObservations(timers){
+            const previous=new Map(this.timers.map(timer=>[timer.id,timer]));
+            return timers.map(timer=>{const old=previous.get(timer.id);return old&&old.date===timer.date&&old.revision>timer.revision?old:timer;});
+        }
+        acceptObservations(timers, serverTime){
+            if(!this.data)return;
+            if(serverTime)this.offset=Date.parse(serverTime)-Date.now();
+            const systems=new Set(this.data.nodes.map(node=>node.id));
+            const records=this.reconcileObservations(timers.filter(timer=>systems.has(timer.system_id)));
+            const signature=JSON.stringify(records);
+            if(signature===this.observationSignature)return;
+            this.observationSignature=signature;this.timers=records;this.signature=null;
+            this.renderHours();this.tick();if(this.selected!==null)this.hooks.select(this.selected);
+        }
+        async syncTimers(){
+            if(!this.data||!this.ready||this.stateAbort||document.hidden)return;
+            const controller=new AbortController();this.stateAbort=controller;this.lastStateSync=Date.now();
+            try{
+                const data=await this.api('updates',{region:this.data.region.id,day:$('day').value},{signal:controller.signal});
+                if(this.stateAbort!==controller)return;
+                this.acceptObservations(data.timers,data.server_time);$('error').textContent='';
+            }catch(error){if(error.name!=='AbortError')$('error').textContent='Timer sync unavailable. Retrying within 2 seconds.';}
+            finally{if(this.stateAbort===controller)this.stateAbort=null;}
         }
         filtered(){
             return this.timers.filter(t=>this.hooks.allowed(t)&&this.hooks.inRange(t.system_id));
@@ -92,7 +119,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             if(document.activeElement!==$('time'))$('time').value=clock(instant).slice(0,5);
             $('clock').textContent=(this.live?'LIVE · ':'Inspecting · ')+clock(instant)+' UTC';
             $('live').setAttribute('aria-pressed',String(this.live));$('live').classList.toggle('btn-primary',this.live);$('live').classList.toggle('btn-outline-primary',!this.live);
-            if(this.loaded)$('sync').textContent=`Loaded ${clock(this.loaded)} UTC · next server refresh within 15 min`;
+            if(this.loaded)$('sync').textContent=`Loaded ${clock(this.loaded)} UTC · live timer states update every 2 seconds`;
             const timers=this.filtered(), active=timers.filter(t=>timeline.onMap(t,instant));
             $('summary').textContent=this.ready?`${active.length} opening soon / open / paused / instant events · ${new Set(active.map(t=>t.system_id)).size} systems · ${timers.filter(t=>timeline.stateAt(t,instant).name==='upcoming').length} upcoming`:'Loading battle intelligence…';
             const signature=JSON.stringify([this.enabled,this.loadedDay,timers.map(t=>[t.id,timeline.stateAt(t,instant).name,timeline.onMap(t,instant),timeline.signal(t,instant)])]);
@@ -288,7 +315,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             $('system-options').replaceChildren();
             $('editor-title').textContent=token?'Edit fleet token':'Add fleet token';$('editor').showModal();$('alliance').focus();
         }
-        async post(layer,body){return this.api(layer,{}, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':this.root.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(body)});}
+        async post(layer,body){if(layer==='timer'&&this.root.dataset.operation)body={...body,operation:Number(this.root.dataset.operation)};return this.api(layer,{}, {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':this.root.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify(body)});}
         async moveToken(source,destination,item){
             const token=this.tokens.find(t=>t.id===item.tokenId);
             if(!token?.can_edit||this.moving.has(token.id)||source===destination)return;

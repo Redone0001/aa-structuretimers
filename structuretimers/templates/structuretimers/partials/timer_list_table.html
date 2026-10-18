@@ -14,6 +14,9 @@
                 <th>{% translate "Name" %} / {% translate "Owner" %}</th>
                 <th>{% translate "Assigned to" %}</th>
                 <th></th>
+                {% if operation_editor and tab_name == 'current' %}
+                <th><input type="checkbox" id="operation-select-all" aria-label="Select all timers matching the applied filters"></th>
+                {% endif %}
             </tr>
         </thead>
     </table>

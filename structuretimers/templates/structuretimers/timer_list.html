@@ -5,38 +5,27 @@
 
 {% block structuretimers_content %}
     <div id="timer-assignment-csrf" hidden>{% csrf_token %}</div>
+    {% translate 'Database' as tab_database %}
+    {% translate 'Current' as tab_current %}
+    {% translate 'Past' as tab_past %}
+    {% translate 'Standing' as tab_standing %}
+    {% translate 'Recon Campaigns' as tab_campaigns %}
+    {% translate 'Ops' as tab_ops %}
     <!-- Nav tabs -->
     <ul class="nav nav-tabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-current" type="button" aria-selected="false" data-bs-target="#current" aria-controls="current" role="tab" data-bs-toggle="tab">
-                {% translate "Current" %}
-            </button>
-        </li>
         {% if perms.structuretimers.recon_member %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-preliminary" type="button" aria-selected="false" data-bs-target="#preliminary" aria-controls="preliminary" role="tab" data-bs-toggle="tab">
-                {% translate "Database" %}
-            </button>
-        </li>
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='preliminary' label=tab_database %}</li>
         {% endif %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-past" type="button" aria-selected="false" data-bs-target="#past" aria-controls="past" role="tab" data-bs-toggle="tab">
-                {% translate "Past" %}
-            </button>
-        </li>
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='current' label=tab_current %}</li>
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='past' label=tab_past %}</li>
         {% if perms.structuretimers.recon_coordinator %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-standings" type="button" aria-selected="false" data-bs-target="#standings" aria-controls="standings" role="tab" data-bs-toggle="tab">
-                Standings
-            </button>
-        </li>
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='standings' label=tab_standing %}</li>
         {% endif %}
         {% if perms.structuretimers.recon_member %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-recon-campaigns" type="button" aria-selected="false" data-bs-target="#recon-campaigns" aria-controls="recon-campaigns" role="tab" data-bs-toggle="tab">
-                {% translate "Recon campaigns" %}
-            </button>
-        </li>
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='recon-campaigns' label=tab_campaigns %}</li>
+        {% endif %}
+        {% if can_view_ops %}
+        <li class="nav-item" role="presentation">{% include 'structuretimers/partials/navigation_tab.html' with key='ops' label=tab_ops %}</li>
         {% endif %}
         <li role="presentation" class="nav-item ms-auto">
             <div class="dropdown">
@@ -46,7 +35,7 @@
                 <ul class="dropdown-menu">
                     {% for staging_system in stageing_systems %}
                         <li>
-                            <a class="dropdown-item" href="{% url 'structuretimers:timer_list' %}?staging={{ staging_system.eve_solar_system.name }}">
+                            <a class="dropdown-item" href="{% if not operation_page %}{% url 'structuretimers:timer_list' %}{% endif %}?staging={{ staging_system.eve_solar_system.name }}">
                                 {{ staging_system }} ({{ staging_system.eve_solar_system.eve_constellation.eve_region }})
                                 {% if staging_system.is_main %} {% translate "[MAIN]" %} {% endif %}
                             </a>
@@ -66,6 +55,12 @@
     <div class="card">
         <div class="card-body">
             <div class="tab-content">
+                {% if operation_page %}
+                <div role="tabpanel" class="tab-pane" id="ops" aria-labelledby="tab-ops">
+                    {% include 'structuretimers/partials/operation_board.html' %}
+                </div>
+                {% else %}
+
                 {% if perms.structuretimers.recon_member %}
                 <div role="tabpanel" class="tab-pane" id="recon-campaigns" aria-labelledby="tab-recon-campaigns">
                     {% include 'structuretimers/partials/campaign_list.html' %}
@@ -97,6 +92,12 @@
                 <div role="tabpanel" class="tab-pane" id="past" aria-labelledby="tab-past">
                     {% include 'structuretimers/partials/timer_list_table.html' with tab_name='past' %}
                 </div>
+                {% if can_view_ops %}
+                <div role="tabpanel" class="tab-pane" id="ops" aria-labelledby="tab-ops">
+                    {% include 'structuretimers/partials/operation_list.html' %}
+                </div>
+                {% endif %}
+                {% endif %}
             </div>
             <p class="text-muted">
                 {% translate "*: Distance from selected staging system:" %} {{ selected_staging_system|default:"?" }}
@@ -149,7 +150,7 @@
     <!-- share data with JS part -->
     <div
         id="dataExport"
-        data-listDataCurrentUrl="{% url 'structuretimers:timer_list_data' 'current' %}?staging={{ selected_staging_system.pk }}"
+        data-listDataCurrentUrl="{% if operation_page %}{{ operation_data_url }}{% else %}{% url 'structuretimers:timer_list_data' 'current' %}{% endif %}?staging={{ selected_staging_system.pk }}"
         data-listDataPastUrl="{% url 'structuretimers:timer_list_data' 'past' %}?staging={{ selected_staging_system.pk }}"
         data-listDataTargetUrl="{% url 'structuretimers:timer_list_data' 'preliminary' %}?staging={{ selected_staging_system.pk }}"
         data-getTimerDataUrl="{% url 'structuretimers:detail' 'pk_dummy' %}"
@@ -194,12 +195,13 @@
     {% include 'bundles/datatables-js-bs5.html' %}
     <script src="{% static 'structuretimers/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/recon_distribution.js' %}"></script>
+    <script src="{% static 'structuretimers/js/battle_timeline.js' %}"></script>
+    <script src="{% static 'structuretimers/js/operations.js' %}"></script>
     <script type="application/javascript" src="{% static 'structuretimers/js/timer_list.js' %}"></script>
     <script type="text/javascript" src="{% static 'structuretimers/js/manage_recon.js' %}"></script>
     <script src="{% static 'structuretimers/js/structure_map_source.js' %}"></script>
     <script src="{% static 'structuretimers/js/map_preferences.js' %}"></script>
     <script src="{% static 'structuretimers/js/system_map.js' %}"></script>
-    <script src="{% static 'structuretimers/js/battle_timeline.js' %}"></script>
     <script src="{% static 'structuretimers/js/battle_map.js' %}"></script>
     <script src="{% static 'structuretimers/js/regional_map.js' %}"></script>
 {% endblock extra_javascript %}

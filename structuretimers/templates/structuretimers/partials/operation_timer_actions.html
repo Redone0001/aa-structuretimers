@@ -1,0 +1,5 @@
+{% load i18n %}
+<div class="d-flex flex-wrap gap-1">
+    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalTimerDetails" data-timerpk="{{ timer.pk }}">{% translate "View" %}</button>
+    {{ fit_buttons }}
+</div>

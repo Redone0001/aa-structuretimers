@@ -2,11 +2,41 @@
 
 from django.urls import path
 
-from . import battle_map, campaigns, regional_map, views
+from . import battle_map, campaigns, operations, regional_map, views
 
 app_name = "structuretimers"
 
 urlpatterns = [
+    path("ops/live/", operations.operation_index_live, name="operation_index_live"),
+    path(
+        "ops/create/", operations.OperationEditorView.as_view(), name="operation_create"
+    ),
+    path(
+        "ops/picker/",
+        operations.OperationPickerDataView.as_view(),
+        name="operation_picker",
+    ),
+    path(
+        "ops/<int:pk>/",
+        operations.OperationDetailView.as_view(),
+        name="operation_detail",
+    ),
+    path(
+        "ops/<int:pk>/edit/",
+        operations.OperationEditorView.as_view(),
+        name="operation_edit",
+    ),
+    path(
+        "ops/<int:pk>/picker/",
+        operations.OperationPickerDataView.as_view(),
+        name="operation_picker",
+    ),
+    path(
+        "ops/<int:pk>/data/",
+        operations.OperationTimerDataView.as_view(),
+        name="operation_data",
+    ),
+    path("ops/<int:pk>/live/", operations.operation_live, name="operation_live"),
     path("map/battle/<str:layer>/", battle_map.battle_data, name="battle_map_data"),
     path("map/", regional_map.map_page, name="regional_map"),
     path("map/data/<str:layer>/", regional_map.map_data, name="regional_map_data"),

@@ -1,0 +1,36 @@
+{% load i18n django_bootstrap5 %}
+{{ operation_selected_ids|json_script:"operation-selected-ids" }}
+<div id="operation-board" data-editor="{{ operation_editor|yesno:'true,false' }}"
+     data-operation-id="{{ operation.pk|default:'' }}"
+     {% if operation %}data-live-url="{% url 'structuretimers:operation_live' operation.pk %}"{% endif %}
+     data-battle-url="{% url 'structuretimers:battle_map_data' 'timer' %}">
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+        <div><h2 class="h4" id="operation-name">{% if operation_editor %}{% if operation %}Edit operation{% else %}Create operation{% endif %}{% else %}{{ operation.name }}{% endif %}</h2>
+            {% if not operation_editor %}<p class="text-muted" id="operation-visibility">{{ operation.get_visibility_display }}</p>{% endif %}</div>
+        <div><a href="{% url 'structuretimers:timer_list' %}?tab=ops" class="btn btn-outline-secondary">{% translate "All operations" %}</a>
+            {% if not operation_editor %}<a id="operation-edit-link" href="{% url 'structuretimers:operation_edit' operation.pk %}" class="btn btn-primary"{% if not perms.structuretimers.op_coordinator %} hidden{% endif %}>{% translate "Edit operation" %}</a>{% endif %}</div>
+    </div>
+    {% if operation_editor %}
+        <form method="post" id="operation-form">
+            {% csrf_token %}
+            {% bootstrap_form_errors operation_form %}
+            {% bootstrap_field operation_form.name %}
+            {% bootstrap_field operation_form.description %}
+            {% bootstrap_field operation_form.visibility %}
+            {{ operation_form.version }}
+            <div id="operation-timer-inputs">{{ operation_form.timers }}</div>
+            {% for error in operation_form.timers.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+        </form>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <button type="button" id="operation-select-filtered" class="btn btn-outline-primary">{% translate "Select all matching filters" %}</button>
+            <button type="button" id="operation-clear-filtered" class="btn btn-outline-secondary">{% translate "Unselect matching filters" %}</button>
+            <span id="operation-selection-count" role="status"></span>
+            <button type="submit" form="operation-form" class="btn btn-primary" id="operation-save">{% translate "Save operation" %}</button>
+        </div>
+        <p class="small text-muted">Select timers using the checkboxes on the right. Filtered selection includes every matching page. Existing selected timers remain available even after leaving Current.</p>
+    {% else %}
+        <p id="operation-description" class="text-break" style="white-space:pre-wrap">{{ operation.description }}</p>
+        <p class="small text-muted" id="operation-sync-status" role="status" aria-live="polite">Connecting to live updates…</p>
+    {% endif %}
+</div>
+{% include 'structuretimers/partials/timer_list_table.html' with tab_name='current' %}

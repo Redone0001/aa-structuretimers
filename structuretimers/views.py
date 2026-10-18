@@ -54,6 +54,7 @@ from structuretimers.forms import (
 )
 from structuretimers.models import (
     DistancesFromStaging,
+    Operation,
     Organization,
     ReconCampaign,
     StagingSystem,
@@ -158,6 +159,11 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
             "structuretimers.recon_coordinator"
         ):
             return "current"
+        if tab == "ops" and not any(
+            self.request.user.has_perm("structuretimers." + role)
+            for role in ("op_coordinator", "op_viewer")
+        ):
+            return "current"
         return tab
 
     def get_context_data(self, **kwargs):
@@ -192,6 +198,11 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "jump_ranges": JUMP_RANGES,
                 **self._standings_context(),
                 "campaigns": ReconCampaign.objects.all(),
+                "can_view_ops": any(
+                    self.request.user.has_perm("structuretimers." + role)
+                    for role in ("op_coordinator", "op_viewer")
+                ),
+                "operations": Operation.visible_to(self.request.user),
                 "recon_translations": {
                     "noMatches": _("No matching recon"),
                     "stale": _("Older than 30 days"),
@@ -261,16 +272,9 @@ class TimerListDataView(
 
     def get_queryset(self):
         qs = super().get_queryset()
-        timers_qs = qs.visible_to_user(self.request.user).filter(
-            structure__destroyed_at__isnull=True
-        )
-        timers_qs = timers_qs.filter_by_tab(
-            tab_name=self.kwargs.get("tab_name"), max_hours_passed=MAX_HOURS_PASSED
-        )
+        timers_qs = self.filter_timers(qs)
         timers_qs = timers_qs.select_related(
-            "eve_solar_system",
             "eve_solar_system__eve_constellation__eve_region",
-            "structure_type",
             "structure_type__eve_group",
             "eve_character",
             "assigned_to__profile__main_character",
@@ -278,8 +282,19 @@ class TimerListDataView(
             "eve_alliance",
             "owner_corporation__alliance",
             "structure",
+            "map_state",
         )
         return timers_qs
+
+    def filter_timers(self, qs):
+        """Apply board membership separately from the common row presentation."""
+        return (
+            qs.visible_to_user(self.request.user)
+            .filter(structure__destroyed_at__isnull=True)
+            .filter_by_tab(
+                tab_name=self.kwargs.get("tab_name"), max_hours_passed=MAX_HOURS_PASSED
+            )
+        )
 
     def get_data(self, context):
         data = []

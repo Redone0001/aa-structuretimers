@@ -331,7 +331,7 @@ $(document).ready(function () {
         {
             data: "local_time",
             render: function (data, type, row) {
-                return localTimeOutputHtml(data);
+                return row.battle && window.OperationLive?.enabled ? moment(data).format("ddd @ LT") + "<br>" + window.OperationLive.timerHtml(row.battle) : localTimeOutputHtml(data);
             },
         },
         { data: "location" },
@@ -346,7 +346,7 @@ $(document).ready(function () {
         { data: "owner" },
         { data: "name_objective" },
         { data: "assignment", orderable: false, className: "st-assignment-cell" },
-        { data: "actions" },
+        { data: "actions", render: (data, type, row) => type === 'display' && row.battle && window.OperationLive?.enabled ? data + window.OperationLive.controls(row.battle) : data },
 
         /* hidden columns */
         { data: "system_name" },
@@ -400,22 +400,30 @@ $(document).ready(function () {
             );
         },
     });
+    const selecting = window.OperationSelection?.enabled;
+    const currentFilterDefinition = selecting ? createFilterDefinition(10, hasPermOPSEC, titleSolarSystem, titleRegion, titleStructureType, titleTimerType, titleObjective, titleVisibility, titleOwner) : standardFilterDefinition;
+    const currentColumns = selecting ? [
+        ...columns.slice(0, 9),
+        {data: null, orderable: false, searchable: false, render: (_data, type, row) => type === 'display' ?
+            `<input type="checkbox" class="form-check-input operation-select" data-timer-id="${Number(row.id)}" aria-label="Select timer ${Number(row.id)}"${window.OperationSelection.has(row.id) ? ' checked' : ''}>` : ''},
+        ...columns.slice(9),
+    ] : columns;
     const table_current = $("#tbl_timers_current").DataTable({
         ajax: {
             url: listDataCurrentUrl,
             dataSrc: "",
             cache: false,
         },
-        columns: columns,
+        columns: currentColumns,
         order: [[0, "asc"]],
         lengthMenu: lengthMenu,
         paging: dataTablesPaging,
         pageLength: dataTablesPageLength,
-        columnDefs: columnDefs,
+        columnDefs: selecting ? [{sortable: false, targets: [8, 9]}, createVisibleColumDef(10)] : columnDefs,
         initComplete: function () {
             initializeMultiSelectFilters(
                 this.api(),
-                standardFilterDefinition,
+                currentFilterDefinition,
                 titleFilterBy,
                 titleAll
             );
@@ -429,13 +437,26 @@ $(document).ready(function () {
         },
     });
 
+    $('#tbl_timers_current').on('st:rebuild-filters', function () {
+        const saved = {};
+        for (const definition of currentFilterDefinition.columns) {
+            saved[definition.idx] = $('#tbl_timers_current_filterSelect' + definition.idx + '_menu input:checked').map(function () { return this.value; }).get();
+        }
+        $(table_current.table().container()).children('.timer-filter-row').remove();
+        initializeMultiSelectFilters(table_current, currentFilterDefinition, titleFilterBy, titleAll, saved);
+    });
+
     function updateTimers() {
         table_current.rows().every(function () {
             var d = this.data();
-            if (!d["is_passed"]) {
+            if (d.battle || !d["is_passed"]) {
                 // Refresh only the countdown cell. Replacing the whole row
                 // recreates the assignment select and closes its open menu.
                 table_current.cell(this.index(), 1).data(d["date"]);
+                if (d.battle && window.OperationLive?.enabled) {
+                    const key = window.OperationLive.controlKey(d.battle);
+                    if (key !== d._controlKey) { d._controlKey = key; table_current.cell(this.index(), 8).data(d.actions); }
+                }
             }
         });
     }

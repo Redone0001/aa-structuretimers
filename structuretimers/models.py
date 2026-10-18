@@ -94,7 +94,56 @@ class General(models.Model):
             ("create_timer", "Can create new timers and edit own timers"),
             ("manage_timer", "Can edit and delete any timer"),
             ("opsec_access", "Can create and see opsec timers"),
+            ("op_coordinator", "Can create, edit and coordinate operations"),
+            ("op_viewer", "Can view shared operations"),
         )
+
+
+class Operation(models.Model):
+    """A shared selection of timers; membership never grants timer visibility."""
+
+    class Visibility(models.TextChoices):
+        """Operation audiences; timer permissions remain independent."""
+
+        COORDINATORS = "coordinators", "Coordinators only"
+        ALL = "all", "Coordinators and viewers"
+
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    visibility = models.CharField(
+        max_length=16, choices=Visibility.choices, default=Visibility.COORDINATORS
+    )
+    timers = models.ManyToManyField("Timer", related_name="operations", blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_operations"
+    )
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="updated_operations"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    revision = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ("-updated_at", "-pk")
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        """Open this operation's timerboard."""
+        return reverse("structuretimers:operation_detail", args=[self.pk])
+
+    @classmethod
+    def visible_to(cls, user):
+        """Apply operation roles independently of recon and timer permissions."""
+        if not user.has_perm("structuretimers.basic_access"):
+            return cls.objects.none()
+        if user.has_perm("structuretimers.op_coordinator"):
+            return cls.objects.all()
+        if user.has_perm("structuretimers.op_viewer"):
+            return cls.objects.filter(visibility=cls.Visibility.ALL)
+        return cls.objects.none()
 
 
 class Organization(models.Model):

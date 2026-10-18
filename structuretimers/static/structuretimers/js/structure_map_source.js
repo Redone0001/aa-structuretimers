@@ -2,7 +2,7 @@
 (function () {
     'use strict';
     const TABLES = {current: '#tbl_timers_current', database: '#tbl_manage_recon'};
-    const MAP_TABS = {current: 'current', preliminary: 'database'};
+    const MAP_TABS = {current: 'current', preliminary: 'database', ...(document.getElementById('operation-board') ? {ops: 'current'} : {})};
     let mode = 'current';
     window.StructureMapSource = {
         get mode() { return mode; },

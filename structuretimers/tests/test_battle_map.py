@@ -486,3 +486,38 @@ class BattleMapTests(RegionalMapTests):
         self.assertIsNotNone(timer.structure)
         self.assertIsNotNone(timer.structure.destroyed_at)
         self.assertEqual(timer.structures_structure_id, 1000000000001)
+
+    def test_operation_snapshot_is_scoped_and_updates_do_not_reload_fleets(self):
+        from unittest.mock import patch
+
+        from django.contrib.auth.models import Permission
+
+        from structuretimers.models import Operation
+
+        self.user.user_permissions.add(
+            Permission.objects.get(codename="op_coordinator")
+        )
+        timer = self.active_timer(structure_name="Selected")
+        self.active_timer(structure_name="Not selected")
+        operation = Operation.objects.create(
+            name="Battle", visibility=Operation.Visibility.ALL
+        )
+        operation.timers.add(timer)
+        scoped = self.snapshot(operation=operation.pk).json()
+        self.assertEqual([row["id"] for row in scoped["timers"]], [timer.pk])
+        self.assertTrue(scoped["timers"][0]["can_edit"])
+        self.post(
+            "timer", operation=operation.pk, id=timer.pk, revision=0, action="pause"
+        )
+        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+            updates = self.client.get(
+                self.url("updates"),
+                {
+                    "region": self.region.pk,
+                    "operation": operation.pk,
+                    "day": now().date().isoformat(),
+                },
+            ).json()
+        fleets.assert_not_called()
+        self.assertEqual(updates["timers"][0]["events"][-1]["action"], "pause")
+        self.assertIsNone(updates["tokens"])

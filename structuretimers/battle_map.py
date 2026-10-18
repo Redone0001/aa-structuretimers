@@ -16,6 +16,7 @@ from django.views.decorators.http import require_http_methods
 from . import destruction
 from .alliance_directory import lookup_alliances, resolve_alliance
 from .models import MapFleetToken, MapTimerState, Structure, Timer
+from .operation_access import get_operation, operation_timers
 from .regional_map import RANGES, RELATIONSHIPS, distance_ly, resolve_region, sde_models
 
 DURATIONS = {"AR": 900, "HL": 1800, "FI": 900, "AN": 900, "UA": 0}
@@ -30,6 +31,32 @@ def timer_events(timer):
     return [
         e for e in state.events if e.get("schedule") == timer.date.isoformat()
     ], state.revision
+
+
+def observation_payload(timer, user, system_name=None, can_edit=None):
+    """The same observations and repair clock in operations and on battle maps."""
+    events, revision = timer_events(timer)
+    return {
+        "id": timer.pk,
+        "system_id": timer.eve_solar_system_id,
+        "system": system_name or timer.eve_solar_system.name,
+        "name": timer.structure_name or "Unnamed structure",
+        "type": (
+            timer.structure_type.name if timer.structure_type else "Unknown structure"
+        ),
+        "type_id": timer.structure_type_id,
+        "timer_type": timer.timer_type,
+        "timer_label": timer.get_timer_type_display(),
+        "relationship": RELATIONSHIPS[timer.objective],
+        "date": timer.date.isoformat(),
+        "duration": DURATIONS.get(timer.timer_type),
+        "events": [
+            {key: event[key] for key in ("action", "at", "seconds") if key in event}
+            for event in events
+        ],
+        "revision": revision,
+        "can_edit": timer.user_can_edit(user) if can_edit is None else can_edit,
+    }
 
 
 def timer_clock(timer, events, instant):
@@ -209,7 +236,7 @@ def lookup(kind, term):
     )
 
 
-def _battle_snapshot(request):
+def _battle_snapshot(request, include_fleets=True):
     """Build the requested day's visible timers and optional fleet overlay."""
     region_model, system_model, _ = sde_models()
     region_ids = resolve_region(region_model, request.GET.get("region")).ids
@@ -234,45 +261,36 @@ def _battle_snapshot(request):
         .select_related("map_state", "structure_type", "user")
         .order_by("date", "pk")
     )
+    operation = None
+    if request.GET.get("operation"):
+        operation = get_operation(request.user, request.GET["operation"])
+        timers = timers.filter(operations=operation)
     records = []
     for timer in timers:
-        events, revision = timer_events(timer)
+        events, _ = timer_events(timer)
         if timer.date >= end or (
             timer.date < start - timedelta(days=1)
             and timer_status(timer, events, start) not in ("paused", "open")
         ):
             continue
         records.append(
-            {
-                "id": timer.pk,
-                "system_id": timer.eve_solar_system_id,
-                "system": systems[timer.eve_solar_system_id],
-                "name": timer.structure_name or "Unnamed structure",
-                "type": (
-                    timer.structure_type.name
-                    if timer.structure_type
-                    else "Unknown structure"
+            observation_payload(
+                timer,
+                request.user,
+                systems[timer.eve_solar_system_id],
+                can_edit=(
+                    request.user.has_perm("structuretimers.op_coordinator")
+                    if operation
+                    else None
                 ),
-                "type_id": timer.structure_type_id,
-                "timer_type": timer.timer_type,
-                "timer_label": timer.get_timer_type_display(),
-                "relationship": RELATIONSHIPS[timer.objective],
-                "date": timer.date.isoformat(),
-                "duration": DURATIONS.get(timer.timer_type),
-                "events": [
-                    {k: e[k] for k in ("action", "at", "seconds") if k in e}
-                    for e in events
-                ],
-                "revision": revision,
-                "can_edit": timer.user_can_edit(request.user),
-            }
+            )
         )
     return JsonResponse(
         {
             "timers": records,
             "tokens": (
                 regional_fleets(request.user, region_ids)
-                if request.GET.get("fleets", "1") == "1"
+                if include_fleets and request.GET.get("fleets", "1") == "1"
                 else None
             ),
             "server_time": now().isoformat(),
@@ -320,8 +338,8 @@ def battle_data(request, layer):
                     "server_time": now().isoformat(),
                 }
             )
-        if layer == "snapshot":
-            response = _battle_snapshot(request)
+        if layer in ("snapshot", "updates"):
+            response = _battle_snapshot(request, include_fleets=layer == "snapshot")
         else:
             response = JsonResponse({"error": "Unknown layer."}, status=404)
         return response
@@ -342,7 +360,13 @@ def update_timer(user, body):
         ).select_for_update(),
         pk=int(body.get("id", 0)),
     )
-    if not timer.user_can_edit(user):
+    if body.get("operation"):
+        operation = get_operation(user, body["operation"])
+        get_object_or_404(operation_timers(operation, user), pk=timer.pk)
+        permitted = user.has_perm("structuretimers.op_coordinator")
+    else:
+        permitted = timer.user_can_edit(user)
+    if not permitted:
         return JsonResponse({"error": "You cannot edit this timer."}, status=403)
     if timer.date is None:
         raise ValueError("Only scheduled timers support battle observations.")
@@ -356,7 +380,7 @@ def update_timer(user, body):
     if body.get("revision") != state.revision:
         transaction.set_rollback(True)
         return JsonResponse(
-            {"error": "Timer changed. Refresh before editing."}, status=409
+            {"error": "Timer changed. Wait for the latest state and try again."}, status=409
         )
     events, _ = timer_events(timer)
     instant = now()

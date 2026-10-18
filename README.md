@@ -240,6 +240,8 @@ Codename | Description
 `general - Can create new timers and edit own timers` | Users with this permission can create new timers and edit or delete their own timers.
 `general - Can edit and delete any timer` | Users with this permission can edit and delete any timer.
 `general - Can create and see opsec timers` | Users with this permission can create and view timers that are opsec restricted.
+`general - Can create, edit and coordinate operations` (`structuretimers.op_coordinator`) | Create and edit operations, see coordinator-only operations, and control selected timers' battle observations within an operation.
+`general - Can view shared operations` (`structuretimers.op_viewer`) | Read operations shared with coordinators and viewers; cannot edit operations or control their battle observations.
 
 ## Management commands
 
@@ -248,6 +250,34 @@ The following management commands are available:
 - **structuretimers_load_eve**: Preload all eve objects required for this app to function
 - **structuretimers_migrate_timers**: Migrate pending timers from Alliance Auth's Structure Timers app
 
+
+### Operations
+
+The tabs are ordered **Database, Current, Past, Standing, Recon Campaigns, Ops**.
+Each tab still requires its existing access permission. The Ops tab requires
+`structuretimers.basic_access` plus either `structuretimers.op_coordinator` or
+`structuretimers.op_viewer`. Run `python manage.py migrate` after upgrading to add
+the operation tables and permissions, then assign these roles to the appropriate
+groups. Operations are independent of recon coordinator permissions.
+
+Coordinators create an operation with a name, optional description, an audience
+(coordinators only, or coordinators and viewers), and one or more Current timers.
+The picker uses Current's presentation and filters, with selection checkboxes on
+the right. **Select all matching filters** includes every matching page; changing
+filters does not discard previous selections. Coordinators can edit the operation
+and its selected timers later. Stale simultaneous edits are rejected for review.
+
+Opening an operation shows the Current layout with only its selected, permitted
+timers. Selection references the original timers, so pause, resume, adjustments and
+kill observations are shared with other operations and maps. Timer visibility and
+OPSEC rules still apply; sharing an operation never grants extra timer access.
+Selected timers remain in an operation's history after expiring or being destroyed.
+
+Visible operation pages and the Ops list check for changes every two seconds;
+unchanged responses use ETags. Timer observations update without a page refresh,
+and connection failures are shown beside the board. Polling pauses in hidden tabs
+and resumes immediately when they become visible. Enabled battle maps also sync
+timer observations every two seconds. No additional Celery schedule is required.
 
 ### Destroyed structures
 

@@ -25,6 +25,7 @@ from .models import (
     DiscordTimerboard,
     DiscordWebhook,
     NotificationRule,
+    Operation,
     Organization,
     ReconCampaign,
     ReconCampaignSystem,
@@ -34,6 +35,28 @@ from .models import (
     Structure,
     Timer,
 )
+
+
+@admin.register(Operation)
+class OperationAdmin(admin.ModelAdmin):
+    list_display = ("name", "visibility", "created_by", "updated_at")
+    list_filter = ("visibility",)
+    search_fields = ("name", "description")
+    raw_id_fields = ("timers",)
+    readonly_fields = (
+        "created_by",
+        "updated_by",
+        "created_at",
+        "updated_at",
+        "revision",
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.created_by = request.user
+        obj.updated_by = request.user
+        obj.revision += 1 if change else 0
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Structure)
