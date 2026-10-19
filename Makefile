@@ -6,8 +6,8 @@
 -include .env
 export
 
-appname = aa-structuretimers
-package = structuretimers
+appname = aa-stratcom
+package = aa_stratcom
 
 help:
 	@echo "Makefile for $(appname)"

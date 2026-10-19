@@ -1,0 +1,734 @@
+"""Battle observations, shared fleets, permission boundaries and lookup validation."""
+
+import json
+from datetime import timedelta
+
+from django.test import Client
+from django.urls import reverse
+from django.utils.timezone import now
+
+from aa_stratcom.battle_map import timer_status
+from aa_stratcom.models import MapFleetToken, MapTimerState, Timer
+from aa_stratcom.tests.test_regional_map import RegionalMapTests
+from aa_stratcom.tests.testdata.factory import (
+    TimerFactory,
+    UserNoAccessFactory,
+    UserWithAccessFactory,
+)
+
+
+class BattleMapTests(RegionalMapTests):
+    def url(self, layer):
+        return reverse("structuretimers:battle_map_data", args=[layer])
+
+    def snapshot(self, **params):
+        return self.client.get(
+            self.url("snapshot"),
+            {"region": self.region.pk, "day": now().date().isoformat(), **params},
+        )
+
+    def post(self, layer, **body):
+        return self.client.post(
+            self.url(layer), json.dumps(body), content_type="application/json"
+        )
+
+    def active_timer(self, **params):
+        structure = self.timer(**params)
+        return TimerFactory(
+            structure=structure,
+            user=self.user,
+            visibility=structure.visibility,
+            is_opsec=structure.is_opsec,
+            date=now() - timedelta(minutes=5),
+            timer_type="AR",
+        )
+
+    def test_paused_minute_adjustments_are_validated_and_replayed(self):
+        from aa_stratcom.battle_map import timer_clock, timer_events
+
+        timer = self.active_timer()
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="pause").status_code, 200
+        )
+        events, _ = timer_events(timer)
+        initial = timer_clock(timer, events, now())[3]
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=1, action="adjust", seconds=60
+            ).status_code,
+            200,
+        )
+        timer.refresh_from_db()
+        events, revision = timer_events(timer)
+        self.assertAlmostEqual(
+            timer_clock(timer, events, now())[3], initial + 60, places=3
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=revision, action="adjust", seconds=120
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=0, action="adjust", seconds=-60
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.post(
+                "timer", id=timer.pk, revision=revision, action="resume"
+            ).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.post(
+                "timer",
+                id=timer.pk,
+                revision=revision + 1,
+                action="adjust",
+                seconds=-60,
+            ).status_code,
+            400,
+        )
+
+    def test_global_system_lookup_and_adjacent_region_fleets(self):
+        from eve_sde.models import Constellation, Region, SolarSystem, Stargate
+
+        from aa_stratcom.regional_map import LIGHT_YEAR
+
+        region = Region.objects.create(id=10000002, name="Next door")
+        constellation = Constellation.objects.create(
+            id=20000002, name="Neighbor", region=region
+        )
+        outside = SolarSystem.objects.create(
+            id=30000009,
+            name="OUTSIDE",
+            constellation=constellation,
+            x=100 * LIGHT_YEAR,
+            y=0,
+            z=0,
+        )
+        Stargate.objects.create(
+            id=99, name="Border", solar_system=self.a, destination=outside
+        )
+        data = self.client.get(
+            self.url("lookup"), {"kind": "system", "q": "OUT"}
+        ).json()
+        self.assertEqual(
+            data["results"],
+            [{"id": outside.pk, "name": "OUTSIDE", "region": "Next door"}],
+        )
+        created = self.post("fleet", system_id=outside.pk, mobility="blops").json()[
+            "token"
+        ]
+        self.assertEqual(created["system_name"], "OUTSIDE")
+        tokens = self.snapshot().json()["tokens"]
+        self.assertEqual([t["id"] for t in tokens], [created["id"]])
+        self.assertEqual(tokens[0]["region_id"], region.pk)
+        Stargate.objects.filter(pk=99).delete()
+        self.assertEqual(self.snapshot().json()["tokens"], [])
+        SolarSystem.objects.filter(pk=outside.pk).update(x=8 * LIGHT_YEAR)
+        self.assertEqual(len(self.snapshot().json()["tokens"]), 1)
+
+    def test_fleet_only_poll_and_disabled_snapshot(self):
+        from unittest.mock import patch
+
+        self.post("fleet", system_id=self.a.pk, dps=30, logi=4)
+        data = self.client.get(self.url("fleets"), {"region": self.region.pk}).json()
+        self.assertEqual(len(data["tokens"]), 1)
+        self.assertNotIn("timers", data)
+        self.assertEqual(data["tokens"][0]["ship_class"], "Unknown / unspecified")
+        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+            self.assertIsNone(self.snapshot(fleets="0").json()["tokens"])
+            fleets.assert_not_called()
+        self.client.force_login(UserNoAccessFactory())
+        self.assertEqual(
+            self.client.get(self.url("fleets"), {"region": self.region.pk}).status_code,
+            403,
+        )
+
+    def test_snapshot_permission_filtering_and_durations(self):
+        self.active_timer(structure_name="Visible")
+        self.active_timer(structure_name="SECRET", is_opsec=True)
+        self.active_timer(
+            structure_name="CORPSECRET", visibility=Timer.Visibility.CORPORATION
+        )
+        self.client.force_login(UserWithAccessFactory())
+        response = self.snapshot()
+        self.assertNotContains(response, "SECRET")
+        self.assertEqual(len(response.json()["timers"]), 1)
+        self.assertEqual(response.json()["timers"][0]["duration"], 900)
+        self.assertFalse(response.json()["timers"][0]["can_edit"])
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_pause_resume_kill_restore_and_conflict(self):
+        timer = self.active_timer(objective="HO")
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        original = timer.date
+        for revision, action in enumerate(["pause", "resume", "kill", "restore"]):
+            response = self.post("timer", id=timer.pk, revision=revision, action=action)
+            self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 409
+        )
+        timer.refresh_from_db()
+        self.assertEqual(timer.date, original)
+        self.assertEqual(len(timer.map_state.events), 4)
+        self.assertEqual(timer_status(timer, timer.map_state.events, now()), "open")
+
+    def test_readers_and_hidden_timer_mutation(self):
+        timer = self.active_timer()
+        hidden = self.active_timer(is_opsec=True)
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 403
+        )
+        self.assertEqual(
+            self.post("timer", id=hidden.pk, revision=0, action="kill").status_code, 404
+        )
+
+    def test_expired_timer_cannot_pause_and_schedule_change_discards_observations(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        Timer.objects.filter(pk=timer.pk).update(date=now() - timedelta(hours=1))
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="pause").status_code, 400
+        )
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 200
+        )
+        Timer.objects.filter(pk=timer.pk).update(date=now())
+        self.assertEqual(self.snapshot().json()["timers"][0]["events"], [])
+
+    def test_long_paused_timer_is_included_on_later_day(self):
+        timer = self.active_timer()
+        date = now() - timedelta(days=5)
+        Timer.objects.filter(pk=timer.pk).update(date=date)
+        MapTimerState.objects.create(
+            timer=timer,
+            events=[
+                {
+                    "schedule": date.isoformat(),
+                    "action": "pause",
+                    "at": (date + timedelta(minutes=3)).isoformat(),
+                }
+            ],
+        )
+        self.assertEqual(len(self.snapshot().json()["timers"]), 1)
+
+    def test_shared_tokens_optional_fields_validation_crud(self):
+        result = self.post("fleet", system_id=self.a.pk)
+        self.assertEqual(result.status_code, 200, result.content)
+        token = result.json()["token"]
+        self.assertEqual(token["stance"], "foe")
+        self.assertEqual(token["mobility"], "gate")
+        self.assertIsNone(token["dps"])
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(len(self.snapshot().json()["tokens"]), 1)
+        self.assertFalse(self.snapshot().json()["tokens"][0]["can_edit"])
+        self.assertEqual(
+            self.post("fleet", id=token["id"], revision=1, action="delete").status_code,
+            403,
+        )
+        self.client.force_login(self.user)
+        result = self.post(
+            "fleet",
+            id=token["id"],
+            revision=1,
+            system_id=self.b.pk,
+            alliance_name="Uncertain alliance?",
+            ship_name="Unknown ship",
+            dps=0,
+            logi=5,
+            note="<script>text only</script>",
+            dscan="unparsed\nscan",
+            dscan_import=False,
+        )
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertIsNone(result.json()["token"]["alliance_id"])
+        self.assertEqual(result.json()["token"]["dps"], 0)
+        self.assertEqual(
+            self.post("fleet", id=token["id"], revision=1, action="delete").status_code,
+            409,
+        )
+        self.assertEqual(
+            self.post("fleet", id=token["id"], revision=2, action="delete").status_code,
+            200,
+        )
+        self.assertFalse(MapFleetToken.objects.exists())
+        for body in [
+            {"dps": -1},
+            {"logi": 1.5},
+            {"stance": "bad"},
+            {"mobility": "bad"},
+            {"note": "x" * 5001},
+        ]:
+            self.assertEqual(
+                self.post("fleet", system_id=self.a.pk, **body).status_code, 400
+            )
+
+    def test_ship_autocomplete_and_icon_resolve(self):
+        from eve_sde.models import ItemCategory, ItemGroup, ItemType
+
+        category = ItemCategory.objects.create(id=6, name="Ship")
+        group = ItemGroup.objects.create(id=25, name="Frigate", category=category)
+        ship = ItemType.objects.create(id=587, name="Rifter", group=group)
+        data = self.client.get(self.url("lookup"), {"kind": "ship", "q": "rif"}).json()
+        self.assertEqual(data["results"], [{"id": ship.pk, "name": "Rifter"}])
+        result = self.post("fleet", system_id=self.a.pk, ship_name="Rifter")
+        self.assertEqual(result.json()["token"]["ship_id"], ship.pk)
+        self.assertEqual(result.json()["token"]["ship_class"], "Frigate")
+
+    def test_public_alliance_autocomplete_and_logo_resolve(self):
+        from eveuniverse.models import EveEntity
+
+        alliance = EveEntity.objects.create(
+            id=99000001, name="Public Alliance", category="alliance"
+        )
+        data = self.client.get(
+            self.url("lookup"), {"kind": "alliance", "q": "Public"}
+        ).json()
+        self.assertEqual(
+            data["results"],
+            [{"alliance_id": alliance.pk, "alliance_name": alliance.name}],
+        )
+        result = self.post(
+            "fleet", system_id=self.a.pk, alliance_name="public alliance"
+        )
+        self.assertEqual(result.json()["token"]["alliance_id"], alliance.pk)
+
+    def test_csrf_access_and_bad_inputs(self):
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        self.assertEqual(
+            client.post(
+                self.url("fleet"), "{}", content_type="application/json"
+            ).status_code,
+            403,
+        )
+        self.assertEqual(self.snapshot(day="invalid").status_code, 400)
+        self.assertEqual(
+            self.client.post(
+                self.url("fleet"), "[]", content_type="application/json"
+            ).status_code,
+            400,
+        )
+        self.client.force_login(UserNoAccessFactory())
+        self.assertEqual(self.snapshot().status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.snapshot().status_code, 302)
+
+    def test_move_token_preserves_intelligence_and_requires_revision_and_permission(
+        self,
+    ):
+        result = self.post(
+            "fleet",
+            system_id=self.a.pk,
+            alliance_name="Uncertain",
+            dps=20,
+            logi=3,
+            mobility="blops",
+            stance="friend",
+            note="Keep this note",
+            dscan="raw scan",
+            dscan_import=False,
+        )
+        token = result.json()["token"]
+        moved = self.post(
+            "fleet",
+            action="move",
+            id=token["id"],
+            revision=token["revision"],
+            system_id=self.b.pk,
+            note="Must not overwrite",
+        )
+        self.assertEqual(moved.status_code, 200, moved.content)
+        updated = moved.json()["token"]
+        self.assertEqual(updated["system_id"], self.b.pk)
+        for key in [
+            "alliance_name",
+            "dps",
+            "logi",
+            "mobility",
+            "stance",
+            "note",
+            "dscan",
+        ]:
+            self.assertEqual(updated[key], token[key])
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=token["revision"],
+                system_id=self.a.pk,
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id=999999,
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id="bad",
+            ).status_code,
+            400,
+        )
+        self.assertEqual(MapFleetToken.objects.get(pk=token["id"]).system_id, self.b.pk)
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(
+            self.post(
+                "fleet",
+                action="move",
+                id=token["id"],
+                revision=updated["revision"],
+                system_id=self.a.pk,
+            ).status_code,
+            403,
+        )
+
+    def test_kill_archives_structure_and_undo_restores_it(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        original_date = timer.date
+        structure = timer.structure
+        structure.fitting = "[Astrahus, Recon]"
+        structure.details_notes = "Keep this intelligence"
+        structure.save()
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 200
+        )
+        structure.refresh_from_db()
+        self.assertIsNotNone(structure.destroyed_at)
+        self.assertEqual(structure.destroyed_by, self.user)
+        self.assertEqual(structure.destroyed_by_timer, timer)
+        timer.refresh_from_db()
+        self.assertEqual(timer.date, original_date)
+        self.assertEqual(structure.fitting, "[Astrahus, Recon]")
+        self.assertEqual(structure.details_notes, "Keep this intelligence")
+        self.assertEqual(timer.map_state.events[-1]["action"], "kill")
+        database_url = reverse("structuretimers:recon_data")
+        self.assertEqual(self.client.get(database_url).json(), [])
+        archived = self.client.get(database_url, {"include_destroyed": "1"}).json()
+        self.assertEqual([row["id"] for row in archived], [structure.pk])
+        self.assertEqual(archived[0]["timer_count"], 1)
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=1, action="restore").status_code,
+            200,
+        )
+        structure.refresh_from_db()
+        self.assertIsNone(structure.destroyed_at)
+        self.assertEqual(len(self.client.get(database_url).json()), 1)
+        self.assertEqual(Timer.objects.count(), 1)
+
+    def test_stale_restore_cannot_clear_destroyed_flag(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="restore").status_code,
+            409,
+        )
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+
+    def test_undo_does_not_clear_another_kill(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        other = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=timer.date,
+            timer_type=Timer.Type.FINAL,
+        )
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.post("timer", id=other.pk, revision=0, action="kill")
+        self.post("timer", id=other.pk, revision=1, action="restore")
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structure.destroyed_by_timer, timer)
+
+    def test_recon_restore_also_undoes_map_kill_and_keeps_observations(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        url = reverse(
+            "structuretimers:recon_action", args=[timer.structure_id, "refresh"]
+        )
+        self.assertEqual(self.client.post(url).status_code, 200)
+        state = MapTimerState.objects.get(timer=timer)
+        self.assertEqual([e["action"] for e in state.events], ["kill", "restore"])
+        self.assertEqual(state.revision, 2)
+        timer.structure.refresh_from_db()
+        self.assertIsNone(timer.structure.destroyed_at)
+
+    def test_undo_map_kill_does_not_clear_manual_destruction(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.client.post(
+            reverse(
+                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
+            )
+        )
+        self.post("timer", id=timer.pk, revision=1, action="restore")
+        timer.structure.refresh_from_db()
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertIsNone(timer.structure.destroyed_by_timer)
+
+    def test_kill_external_timer_keeps_local_history_snapshot(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
+        Timer.objects.filter(pk=timer.pk).update(
+            structure=None, structures_structure_id=1000000000001
+        )
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="kill").status_code, 200
+        )
+        timer.refresh_from_db()
+        self.assertIsNotNone(timer.structure)
+        self.assertIsNotNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structures_structure_id, 1000000000001)
+
+    def test_armor_cannot_be_killed_and_other_types_have_no_completion_action(self):
+        for timer_type in ("AR", "AN", "UA", "NO", "MM"):
+            timer = self.active_timer()
+            Timer.objects.filter(pk=timer.pk).update(timer_type=timer_type)
+            self.assertEqual(
+                self.post("timer", id=timer.pk, revision=0, action="kill").status_code,
+                400,
+            )
+            timer.structure.refresh_from_db()
+            self.assertIsNone(timer.structure.destroyed_at)
+            self.assertFalse(timer.structure.history.exists())
+
+    def test_armor_outcome_without_date_is_persistent_and_does_not_destroy_structure(
+        self,
+    ):
+        timer = self.active_timer()
+        original = timer.date
+        response = self.post("timer", id=timer.pk, revision=0, action="reinforce")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(response.json()["timer_created"])
+        timer.refresh_from_db()
+        self.assertIsNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.date, original)
+        self.assertEqual(
+            timer_status(timer, timer.map_state.events, now()), "reinforced"
+        )
+        outcome = timer.structure.history.get()
+        self.assertEqual(outcome.action, "reinforced")
+        self.assertEqual(outcome.user, self.user)
+        self.assertEqual(outcome.scheduled_at, original)
+        self.assertIsNone(outcome.next_timer)
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=1, action="reinforce").status_code,
+            400,
+        )
+        page = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+        )
+        self.assertContains(page, "Armor destroyed / reinforced")
+        # Editing or removing the timer must not erase the confirmed outcome.
+        Timer.objects.filter(pk=timer.pk).update(date=now() + timedelta(days=3))
+        self.assertEqual(timer.structure.history.get().scheduled_at, original)
+        timer.delete()
+        self.assertIsNone(timer.structure.history.get().timer)
+
+    def test_armor_registers_final_timer_and_preserves_access_and_original_schedule(
+        self,
+    ):
+        timer = self.active_timer()
+        original = timer.date
+        date = now() + timedelta(days=2)
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=date.isoformat(),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["timer_created"])
+        following = Timer.objects.exclude(pk=timer.pk).get()
+        self.assertEqual(following.timer_type, Timer.Type.FINAL)
+        self.assertEqual(following.date, date)
+        self.assertEqual(following.structure, timer.structure)
+        self.assertEqual(following.visibility, timer.visibility)
+        self.assertEqual(following.user, timer.user)
+        self.assertEqual(timer.structure.history.get().next_timer, following)
+        timer.refresh_from_db()
+        self.assertEqual(timer.date, original)
+
+    def test_existing_later_timer_is_detected_and_never_duplicated_or_disclosed(self):
+        timer = self.active_timer()
+        later = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=now() + timedelta(days=2),
+            timer_type="FI",
+            is_opsec=True,
+        )
+        prompt = self.client.get(self.url("reinforcement"), {"id": timer.pk})
+        self.assertEqual(prompt.json(), {"already_registered": True})
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=(now() + timedelta(days=3)).isoformat(),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["already_registered"])
+        self.assertFalse(response.json()["timer_created"])
+        self.assertEqual(Timer.objects.count(), 2)
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+        self.assertNotContains(
+            self.client.get(
+                reverse("structuretimers:structure_detail", args=[timer.structure_id])
+            ),
+            str(later.date),
+        )
+
+    def test_later_timer_is_rechecked_when_saved_and_only_exact_record_matches(self):
+        timer = self.active_timer()
+        TimerFactory(
+            user=self.user,
+            structure_name=timer.structure_name,
+            date=now() + timedelta(days=1),
+        )
+        self.assertFalse(
+            self.client.get(self.url("reinforcement"), {"id": timer.pk}).json()[
+                "already_registered"
+            ]
+        )
+        later = TimerFactory(
+            structure=timer.structure,
+            user=self.user,
+            date=now() + timedelta(days=2),
+            timer_type="FI",
+        )
+        response = self.post(
+            "timer",
+            id=timer.pk,
+            revision=0,
+            action="reinforce",
+            reinforcement_date=(now() + timedelta(days=3)).isoformat(),
+        )
+        self.assertTrue(response.json()["already_registered"])
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+        self.assertEqual(Timer.objects.count(), 3)
+
+    def test_reinforcement_dates_and_permissions_are_validated_without_partial_writes(
+        self,
+    ):
+        timer = self.active_timer()
+        for date in ("bad date", "2020-01-01T00:00:00Z", "2030-01-01T00:00:00", True):
+            response = self.post(
+                "timer",
+                id=timer.pk,
+                revision=0,
+                action="reinforce",
+                reinforcement_date=date,
+            )
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertFalse(timer.structure.history.exists())
+            self.assertFalse(MapTimerState.objects.filter(timer=timer).exists())
+        self.client.force_login(UserWithAccessFactory())
+        self.assertEqual(
+            self.client.get(self.url("reinforcement"), {"id": timer.pk}).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.post("timer", id=timer.pk, revision=0, action="reinforce").status_code,
+            403,
+        )
+
+    def test_external_armor_matches_later_external_timer_without_local_record(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(
+            structure=None, structures_structure_id=123456789
+        )
+        later = TimerFactory(
+            user=self.user, date=now() + timedelta(days=2), timer_type="FI"
+        )
+        Timer.objects.filter(pk=later.pk).update(
+            structure=None, structures_structure_id=123456789
+        )
+        response = self.post("timer", id=timer.pk, revision=0, action="reinforce")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["already_registered"])
+        timer.refresh_from_db()
+        self.assertIsNotNone(timer.structure_id)
+        self.assertIsNone(timer.structure.destroyed_at)
+        self.assertEqual(timer.structure.history.get().next_timer, later)
+
+    def test_destruction_and_undo_leave_history_after_restore(self):
+        timer = self.active_timer()
+        Timer.objects.filter(pk=timer.pk).update(timer_type="FI")
+        self.post("timer", id=timer.pk, revision=0, action="kill")
+        self.post("timer", id=timer.pk, revision=1, action="restore")
+        self.assertEqual(
+            list(
+                timer.structure.history.order_by("pk").values_list("action", flat=True)
+            ),
+            ["destroyed", "restored"],
+        )
+        page = self.client.get(
+            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+        )
+        self.assertContains(page, "Structure destroyed")
+        self.assertContains(page, "Destruction undone")
+        self.client.post(
+            reverse(
+                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
+            )
+        )
+        self.assertEqual(timer.structure.history.count(), 3)
+
+    def test_operation_snapshot_is_scoped_and_updates_do_not_reload_fleets(self):
+        from unittest.mock import patch
+
+        from django.contrib.auth.models import Permission
+
+        from aa_stratcom.models import Operation
+
+        self.user.user_permissions.add(
+            Permission.objects.get(codename="op_coordinator")
+        )
+        timer = self.active_timer(structure_name="Selected")
+        self.active_timer(structure_name="Not selected")
+        operation = Operation.objects.create(
+            name="Battle", visibility=Operation.Visibility.ALL
+        )
+        operation.timers.add(timer)
+        scoped = self.snapshot(operation=operation.pk).json()
+        self.assertEqual([row["id"] for row in scoped["timers"]], [timer.pk])
+        self.assertTrue(scoped["timers"][0]["can_edit"])
+        self.post(
+            "timer", operation=operation.pk, id=timer.pk, revision=0, action="pause"
+        )
+        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+            updates = self.client.get(
+                self.url("updates"),
+                {
+                    "region": self.region.pk,
+                    "operation": operation.pk,
+                    "day": now().date().isoformat(),
+                },
+            ).json()
+        fleets.assert_not_called()
+        self.assertEqual(updates["timers"][0]["events"][-1]["action"], "pause")
+        self.assertIsNone(updates["tokens"])

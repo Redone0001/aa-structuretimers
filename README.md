@@ -1,16 +1,39 @@
-# Structure Timers II
+# AA StratCom
 
 An app for keeping track of Eve Online structure timers with Alliance Auth and Discord.
 
-[![release](https://img.shields.io/pypi/v/aa-structuretimers?label=release)](https://pypi.org/project/aa-structuretimers/)
-[![python](https://img.shields.io/pypi/pyversions/aa-structuretimers)](https://pypi.org/project/aa-structuretimers/)
-[![django](https://img.shields.io/pypi/djversions/aa-structuretimers?label=django)](https://pypi.org/project/aa-structuretimers/)
-[![CI/CD Pipeline](https://github.com/AllianceAuth-Apps/aa-structuretimers/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/AllianceAuth-Apps/aa-structuretimers/actions/workflows/ci-cd.yaml)
-[![codecov](https://codecov.io/github/AllianceAuth-Apps/aa-structuretimers/graph/badge.svg?token=HAHvTzJj2X)](https://codecov.io/github/AllianceAuth-Apps/aa-structuretimers)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/AllianceAuth-Apps/aa-structuretimers#MIT-1-ov-file)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)
+## Upgrade from aa-structuretimers
+
+AA StratCom's distribution is `aa-stratcom`; its Python module is `aa_stratcom`.
+Stop your Auth web/Celery services for the upgrade, activate the existing venv, and
+back up the database. Uninstall the old distribution **before** installing the new
+one because both provide the legacy compatibility package:
+
+```bash
+python -m pip uninstall -y aa-structuretimers
+python -m pip install --upgrade --no-deps --no-cache-dir \
+  "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
+python manage.py migrate
+python manage.py collectstatic --noinput
+python -m pip check
+```
+
+In `local.py`, replace the existing `"structuretimers"` installed-app entry with
+`"aa_stratcom"`. Do not add both. An unchanged legacy entry or explicit
+`structuretimers.apps.StructureTimersConfig` also works through the compatibility
+package. Restart the same Auth web, Celery worker and Beat services afterwards.
+No existing database is copied or recreated by this rename: the Django app label,
+`structuretimers_*` tables, migration history, content types, user/group permissions,
+URLs, static/template namespaces, settings and Celery task names stay stable.
+Existing Celery schedules require **no changes**, including federation delivery.
+Keep `APPS_WITH_PUBLIC_VIEWS = ["structuretimers"]` for the sync endpoint; it uses
+the stable URL namespace. Keep `STRUCTURETIMERS_SYNC_ENCRYPTION_KEY` unchanged so
+stored outbound API credentials can still be decrypted. Compatibility imports let
+existing integrations continue using `structuretimers.models`.
+
+`--no-deps` intentionally preserves the installed dependency versions. Any missing
+new dependencies should be installed separately; do not blanket-upgrade Auth's venv.
+The optional classic timerboard copy is described in installation step 6 below.
 
 ## Contents
 
@@ -26,11 +49,11 @@ An app for keeping track of Eve Online structure timers with Alliance Auth and D
 
 ## Overview
 
-**Structure Timers II** is an enhanced version of the Alliance Auth's Structure Timers app. It offers many additional and useful features and an improved UI. It also provides integrations with several other community apps, e.g. aa-structures.
+**AA StratCom** is an enhanced version of the Alliance Auth's Structure Timers app. It offers many additional and useful features and an improved UI. It also provides integrations with several other community apps, e.g. aa-structures.
 
 ## Features
 
-Here is an overview of **Structure Timers II**'s main features.
+Here is an overview of **AA StratCom**'s main features.
 
 - Create and edit timers for structure and moon mining events
 - Add notes and screenshots to timers (e.g. with the structure's fitting)
@@ -40,7 +63,7 @@ Here is an overview of **Structure Timers II**'s main features.
 - Automatic cleanup of elapsed timers
 - Integrated with several other community apps
 
-**Structure Timers II** is integrated with the following community apps:
+**AA StratCom** is integrated with the following community apps:
 
 - [aa-structures](https://github.com/AllianceAuth-Apps/aa-structures): Automatically adds new timers from structure and moon mining notifications
 - [allianceauth-opcalendar](https://gitlab.com/paulipa/allianceauth-opcalendar): Shows timers in a calendar view and with other events
@@ -74,25 +97,26 @@ CI tests Python 3.10, 3.11 and 3.12 against the Auth 5 / Django 5.2 test setting
 
 Please make sure you meet all preconditions before proceeding:
 
-1. Structure Timers is a plugin for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth). If you don't have Alliance Auth running already, please install it first before proceeding. (see the official [AA installation guide](https://allianceauth.readthedocs.io/en/latest/installation/auth/allianceauth/) for details)
+1. AA StratCom is a plugin for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth). If you don't have Alliance Auth running already, please install it first before proceeding. (see the official [AA installation guide](https://allianceauth.readthedocs.io/en/latest/installation/auth/allianceauth/) for details)
 
-2. Structure Timers needs the app [django-eveuniverse](https://github.com/AllianceAuth-Apps/django-eveuniverse) to function. Please make sure it is installed, before continuing.
+2. AA StratCom needs the app [django-eveuniverse](https://github.com/AllianceAuth-Apps/django-eveuniverse) to function. Please make sure it is installed, before continuing.
 
-Note that Structure Timers is compatible with Alliance Auth's Structure Timer app and can be installed in parallel.
+Note that AA StratCom is compatible with Alliance Auth's Structure Timer app and can be installed in parallel.
 
 ### Step 2 - Install app
 
-Make sure you are in the virtual environment (venv) of your Alliance Auth installation. Then install the newest release from PyPI:
+Make sure you are in the virtual environment (venv) of your Alliance Auth installation. Then install this branch without changing existing dependencies:
 
 ```bash
-pip install aa-structuretimers
+python -m pip install --upgrade --no-deps --no-cache-dir \
+  "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
 ```
 
 ### Step 3 - Configure settings
 
 Configure your Auth settings (`local.py`) as follows:
 
-- Add `'structuretimers'` to `INSTALLED_APPS`
+- Add `'aa_stratcom'` to `INSTALLED_APPS` (only one of the new or legacy entry)
 - Add the following lines to your settings file:
 
 ```python
@@ -143,16 +167,26 @@ python manage.py structuretimers_load_eve
 
 You may want to wait until the data loading is complete before starting to create new timers.
 
-### Step 6 - Migrate existing timers
+### Step 6 - Copy classic timerboard data (optional)
 
-If you have already been using the classic app from Auth, you can migrate your existing timers over to **Structure Timers II**. Just run the following command:
+Keep `allianceauth.timerboard` installed alongside `aa_stratcom`, then run:
 
 ```bash
-python manage.py structuretimers_migrate_timers
+python manage.py stratcom_import_timerboard --dry-run
+python manage.py stratcom_import_timerboard
 ```
 
-> [!NOTE]
-> We suggest migration timers before setting up notification rules to avoid potential notification spam for migrated timers.
+This copies **past and future timers**, creator/organization, corporation visibility,
+notes, location and important flags. It also copies direct and group timerboard
+view/manage permission grants to the equivalent StratCom permissions. Source data
+and permission assignments stay untouched. Repeated runs only copy new source IDs;
+this is a one-time copy, not continuing synchronization of edits or deletions.
+Unknown systems/types and unsupported timer types are retained in the original
+field archive under **AA StratCom → Timerboard imports** in Django admin; unresolved
+system/type links remain empty for an administrator to repair. Load EVE data first.
+The import emits no notifications, federation exports or background jobs and is
+blocked on read-only replicas. Existing timers in StratCom are never overwritten or
+merged just because system/time match. Back up your database before upgrading.
 
 ### Step 7 - Setup notification rules
 
@@ -180,7 +214,7 @@ Name | Description | Default
 
 ## Notification Rules
 
-In **Structure Timers II** you can receive automatic notifications on Discord for timers by setting up notification rules. Notification rules allow you to define in detail what event and which kind of timers should trigger notifications.
+In **AA StratCom** you can receive automatic notifications on Discord for timers by setting up notification rules. Notification rules allow you to define in detail what event and which kind of timers should trigger notifications.
 
 > [!NOTE]
 > In general all rules are independent from each other and all enabled rules will be executed for every timer one by one.
@@ -228,7 +262,7 @@ Setting a timer clause is optional - clauses that aren't set will always match a
 
 You can define one or multiple staging systems. Then you can see the distance in jumps and LY from your currently selected staging system to any timer (except for WH systems).
 
-Staging systems can be added or modified on the admin site under: Structure Timers/Staging Systems.
+Staging systems can be added or modified on the admin site under: AA StratCom/Staging Systems.
 
 ## Permissions
 
@@ -248,7 +282,8 @@ Codename | Description
 The following management commands are available:
 
 - **structuretimers_load_eve**: Preload all eve objects required for this app to function
-- **structuretimers_migrate_timers**: Migrate pending timers from Alliance Auth's Structure Timers app
+- **stratcom_import_timerboard**: Copy all classic timerboard timers and access grants without changing source data; supports `--dry-run`
+- **structuretimers_migrate_timers**: Legacy importer for supported pending timers only
 
 
 ### Operations
@@ -389,7 +424,7 @@ and broker must be running for region imports to finish.
 
 #### Campaign administration
 
-Django admin lists campaigns under **Structure Timers → Recon campaigns**.
+Django admin lists campaigns under **AA StratCom → Recon campaigns**.
 Administrators can search by name or creator, filter import/completion status,
 rename campaigns, and delete individual or multiple campaigns. Deletion removes
 the campaign's reservations and progress, while keeping recon timers and universe
@@ -441,7 +476,7 @@ Each timer is one naturally wrapping line: `YYYY-MM-DD HH:MM` • Discord live r
 Upcoming timers appear next due first. Blank lines separate rolling 24-hour groups measured from refresh time; recently elapsed timers form a separate group at the bottom and disappear after one hour without being deleted from the app. Empty groups add no extra spacing. Messages split only between timers and stay within Discord’s 2,000-character limit. Text fields are bounded and Discord markup is escaped. The bot uses discordproxy to edit existing messages only when their content changes; there is no countdown footer.
 
 1. Apply migrations with `python manage.py migrate`. The data migration flags all existing non-preliminary timers.
-2. Run [Redone0001/discordproxy 1.6.0](https://github.com/Redone0001/discordproxy) on the proxy server. This app pins the compatible client commit as a dependency; installing the app installs that client automatically. Upgrade and restart the proxy server first if it runs in a separate environment. Only the proxy server needs the bot token. Give its bot View Channel, Send Messages, and Read Message History permissions in the target channel. Configure `STRUCTURETIMERS_DISCORD_PROXY_TARGET` in Auth settings if the proxy is not at `localhost:50051` (for Docker, use the proxy service hostname). `STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT` defaults to 30 seconds.
+2. Run [Redone0001/discordproxy 1.6.0](https://github.com/Redone0001/discordproxy) on the proxy server. This app pins the compatible client commit as a dependency. With `--no-deps`, install that client separately only if it is missing or incompatible. Upgrade and restart the proxy server first if it runs in a separate environment. Only the proxy server needs the bot token. Give its bot View Channel, Send Messages, and Read Message History permissions in the target channel. Configure `STRUCTURETIMERS_DISCORD_PROXY_TARGET` in Auth settings if the proxy is not at `localhost:50051` (for Docker, use the proxy service hostname). `STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT` defaults to 30 seconds.
 3. In Django admin, add a **Discord timerboard** with the channel ID. All scheduled timer types and **Include unflagged** are selected by default. Deselect Include unflagged to require the per-timer flag. Preliminary timers are always excluded, even if flagged.
 4. Add this periodic task and restart Celery workers/beat:
 
@@ -469,13 +504,13 @@ If the proxy server has a separate virtualenv, upgrade there first and restart
 its service using the existing bot configuration:
 
 ```bash
-python -m pip install --upgrade "discordproxy @ git+https://github.com/Redone0001/discordproxy.git@41b0bbd0377bcb426f11675d59e45ddf14f0827a"
+python -m pip install --upgrade --no-deps "discordproxy @ git+https://github.com/Redone0001/discordproxy.git@41b0bbd0377bcb426f11675d59e45ddf14f0827a"
 ```
 
 Then upgrade in the Auth virtualenv and restart Auth/Celery workers and Beat:
 
 ```bash
-python -m pip install --upgrade "git+https://github.com/Redone0001/aa-structuretimers.git@jakaja_improvement"
+python -m pip install --upgrade --no-deps --no-cache-dir "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
 python manage.py migrate
 python manage.py collectstatic --noinput
 ```

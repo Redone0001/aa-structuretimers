@@ -35,7 +35,7 @@ APPS_WITH_PUBLIC_VIEWS = [
 ```
 
 This uses Alliance Auth's supported URL-hook exemption for
-`structuretimers.sync_api.timer_sync` only. The rest of the app still requires AA
+`aa_stratcom.sync_api.timer_sync` only. The rest of the app still requires AA
 login and its normal permissions. The exempt endpoint requires its own bearer
 key, not an anonymous session. Without this setting, AA redirects machine
 requests to browser login and replication cannot work.

@@ -42,7 +42,7 @@ Structure, gate and label layers toggle independently. With structures off, stru
 
 | File | Responsibility |
 | --- | --- |
-| `structuretimers/regional_map.py` | SDE adapter, visible timer aggregation, distance calculation, permitted sidebar actions, JSON endpoints |
+| `aa_stratcom/regional_map.py` | SDE adapter, visible timer aggregation, distance calculation, permitted sidebar actions, JSON endpoints |
 | `static/structuretimers/js/system_map.js` | Generic SVG renderer, geometry, indicator layout, selection, pan/zoom, fit and spacing; no module requests or timer logic |
 | `static/structuretimers/js/map_preferences.js` | Versioned first-party preference cookies |
 | `static/structuretimers/js/campaign_sde_map.js` | Campaign selection, region/overlay controls and reservation-aware sidebar |
@@ -114,13 +114,13 @@ Verified in a local, real AA 5.4.0 / Django 5.2.17 application with synthetic SD
 To repeat browser coverage, use a **fresh disposable AA5 test database**, with `modeltranslation` and `eve_sde` installed and migrated. Never run the fixture on a production/imported SDE database: it creates synthetic EVE IDs and authenticated test sessions.
 
 ```sh
-MAP_ALLOW_SYNTHETIC_SEED=1 python manage.py shell < structuretimers/tests/browser/seed_regional_map.py
+MAP_ALLOW_SYNTHETIC_SEED=1 python manage.py shell < aa_stratcom/tests/browser/seed_regional_map.py
 python manage.py runserver 127.0.0.1:8782
 # In an environment with Playwright and Chromium installed:
-MAP_BASE_URL=http://127.0.0.1:8782 node structuretimers/tests/browser/regional_map.cjs
-MAP_BASE_URL=http://127.0.0.1:8782 node structuretimers/tests/browser/map_preferences.cjs
-python manage.py test structuretimers.tests.test_regional_map
-node --test structuretimers/tests/js/*.cjs
+MAP_BASE_URL=http://127.0.0.1:8782 node aa_stratcom/tests/browser/regional_map.cjs
+MAP_BASE_URL=http://127.0.0.1:8782 node aa_stratcom/tests/browser/map_preferences.cjs
+python manage.py test aa_stratcom.tests.test_regional_map
+node --test aa_stratcom/tests/js/*.cjs
 ```
 
 `MAP_THEME` selects `flatly`, `darkly` or `materia` for the preference/campaign suite; `MAP_CAMPAIGN_ID` selects a fresh campaign (default `1`). That suite reserves and completes its synthetic entries, so reset/reseed the disposable campaign before rerunning it.

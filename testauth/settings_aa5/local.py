@@ -30,7 +30,7 @@ DEBUG = False
 INSTALLED_APPS += [
     "allianceauth.timerboard",
     "eveuniverse",
-    "structuretimers",
+    "aa_stratcom",
 ]
 
 # Enter credentials to use MySQL/MariaDB. Comment out to use sqlite3
