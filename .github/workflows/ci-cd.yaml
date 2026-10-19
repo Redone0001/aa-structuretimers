@@ -81,10 +81,26 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: AllianceAuth-Apps/aa-structuretimers
 
+  coexist:
+    name: Legacy app coexistence and copy migration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: shogo82148/actions-setup-redis@v1
+        with:
+          redis-version: latest
+      - name: Test both independent apps
+        run: |
+          pip install tox
+          tox -e coexist
+
   deployment-ready:
     name: deployment-ready
     runs-on: ubuntu-latest
-    needs: [pre-commit, pylint, test]
+    needs: [pre-commit, pylint, test, coexist]
     if: ${{ always() }}
     steps:
       - name: Require every validation job to pass
@@ -92,10 +108,12 @@ jobs:
           PRE_COMMIT_RESULT: ${{ needs.pre-commit.result }}
           PYLINT_RESULT: ${{ needs.pylint.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          COEXIST_RESULT: ${{ needs.coexist.result }}
         run: |
           test "$PRE_COMMIT_RESULT" = success
           test "$PYLINT_RESULT" = success
           test "$TEST_RESULT" = success
+          test "$COEXIST_RESULT" = success
 
   publish:
     needs: [deployment-ready]

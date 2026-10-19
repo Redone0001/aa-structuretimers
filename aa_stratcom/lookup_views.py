@@ -30,8 +30,8 @@ class ReconActionView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """POST-only recon mutations; enforce visibility and edit permission."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
     @transaction.atomic
@@ -88,8 +88,8 @@ class StandingSetView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Recon coordinators override the standing of a corporation or alliance."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_coordinator",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_coordinator",
     )
 
     def post(self, request, pk):
@@ -104,15 +104,15 @@ class StandingSetView(LoginRequiredMixin, PermissionRequiredMixin, View):
             return JsonResponse({"error": "Unknown standing"}, status=400)
         organization.save(update_fields=["standing_override", "updated_at"])
         standings.refresh_objectives()
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+        return redirect(reverse("aa_stratcom:timer_list") + "?tab=standings")
 
 
 class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Refresh automatic standings now instead of waiting for the schedule."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_coordinator",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_coordinator",
     )
 
     def post(self, request):
@@ -133,12 +133,12 @@ class StandingsSyncView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 "No standings source configured. "
                 "Add a character explicitly to enable alliance standings.",
             )
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+        return redirect(reverse("aa_stratcom:timer_list") + "?tab=standings")
 
 
 @login_required
 @permission_required(
-    ("structuretimers.basic_access", "structuretimers.recon_coordinator"),
+    ("aa_stratcom.basic_access", "aa_stratcom.recon_coordinator"),
     raise_exception=True,
 )
 @token_required(scopes=[standings.CONTACTS_SCOPE])
@@ -152,7 +152,7 @@ def add_standings_source(request, token):
     alliance_id = character.get("alliance_id")
     if not alliance_id:
         messages.error(request, f"{token.character_name} is not in an alliance.")
-        return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+        return redirect(reverse("aa_stratcom:timer_list") + "?tab=standings")
     StandingsSource.objects.all().delete()
     source = StandingsSource.objects.create(
         token=token,
@@ -169,13 +169,13 @@ def add_standings_source(request, token):
         messages.error(request, f"Could not read alliance contacts: {ex}")
     else:
         messages.info(request, f"Loaded {count} standings for {source.alliance_name}.")
-    return redirect(reverse("structuretimers:timer_list") + "?tab=standings")
+    return redirect(reverse("aa_stratcom:timer_list") + "?tab=standings")
 
 
 class Select2OwnersView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Known owner corporations for the Owner field, plus an ESI lookup."""
 
-    permission_required = "structuretimers.basic_access"
+    permission_required = "aa_stratcom.basic_access"
 
     def get(self, request):
         """Return matching owner corporations and lookup options."""
@@ -188,8 +188,8 @@ class Select2DatabaseEntriesView(
     """Structures in the Database for the timer form's select2 picker."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
     def get_queryset(self):

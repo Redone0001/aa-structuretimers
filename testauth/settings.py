@@ -274,7 +274,7 @@ STATICFILES_DIRS = []  # needed to suppress a warning
 DEBUG = False
 
 # Add any additional apps to this list.
-INSTALLED_APPS += ["eveuniverse", "structuretimers", "allianceauth.timerboard"]
+INSTALLED_APPS += ["eveuniverse", "aa_stratcom", "allianceauth.timerboard"]
 
 # Enter credentials to use MySQL/MariaDB. Comment out to use sqlite3
 """

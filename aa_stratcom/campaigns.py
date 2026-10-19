@@ -68,8 +68,8 @@ class CampaignAccess(LoginRequiredMixin, PermissionRequiredMixin):
     """Require basic access and recon membership for campaign views."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
 
@@ -78,16 +78,16 @@ class CampaignListView(CampaignAccess, View):
 
     def get(self, request):
         """Open the recon campaigns tab."""
-        return redirect(reverse("structuretimers:timer_list") + "?tab=recon-campaigns")
+        return redirect(reverse("aa_stratcom:timer_list") + "?tab=recon-campaigns")
 
 
 class CampaignCreateView(CampaignAccess, View):
     """Create campaigns and enqueue region imports when needed."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
-        "structuretimers.recon_coordinator",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
+        "aa_stratcom.recon_coordinator",
     )
 
     def get(self, request):
@@ -98,7 +98,7 @@ class CampaignCreateView(CampaignAccess, View):
         """Render the campaign form with its current validation state."""
         return render(
             request,
-            "structuretimers/campaign_form.html",
+            "aa_stratcom/campaign_form.html",
             {"form": form, "title": _("Create recon campaign")},
         )
 
@@ -139,7 +139,7 @@ def can_work(user, entry):
         and not entry.completed_at
         and (
             entry.reserved_by_id == user.pk
-            or user.has_perm("structuretimers.recon_coordinator")
+            or user.has_perm("aa_stratcom.recon_coordinator")
         )
     )
 
@@ -254,7 +254,7 @@ class CampaignDetailView(CampaignAccess, View):
             entry.can_work = can_work(request.user, entry)
         return render(
             request,
-            "structuretimers/campaign_detail.html",
+            "aa_stratcom/campaign_detail.html",
             {
                 "campaign": campaign,
                 "entries": entries,
@@ -310,7 +310,7 @@ class CampaignDetailView(CampaignAccess, View):
 
     def _validate_reservations(self, request, campaign, entries, action):
         """Check every selected reservation before changing any of them."""
-        coordinator = request.user.has_perm("structuretimers.recon_coordinator")
+        coordinator = request.user.has_perm("aa_stratcom.recon_coordinator")
         for entry in entries:
             entry.campaign = campaign
             if action == "reserve":
@@ -334,7 +334,7 @@ class CampaignDetailView(CampaignAccess, View):
 
     def _import_action(self, request, pk, action):
         """Retry system imports or refresh stargates under the campaign lock."""
-        if not request.user.has_perm("structuretimers.recon_coordinator"):
+        if not request.user.has_perm("aa_stratcom.recon_coordinator"):
             raise PermissionDenied()
         from .campaign_jobs import enqueue_campaign_job
 
@@ -460,7 +460,7 @@ class CampaignReconView(CampaignAccess, View):
             return redirect(entry.campaign)
         return render(
             request,
-            "structuretimers/campaign_recon_form.html",
+            "aa_stratcom/campaign_recon_form.html",
             {
                 "form": form,
                 "title": _("Campaign recon"),

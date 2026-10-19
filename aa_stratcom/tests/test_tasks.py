@@ -25,11 +25,11 @@ from aa_stratcom.tests.testdata.factory import (
     TimerFactory,
 )
 
-MODULE_PATH = "structuretimers.tasks"
+MODULE_PATH = "aa_stratcom.tasks"
 
 
 # class TestCaseBase(TestCase):
-#     @patch("structuretimers.models.STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+#     @patch("aa_stratcom.models.AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
 #     def setUp(self) -> None:
 #         webhook = DiscordWebhookFactory()
 #         webhook.clear_queue()
@@ -265,7 +265,7 @@ class TestDispatchScheduledNotifications(TestCase):
         self.assertFalse(mock_send_scheduled_notification.apply_async.called)
 
 
-@patch("structuretimers.models.STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+@patch("aa_stratcom.models.AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
 @patch(MODULE_PATH + ".send_messages_for_webhook", spec=True)
 class TestSendScheduledNotification(TransactionTestCase):
     def test_should_send_notification(self, mock_send_messages_for_webhook):

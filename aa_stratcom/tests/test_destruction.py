@@ -42,7 +42,7 @@ class TestDestruction(NoSocketsTestCase):
             "_task_calc_timer_distances_for_all_staging_systems",
             "_task_schedule_notifications_for_timer",
         ):
-            task = patch("structuretimers.models." + name, Mock())
+            task = patch("aa_stratcom.models." + name, Mock())
             task.start()
             self.addCleanup(task.stop)
         self.user = UserWithCreateFactory()
@@ -77,7 +77,7 @@ class TestDestruction(NoSocketsTestCase):
         self.archive()
         self.client.force_login(self.user)
         rows = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["current"])
+            reverse("aa_stratcom:timer_list_data", args=["current"])
         ).json()
         self.assertNotIn(self.timer.pk, [row["id"] for row in rows])
         for window in ("preliminary", "all"):
@@ -101,8 +101,8 @@ class TestDestruction(NoSocketsTestCase):
         self.structure.refresh_from_db()
         self.assertEqual(self.structure.fitting, "Original fitting")
 
-    @patch("structuretimers.tasks.send_messages_for_webhook")
-    @patch("structuretimers.models.Timer.send_notification")
+    @patch("aa_stratcom.tasks.send_messages_for_webhook")
+    @patch("aa_stratcom.models.Timer.send_notification")
     def test_destroyed_structures_do_not_send_or_schedule_notifications(
         self, send, queue
     ):
@@ -124,7 +124,7 @@ class TestDestruction(NoSocketsTestCase):
         self.user.is_staff = self.user.is_superuser = True
         self.user.save()
         self.client.force_login(self.user)
-        url = reverse("admin:structuretimers_structure_changelist")
+        url = reverse("admin:aa_stratcom_structure_changelist")
         self.assertContains(self.client.get(url), self.structure.structure_name)
         response = self.client.post(
             url,
@@ -138,9 +138,7 @@ class TestDestruction(NoSocketsTestCase):
     def test_migration_archives_current_kills_but_ignores_restored_or_old_schedules(
         self,
     ):
-        migration = import_module(
-            "structuretimers.migrations.0024_structure_destruction"
-        )
+        migration = import_module("aa_stratcom.legacy_backfill")
         event = {
             "action": "kill",
             "schedule": self.timer.date.isoformat(),
@@ -175,9 +173,7 @@ class TestDestruction(NoSocketsTestCase):
         self.assertIsNone(stale.structure.destroyed_at)
 
     def test_history_migration_keeps_old_schedules_undo_and_manual_destruction(self):
-        migration = import_module(
-            "structuretimers.migrations.0026_reinforcement_history"
-        )
+        migration = import_module("aa_stratcom.legacy_backfill")
         at = now()
         MapTimerState.objects.create(
             timer=self.timer,

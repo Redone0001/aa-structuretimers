@@ -30,10 +30,10 @@ def token_parts(raw):
 
 
 def _cipher():
-    secret = getattr(settings, "STRUCTURETIMERS_SYNC_ENCRYPTION_KEY", None)
+    secret = getattr(settings, "AA_STRATCOM_SYNC_ENCRYPTION_KEY", None)
     if not secret:
         raise ValidationError(
-            "Configure STRUCTURETIMERS_SYNC_ENCRYPTION_KEY before saving outbound credentials."
+            "Configure AA_STRATCOM_SYNC_ENCRYPTION_KEY before saving outbound credentials."
         )
     try:
         return Fernet(secret.encode() if isinstance(secret, str) else secret)
@@ -86,7 +86,7 @@ def within_rate_limit(identifier, limit):
     """Atomic cache counters work across workers; no raw keys or IPs in cache keys."""
     bucket = int(now().timestamp()) // 60
     digest = hashlib.sha256(identifier.encode()).hexdigest()
-    name = f"st-sync-rate:{bucket}:{digest}"
+    name = f"asc-sync-rate:{bucket}:{digest}"
     if cache.add(name, 1, timeout=70):
         return True
     return cache.incr(name) <= limit
@@ -96,21 +96,21 @@ def validate_endpoint(url):
     """Deployment allowlist plus a deliberately narrow HTTPS URL grammar."""
     try:
         parsed = urlsplit(url)
-        allowed = getattr(settings, "STRUCTURETIMERS_SYNC_ALLOWED_HOSTS", [])
+        allowed = getattr(settings, "AA_STRATCOM_SYNC_ALLOWED_HOSTS", [])
         valid = (
             parsed.scheme == "https"
             and parsed.hostname in allowed
             and parsed.netloc == parsed.hostname
             and not parsed.query
             and not parsed.fragment
-            and parsed.path.endswith("/structuretimers/api/v1/sync/timers/")
+            and parsed.path.endswith("/aa_stratcom/api/v1/sync/timers/")
             and re.fullmatch(r"/[A-Za-z0-9_/-]+", parsed.path)
         )
     except (ValueError, TypeError):
         valid = False
     if not valid:
         raise ValidationError(
-            "Use an HTTPS timer sync endpoint on STRUCTURETIMERS_SYNC_ALLOWED_HOSTS (host names only; no wildcards)."
+            "Use an HTTPS timer sync endpoint on AA_STRATCOM_SYNC_ALLOWED_HOSTS (host names only; no wildcards)."
         )
     return parsed
 

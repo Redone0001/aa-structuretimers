@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const {distribution, summary, matchesFreshness} = require('../../static/structuretimers/js/recon_distribution.js');
+const {distribution, summary, matchesFreshness} = require('../../static/aa_stratcom/js/recon_distribution.js');
 const timer = (time, window = 180) => ({reinforcement_time: time, window_minutes: window});
 // User's example: 10 midday timers and 2 evening timers.
 let result = distribution([...Array(10).fill(timer('12:00')), ...Array(2).fill(timer('21:00'))]);
@@ -29,7 +29,7 @@ assert.equal(matchesFreshness(boundary, {age:'stale'}, now), false);
 assert.equal(summary([boundary], now).stale, false);
 assert.equal(matchesFreshness(boundary, {age:'recent30'}, now), true);
 console.log('Distribution, midnight wrapping, special windows, freshness and summary checks passed.');
-const {matchesWindow} = require('../../static/structuretimers/js/recon_distribution.js');
+const {matchesWindow} = require('../../static/aa_stratcom/js/recon_distribution.js');
 assert.equal(matchesWindow(timer('05:00'), '08:00', '09:00'), true);
 assert.equal(matchesWindow(timer('04:59'), '08:00', '09:00'), false);
 assert.equal(matchesWindow(timer('09:30', 30), '08:00', '09:00'), true);

@@ -27,9 +27,9 @@ from aa_stratcom.tests.testdata.factory import (
     UserWithManageFactory,
 )
 
-MODELS_PATH = "structuretimers.models"
-FORMS_PATH = "structuretimers.forms"
-TASKS_PATH = "structuretimers.tasks"
+MODELS_PATH = "aa_stratcom.models"
+FORMS_PATH = "aa_stratcom.forms"
+TASKS_PATH = "aa_stratcom.tasks"
 
 # TODO: Rewrite tests to work also with AA4
 
@@ -40,8 +40,8 @@ class TestCreateNewTimer(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.add_timer_url = reverse("structuretimers:add")
-        cls.timer_list_url = reverse("structuretimers:timer_list")
+        cls.add_timer_url = reverse("aa_stratcom:add")
+        cls.timer_list_url = reverse("aa_stratcom:timer_list")
 
     def test_user_with_permission_can_add_timer(self):
         # given
@@ -103,8 +103,8 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.add_fast_timer_url = reverse("structuretimers:add_fast")
-        cls.timer_list_url = reverse("structuretimers:timer_list")
+        cls.add_fast_timer_url = reverse("aa_stratcom:add_fast")
+        cls.timer_list_url = reverse("aa_stratcom:timer_list")
 
     def test_user_with_permission_can_open_quick_add_page(self):
         self.client.force_login(UserWithCreateFactory())
@@ -112,7 +112,7 @@ class TestQuickCreateNewTimer(NoSocketsTestCase):
         response = self.client.get(self.add_fast_timer_url)
 
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTemplateUsed(response, "structuretimers/timer_fast_create_form.html")
+        self.assertTemplateUsed(response, "aa_stratcom/timer_fast_create_form.html")
         self.assertContains(response, "EVE timer text")
         self.assertNotContains(response, "Days Remaining")
 
@@ -186,7 +186,7 @@ class TestEditTimer(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.timer_list_url = reverse("structuretimers:timer_list")
+        cls.timer_list_url = reverse("aa_stratcom:timer_list")
 
     def test_user_with_permission_can_open_page(self):
         # given
@@ -195,11 +195,11 @@ class TestEditTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:edit", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:edit", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTemplateUsed(response, "structuretimers/timer_edit.html")
+        self.assertTemplateUsed(response, "aa_stratcom/timer_edit.html")
         self.assertContains(response, timer.eve_solar_system.name)
 
     def test_user_can_change_his_own_timer(self):
@@ -215,7 +215,7 @@ class TestEditTimer(NoSocketsTestCase):
 
         # when
         response = self.client.post(
-            reverse("structuretimers:edit", args=[timer.pk]), data=form_data
+            reverse("aa_stratcom:edit", args=[timer.pk]), data=form_data
         )
 
         # then
@@ -230,7 +230,7 @@ class TestEditTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:edit", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:edit", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
@@ -248,7 +248,7 @@ class TestEditTimer(NoSocketsTestCase):
 
         # when
         response = self.client.post(
-            reverse("structuretimers:edit", args=[timer.pk]), data=form_data
+            reverse("aa_stratcom:edit", args=[timer.pk]), data=form_data
         )
 
         # then
@@ -263,7 +263,7 @@ class TestEditTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:edit", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:edit", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
@@ -275,7 +275,7 @@ class TestEditTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:edit", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:edit", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
@@ -310,7 +310,7 @@ class TestDeleteTimer(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.timer_list_url = reverse("structuretimers:timer_list")
+        cls.timer_list_url = reverse("aa_stratcom:timer_list")
 
     def test_user_can_delete_own_timer(self):
         # given
@@ -319,10 +319,10 @@ class TestDeleteTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:delete", args=[timer.pk]))
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
-        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.post(reverse("aa_stratcom:delete", args=[timer.pk]))
 
         # then
         self.assertRedirects(response, self.timer_list_url)
@@ -335,7 +335,7 @@ class TestDeleteTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:delete", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
@@ -347,10 +347,10 @@ class TestDeleteTimer(NoSocketsTestCase):
         self.client.force_login(user)
 
         # when
-        response = self.client.get(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:delete", args=[timer.pk]))
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
-        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.post(reverse("aa_stratcom:delete", args=[timer.pk]))
 
         # then
         self.assertRedirects(response, self.timer_list_url)

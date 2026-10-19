@@ -34,7 +34,7 @@ from aa_stratcom.tests.testdata.factory import (
     UserWithManageFactory,
 )
 
-MODELS_PATH = "structuretimers.models"
+MODELS_PATH = "aa_stratcom.models"
 
 
 class TestViewBase(NoSocketsTestCase):
@@ -89,12 +89,12 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
     def test_should_load_multi_select_filter_assets(self):
         self.client.force_login(UserWithAccessFactory())
 
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertContains(response, "select2.min.js")
         self.assertContains(response, 'data-titleAll="All"')
-        self.assertContains(response, "structuretimers/css/theme.css")
+        self.assertContains(response, "aa_stratcom/css/theme.css")
         self.assertContains(response, 'data-filter-search-label="Search options"')
         self.assertNotContains(response, "filterDropDown.min.js")
 
@@ -105,7 +105,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -120,7 +120,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -133,7 +133,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -145,7 +145,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/?staging=invalid_name")
+        response = self.client.get("/aa_stratcom/?staging=invalid_name")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -160,7 +160,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -173,7 +173,7 @@ class TestTimerList_SelectedStagingSystem(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get("/structuretimers/")
+        response = self.client.get("/aa_stratcom/")
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -185,7 +185,7 @@ def json_response_pks(response: HttpResponse) -> Set[int]:
 
 
 class TestTimerListData(NoSocketsTestCase):
-    view_name = "structuretimers:timer_list_data"
+    view_name = "aa_stratcom:timer_list_data"
 
     def _get_timer_list_data(
         self, tab_name: str = "current", user: Optional[User] = None
@@ -193,9 +193,7 @@ class TestTimerListData(NoSocketsTestCase):
         if not user:
             user = self.user_1
         self.client.force_login(user)
-        return self.client.get(
-            reverse("structuretimers:timer_list_data", args=[tab_name])
-        )
+        return self.client.get(reverse("aa_stratcom:timer_list_data", args=[tab_name]))
 
     def _get_timer_list_data_ids(
         self, tab_name: str = "current", user: Optional[User] = None
@@ -205,7 +203,7 @@ class TestTimerListData(NoSocketsTestCase):
         return set(json_response_to_dict(response).keys())
 
     # def test_timer_list_view_loads(self):
-    #     request = self.factory.get(reverse("structuretimers:timer_list"))
+    #     request = self.factory.get(reverse("aa_stratcom:timer_list"))
     #     request.user = self.user_1
     #     response = views.timer_list(request)
     #     self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -216,7 +214,7 @@ class TestTimerListData(NoSocketsTestCase):
             for value in [dt.time(0, 0), dt.time(18, 45), None]
         ]
         self.client.force_login(UserWithAccessFactory())
-        response = self.client.get(reverse("structuretimers:recon_data"))
+        response = self.client.get(reverse("aa_stratcom:recon_data"))
         self.assertEqual(response.status_code, 200)
         rows = {row["id"]: row for row in response.json()}
         for timer, expected in zip(timers, ["00:00", "18:45", None]):
@@ -257,7 +255,7 @@ class TestTimerListData(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get(reverse("structuretimers:recon_data"))
+        response = self.client.get(reverse("aa_stratcom:recon_data"))
 
         # then
         self.assertSetEqual(json_response_pks(response), {timer.id})
@@ -316,8 +314,8 @@ class TestTimerListData(NoSocketsTestCase):
         # given
         user = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.opsec_access",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.opsec_access",
             ]
         )
         timer = TimerFactory(is_opsec=True)
@@ -334,7 +332,7 @@ class TestTimerListData(NoSocketsTestCase):
         # given
         user = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
+                "aa_stratcom.basic_access",
             ]
         )
         TimerFactory(is_opsec=True)
@@ -437,7 +435,7 @@ class TestTimerListData(NoSocketsTestCase):
 
 
 class TestDetailView(NoSocketsTestCase):
-    view_name = "structuretimers:detail"
+    view_name = "aa_stratcom:detail"
 
     def test_should_show_normal_timer(self):
         # given
@@ -449,7 +447,7 @@ class TestDetailView(NoSocketsTestCase):
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTemplateUsed(response, "structuretimers/timer_detail.html")
+        self.assertTemplateUsed(response, "aa_stratcom/timer_detail.html")
         self.assertIn("Alpha", response.rendered_content)
 
     def test_should_show_preliminary_timer(self):
@@ -459,12 +457,12 @@ class TestDetailView(NoSocketsTestCase):
 
         # when
         response = self.client.get(
-            reverse("structuretimers:structure_detail", args=[timer.pk])
+            reverse("aa_stratcom:structure_detail", args=[timer.pk])
         )
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTemplateUsed(response, "structuretimers/structure_detail.html")
+        self.assertTemplateUsed(response, "aa_stratcom/structure_detail.html")
         self.assertIn("[Astrahus, Alpha]", response.rendered_content)
         self.assertIn("Alpha", response.rendered_content)
 
@@ -474,13 +472,13 @@ class TestDetailView(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get(reverse("structuretimers:detail", args=[timer.pk]))
+        response = self.client.get(reverse("aa_stratcom:detail", args=[timer.pk]))
         # then
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
 
 
 class TestSelect2Views_SolarSystems(NoSocketsTestCase):
-    view_name = "structuretimers:select2_solar_systems"
+    view_name = "aa_stratcom:select2_solar_systems"
 
     def test_should_return_solar_systems(self):
         # given
@@ -530,7 +528,7 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.post(reverse("aa_stratcom:delete", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
@@ -543,7 +541,7 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
 
         # when
         response = self.client.post(
-            reverse("structuretimers:edit", args=[timer.pk]),
+            reverse("aa_stratcom:edit", args=[timer.pk]),
             data=self._edit_form_data(timer),
         )
 
@@ -558,17 +556,17 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
         self.client.force_login(UserWithManageFactory())
 
         # when
-        response = self.client.post(reverse("structuretimers:delete", args=[timer.pk]))
+        response = self.client.post(reverse("aa_stratcom:delete", args=[timer.pk]))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertFalse(Timer.objects.filter(pk=timer.pk).exists())
 
     @patch(
-        "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+        "aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems",
         Mock(),
     )
-    @patch("structuretimers.models._task_schedule_notifications_for_timer", Mock())
+    @patch("aa_stratcom.models._task_schedule_notifications_for_timer", Mock())
     def test_should_allow_creator_to_edit_own_timer(self):
         # given
         user = UserWithCreateFactory()
@@ -577,7 +575,7 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
 
         # when
         response = self.client.post(
-            reverse("structuretimers:edit", args=[timer.pk]),
+            reverse("aa_stratcom:edit", args=[timer.pk]),
             data=self._edit_form_data(timer),
         )
 
@@ -588,7 +586,7 @@ class TestEditRemoveTimerView(NoSocketsTestCase):
 
 
 class TestSelect2Views_StructureTypes(NoSocketsTestCase):
-    view_name = "structuretimers:select2_structure_types"
+    view_name = "aa_stratcom:select2_structure_types"
 
     def test_should_return_structure_types(self):
         # given
@@ -598,7 +596,7 @@ class TestSelect2Views_StructureTypes(NoSocketsTestCase):
 
         # when
         response = self.client.get(
-            reverse("structuretimers:select2_structure_types"), data={"term": "ast"}
+            reverse("aa_stratcom:select2_structure_types"), data={"term": "ast"}
         )
 
         # then
@@ -613,7 +611,7 @@ class TestSelect2Views_StructureTypes(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
 
         # when
-        response = self.client.get(reverse("structuretimers:select2_structure_types"))
+        response = self.client.get(reverse("aa_stratcom:select2_structure_types"))
 
         # then
         self.assertEqual(response.status_code, HTTPStatus.OK)
@@ -625,12 +623,12 @@ class TestInlineAssignment(NoSocketsTestCase):
     def setUp(self):
         self.editor = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.op_coordinator",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.op_coordinator",
             ]
         )
         self.viewer = UserMainFactory(
-            permissions__=["structuretimers.basic_access", "structuretimers.op_viewer"]
+            permissions__=["aa_stratcom.basic_access", "aa_stratcom.op_viewer"]
         )
         self.owner = UserWithCreateFactory()
         self.timer = TimerFactory(user=self.owner, date=now() + dt.timedelta(hours=4))
@@ -640,7 +638,7 @@ class TestInlineAssignment(NoSocketsTestCase):
         self.private = Operation.objects.create(
             name="Private operation", created_by=self.editor
         )
-        self.url = reverse("structuretimers:assign", args=[self.timer.pk])
+        self.url = reverse("aa_stratcom:assign", args=[self.timer.pk])
         self.client.force_login(self.editor)
 
     def test_assign_multiple_operations_and_clear_preserves_timer_and_legacy_data(self):
@@ -708,7 +706,7 @@ class TestInlineAssignment(NoSocketsTestCase):
 
     def test_current_list_has_operation_editor_only_for_coordinators(self):
         self.operation.timers.add(self.timer)
-        url = reverse("structuretimers:timer_list_data", args=["current"])
+        url = reverse("aa_stratcom:timer_list_data", args=["current"])
         row = next(
             row for row in self.client.get(url).json() if row["id"] == self.timer.pk
         )
@@ -731,7 +729,7 @@ class TestInlineAssignment(NoSocketsTestCase):
     def test_private_and_all_links_are_hidden_from_unprivileged_users(self):
         self.operation.timers.add(self.timer)
         self.private.timers.add(self.timer)
-        url = reverse("structuretimers:timer_list_data", args=["current"])
+        url = reverse("aa_stratcom:timer_list_data", args=["current"])
         self.client.force_login(self.viewer)
         self.assertNotIn(self.private.name.encode(), self.client.get(url).content)
         self.client.force_login(self.owner)
@@ -753,7 +751,7 @@ class TestFrontendPrivacy(NoSocketsTestCase):
         self.client.force_login(self.user)
 
     def test_copy_does_not_reveal_hidden_timer_on_get_or_post(self):
-        url = reverse("structuretimers:copy", args=[self.hidden.pk])
+        url = reverse("aa_stratcom:copy", args=[self.hidden.pk])
         for method in (self.client.get, self.client.post):
             response = method(url)
             self.assertEqual(response.status_code, 404)
@@ -762,12 +760,10 @@ class TestFrontendPrivacy(NoSocketsTestCase):
 
     def test_hidden_timer_is_absent_from_json_and_detail(self):
         response = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["current"])
+            reverse("aa_stratcom:timer_list_data", args=["current"])
         )
         self.assertNotIn(b"PRIVATE-PLANNING-MARKER", response.content)
-        response = self.client.get(
-            reverse("structuretimers:detail", args=[self.hidden.pk])
-        )
+        response = self.client.get(reverse("aa_stratcom:detail", args=[self.hidden.pk]))
         self.assertEqual(response.status_code, 404)
         self.assertNotIn(b"PRIVATE-NOTES-MARKER", response.content)
 
@@ -775,13 +771,13 @@ class TestFrontendPrivacy(NoSocketsTestCase):
         self.client.force_login(UserWithAccessFactory())
         TimerFactory(user=self.owner)
         response = self.client.get(
-            reverse("structuretimers:timer_list_data", args=["current"])
+            reverse("aa_stratcom:timer_list_data", args=["current"])
         )
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"timer-assignee", response.content)
 
     def test_base_uses_one_aa_jquery_and_bootstrap_and_accessible_modal(self):
-        response = self.client.get(reverse("structuretimers:timer_list"))
+        response = self.client.get(reverse("aa_stratcom:timer_list"))
         from bs4 import BeautifulSoup
 
         page = BeautifulSoup(response.content, "html.parser")

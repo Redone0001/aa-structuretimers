@@ -19,7 +19,7 @@ from aa_stratcom.tests.testdata.factory import (
 
 class BattleMapTests(RegionalMapTests):
     def url(self, layer):
-        return reverse("structuretimers:battle_map_data", args=[layer])
+        return reverse("aa_stratcom:battle_map_data", args=[layer])
 
     def snapshot(self, **params):
         return self.client.get(
@@ -139,7 +139,7 @@ class BattleMapTests(RegionalMapTests):
         self.assertEqual(len(data["tokens"]), 1)
         self.assertNotIn("timers", data)
         self.assertEqual(data["tokens"][0]["ship_class"], "Unknown / unspecified")
-        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+        with patch("aa_stratcom.battle_map.regional_fleets") as fleets:
             self.assertIsNone(self.snapshot(fleets="0").json()["tokens"])
             fleets.assert_not_called()
         self.client.force_login(UserNoAccessFactory())
@@ -419,7 +419,7 @@ class BattleMapTests(RegionalMapTests):
         self.assertEqual(structure.fitting, "[Astrahus, Recon]")
         self.assertEqual(structure.details_notes, "Keep this intelligence")
         self.assertEqual(timer.map_state.events[-1]["action"], "kill")
-        database_url = reverse("structuretimers:recon_data")
+        database_url = reverse("aa_stratcom:recon_data")
         self.assertEqual(self.client.get(database_url).json(), [])
         archived = self.client.get(database_url, {"include_destroyed": "1"}).json()
         self.assertEqual([row["id"] for row in archived], [structure.pk])
@@ -464,9 +464,7 @@ class BattleMapTests(RegionalMapTests):
         timer = self.active_timer()
         Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         self.post("timer", id=timer.pk, revision=0, action="kill")
-        url = reverse(
-            "structuretimers:recon_action", args=[timer.structure_id, "refresh"]
-        )
+        url = reverse("aa_stratcom:recon_action", args=[timer.structure_id, "refresh"])
         self.assertEqual(self.client.post(url).status_code, 200)
         state = MapTimerState.objects.get(timer=timer)
         self.assertEqual([e["action"] for e in state.events], ["kill", "restore"])
@@ -479,9 +477,7 @@ class BattleMapTests(RegionalMapTests):
         Timer.objects.filter(pk=timer.pk).update(timer_type=Timer.Type.FINAL)
         self.post("timer", id=timer.pk, revision=0, action="kill")
         self.client.post(
-            reverse(
-                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
-            )
+            reverse("aa_stratcom:recon_action", args=[timer.structure_id, "destroy"])
         )
         self.post("timer", id=timer.pk, revision=1, action="restore")
         timer.structure.refresh_from_db()
@@ -538,7 +534,7 @@ class BattleMapTests(RegionalMapTests):
             400,
         )
         page = self.client.get(
-            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+            reverse("aa_stratcom:structure_detail", args=[timer.structure_id])
         )
         self.assertContains(page, "Armor destroyed / reinforced")
         # Editing or removing the timer must not erase the confirmed outcome.
@@ -597,7 +593,7 @@ class BattleMapTests(RegionalMapTests):
         self.assertEqual(timer.structure.history.get().next_timer, later)
         self.assertNotContains(
             self.client.get(
-                reverse("structuretimers:structure_detail", args=[timer.structure_id])
+                reverse("aa_stratcom:structure_detail", args=[timer.structure_id])
             ),
             str(later.date),
         )
@@ -687,14 +683,12 @@ class BattleMapTests(RegionalMapTests):
             ["destroyed", "restored"],
         )
         page = self.client.get(
-            reverse("structuretimers:structure_detail", args=[timer.structure_id])
+            reverse("aa_stratcom:structure_detail", args=[timer.structure_id])
         )
         self.assertContains(page, "Structure destroyed")
         self.assertContains(page, "Destruction undone")
         self.client.post(
-            reverse(
-                "structuretimers:recon_action", args=[timer.structure_id, "destroy"]
-            )
+            reverse("aa_stratcom:recon_action", args=[timer.structure_id, "destroy"])
         )
         self.assertEqual(timer.structure.history.count(), 3)
 
@@ -706,7 +700,9 @@ class BattleMapTests(RegionalMapTests):
         from aa_stratcom.models import Operation
 
         self.user.user_permissions.add(
-            Permission.objects.get(codename="op_coordinator")
+            Permission.objects.get(
+                content_type__app_label="aa_stratcom", codename="op_coordinator"
+            )
         )
         timer = self.active_timer(structure_name="Selected")
         self.active_timer(structure_name="Not selected")
@@ -720,7 +716,7 @@ class BattleMapTests(RegionalMapTests):
         self.post(
             "timer", operation=operation.pk, id=timer.pk, revision=0, action="pause"
         )
-        with patch("structuretimers.battle_map.regional_fleets") as fleets:
+        with patch("aa_stratcom.battle_map.regional_fleets") as fleets:
             updates = self.client.get(
                 self.url("updates"),
                 {

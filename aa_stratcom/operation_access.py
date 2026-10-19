@@ -8,10 +8,9 @@ from .models import Operation, Timer
 
 def require_operation_access(user, coordinator=False):
     """Require an operation role in addition to normal app access."""
-    can_coordinate = user.has_perm("structuretimers.op_coordinator")
-    if not user.has_perm("structuretimers.basic_access") or not (
-        can_coordinate
-        or (not coordinator and user.has_perm("structuretimers.op_viewer"))
+    can_coordinate = user.has_perm("aa_stratcom.op_coordinator")
+    if not user.has_perm("aa_stratcom.basic_access") or not (
+        can_coordinate or (not coordinator and user.has_perm("aa_stratcom.op_viewer"))
     ):
         raise PermissionDenied()
 

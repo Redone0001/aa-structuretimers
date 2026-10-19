@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {stateAt,onMap,hourKey}=require('../../static/structuretimers/js/battle_timeline.js');
+const {stateAt,onMap,hourKey}=require('../../static/aa_stratcom/js/battle_timeline.js');
 const start=Date.parse('2026-10-10T12:00:00Z');
 const timer={date:new Date(start).toISOString(),duration:900,relationship:'hostile',events:[]};
 const event=(action,seconds)=>({action,at:new Date(start+seconds*1000).toISOString()});
@@ -42,7 +42,7 @@ test('hour grouping is UTC even for offset dates',()=>{
     assert.equal(hourKey({...timer,date:'2026-10-11T00:30:00+02:00'}),'2026-10-10T22:00Z');
 });
 test('warning and final five-minute pulse boundaries, with paused corrections',()=>{
-    const {signal}=require('../../static/structuretimers/js/battle_timeline.js');
+    const {signal}=require('../../static/aa_stratcom/js/battle_timeline.js');
     assert.equal(signal(timer,start-901000),null);
     assert.deepEqual(signal(timer,start-900000),{category:'warning',pulse:false});
     assert.deepEqual(signal(timer,start+599000),{category:'danger',pulse:false});
@@ -55,7 +55,7 @@ test('warning and final five-minute pulse boundaries, with paused corrections',(
     assert.equal(signal(t,start+1060000),null);
 });
 test('force ranges intersect, ignore gate mobility, and wait for every selected range',()=>{
-    const {fleetRangeOverlay}=require('../../static/structuretimers/js/battle_timeline.js');
+    const {fleetRangeOverlay}=require('../../static/aa_stratcom/js/battle_timeline.js');
     const friend={mobility:'carrier',stance:'friend',systems:new Set([1,2,3])};
     const foe={mobility:'blops',stance:'foe',systems:new Set([2,3,4])};
     assert.deepEqual([...fleetRangeOverlay([friend])],[[1,'friendly'],[2,'friendly'],[3,'friendly']]);
@@ -67,7 +67,7 @@ test('force ranges intersect, ignore gate mobility, and wait for every selected 
     assert.equal(fleetRangeOverlay([]).size,0);
 });
 test('fleet summary groups ship classes and preserves unknown counts',()=>{
-    const {fleetSummary}=require('../../static/structuretimers/js/battle_timeline.js');
+    const {fleetSummary}=require('../../static/aa_stratcom/js/battle_timeline.js');
     const rows=fleetSummary([
         {ship_class:'Cruiser',dps:20,logi:3},
         {ship_class:'Cruiser',dps:null,logi:0},
@@ -81,7 +81,7 @@ test('fleet summary groups ship classes and preserves unknown counts',()=>{
 });
 
 test('armor completion records reinforcement without a kill and controls follow timer type',()=>{
-    const {completionActions}=require('../../static/structuretimers/js/battle_timeline.js');
+    const {completionActions}=require('../../static/aa_stratcom/js/battle_timeline.js');
     const armor={...timer,timer_type:'AR',events:[event('reinforce',60)]};
     assert.equal(stateAt(armor,start+59000).name,'open');
     assert.equal(stateAt(armor,start+60000).name,'reinforced');
@@ -93,7 +93,7 @@ test('armor completion records reinforcement without a kill and controls follow 
 });
 
 test('actions use current observations after a prompt and reject a changed schedule',()=>{
-    const {observationForAction}=require('../../static/structuretimers/js/battle_timeline.js');
+    const {observationForAction}=require('../../static/aa_stratcom/js/battle_timeline.js');
     const original={...timer,id:1,revision:2};
     const newer={...original,revision:3,events:[event('pause',60)]};
     assert.equal(observationForAction(original,[newer]),newer);

@@ -1,0 +1,59 @@
+{% extends "aa_stratcom/base.html" %}
+{% load django_bootstrap5 %}
+{% load static %}
+{% load i18n %}
+
+{% block aa_stratcom_content %}
+    <div class="row">
+        <div class="col col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    {% block form_intro %}{% endblock %}
+                    {% if form.errors %}
+                        <p class="text-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong> {% translate "Please correct the input errors below" %}</strong>
+                        </p>
+                    {% endif %}
+                    <form id="add-timer-form" role="form" action="" method="POST">
+                        {% csrf_token %}
+                        {% bootstrap_form form %}
+                        <br/>
+                        <p>
+                            <i class="fas fa-asterisk"></i> {% translate "required fields" %}
+                        </p>
+                        <button class="btn btn-primary" type="submit">
+                            {% block submit_button_text %}{% endblock %}
+                        </button>
+                        {% include 'aa_stratcom/partials/cancel_button.html' %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- share data with JS part -->
+    <div
+        id="dataExport"
+        data-select2SolarSystemsUrl="{% url 'aa_stratcom:select2_solar_systems' %}"
+        data-select2StructureTypesUrl="{% url 'aa_stratcom:select2_structure_types' %}"
+        data-select2DatabaseEntriesUrl="{% url 'aa_stratcom:select2_database_entries' %}"
+        data-select2OwnersUrl="{% url 'aa_stratcom:select2_owners' %}">
+    </div>
+
+    {{ LANGUAGE_CODE|json_script:"language-code-data" }}
+{% endblock aa_stratcom_content %}
+
+{% block aa_stratcom_extra_css %}
+    <link href="{% static 'aa_stratcom/vendor/select2-4.1.0-beta.1/select2.min.css' %}" rel="stylesheet">
+    <link href="{% static 'aa_stratcom/vendor/select2-bootstrap-theme-0.1.0-beta.10/select2-bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'aa_stratcom/css/select2.css' %}">
+    {% include "bundles/jquery-datetimepicker-css.html" %}
+    <link href="{% static 'aa_stratcom/css/timer_edit.css' %}" rel="stylesheet">
+{% endblock aa_stratcom_extra_css %}
+
+{% block extra_javascript %}
+    <script type="application/javascript" src="{% static 'aa_stratcom/vendor/select2-4.1.0-beta.1/select2.min.js' %}"></script>
+    {% include "bundles/jquery-datetimepicker-js.html" %}
+    <script type="text/javascript" src="{% static 'aa_stratcom/js/timer_edit.js' %}"></script>
+{% endblock extra_javascript %}

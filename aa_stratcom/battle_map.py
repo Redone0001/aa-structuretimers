@@ -288,7 +288,7 @@ def _battle_snapshot(request, include_fleets=True):
                 request.user,
                 systems[timer.eve_solar_system_id],
                 can_edit=(
-                    request.user.has_perm("structuretimers.op_coordinator")
+                    request.user.has_perm("aa_stratcom.op_coordinator")
                     if operation
                     else None
                 ),
@@ -322,7 +322,7 @@ def _battle_update(request, layer):
 
 
 @login_required
-@permission_required("structuretimers.basic_access", raise_exception=True)
+@permission_required("aa_stratcom.basic_access", raise_exception=True)
 @require_http_methods(["GET", "POST"])
 @never_cache
 def battle_data(request, layer):

@@ -203,10 +203,8 @@ def _edit_message(client, board, message, content):
 def sync_board(board):
     """Called with the board row locked to serialize concurrent refreshes."""
     client = DiscordClient(
-        target=getattr(
-            settings, "STRUCTURETIMERS_DISCORD_PROXY_TARGET", "localhost:50051"
-        ),
-        timeout=getattr(settings, "STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT", 30),
+        target=getattr(settings, "AA_STRATCOM_DISCORD_PROXY_TARGET", "localhost:50051"),
+        timeout=getattr(settings, "AA_STRATCOM_DISCORD_PROXY_TIMEOUT", 30),
     )
     # A channel change (or disabling the board) also cleans up the old messages.
     for message in board.messages.all():
@@ -238,7 +236,7 @@ def sync_board(board):
             channel_id=int(board.channel_id),
             content=content,
             suppress_mentions=True,
-            nonce=f"st-{message.pk}",
+            nonce=f"asc-{message.pk}",
             enforce_nonce=True,
         )
         message.message_id = str(result.id)

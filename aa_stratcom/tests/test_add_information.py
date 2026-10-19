@@ -18,28 +18,26 @@ from aa_stratcom.tests.testdata.factory import (
 from .test_forms import FUTURE, create_form_data, make_owner
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
-@patch("structuretimers.models._task_calc_structure_distances", Mock())
-@patch("structuretimers.models._task_schedule_notifications_for_timer", Mock())
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
+@patch("aa_stratcom.models._task_calc_structure_distances", Mock())
+@patch("aa_stratcom.models._task_schedule_notifications_for_timer", Mock())
 class TestAddInformation(NoSocketsTestCase):
     def setUp(self):
         self.user = UserWithCreateFactory()
         self.client.force_login(self.user)
         self.system = EveSolarSystemLowSecFactory(name="SVM-3K")
-        self.parse_url = reverse("structuretimers:add_info_parse")
+        self.parse_url = reverse("aa_stratcom:add_info_parse")
 
     def parse(self, text):
         return self.client.post(self.parse_url, {"text": text}).json()
 
     def test_page_and_single_nav_button(self):
-        response = self.client.get(reverse("structuretimers:add_info"))
+        response = self.client.get(reverse("aa_stratcom:add_info"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="st-add-info"')
         self.assertContains(response, "Add information")
         self.assertNotContains(response, "Quick add timer")
-        self.assertNotContains(response, reverse("structuretimers:add_recon"))
+        self.assertNotContains(response, reverse("aa_stratcom:add_recon"))
         fields = list(response.context["form"].fields)
         self.assertEqual(
             fields[:3], ["database_entry_2", "paste_info", "structure_name"]
@@ -88,7 +86,7 @@ class TestAddInformation(NoSocketsTestCase):
         refinery = EveTypeFactory(
             id=EveTypeId.ATHANOR, eve_group__id=EveGroupId.REFINERY
         )
-        response = self.client.get(reverse("structuretimers:add_info"))
+        response = self.client.get(reverse("aa_stratcom:add_info"))
         rules = response.context["timer_type_rules"]
         self.assertNotIn(EveTypeId.ASTRAHUS, rules["large"])
         self.assertIn(faction.pk, rules["large"])
@@ -97,7 +95,7 @@ class TestAddInformation(NoSocketsTestCase):
 
     def test_validation_error_retains_parsed_timer_context(self):
         response = self.client.post(
-            reverse("structuretimers:add_info"),
+            reverse("aa_stratcom:add_info"),
             {
                 "paste_info": "SVM-3K - Home\nAnchoring until 2030.09.05 03:47:08",
             },
@@ -110,7 +108,7 @@ class TestAddInformation(NoSocketsTestCase):
             eve_solar_system=self.system, structure_name="kongbao"
         )
         response = self.client.post(
-            reverse("structuretimers:add_info"),
+            reverse("aa_stratcom:add_info"),
             create_form_data(
                 database_entry_2=str(record.pk),
                 eve_solar_system_2=self.system.pk,
@@ -129,7 +127,7 @@ class TestAddInformation(NoSocketsTestCase):
 
     def test_parse_needs_create_permission(self):
         self.client.force_login(
-            UserWithCreateFactory(permissions__=["structuretimers.basic_access"])
+            UserWithCreateFactory(permissions__=["aa_stratcom.basic_access"])
         )
         self.assertEqual(
             self.client.post(self.parse_url, {"text": "x"}).status_code, 403

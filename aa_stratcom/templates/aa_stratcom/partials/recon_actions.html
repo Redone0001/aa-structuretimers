@@ -1,0 +1,12 @@
+{% load i18n %}
+<div class="d-flex flex-wrap gap-1">
+    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalTimerDetails" data-detail-url="{% url 'aa_stratcom:structure_detail' timer.pk %}">{% translate "View" %}</button>
+    {% if can_edit %}
+        <button type="button" class="btn btn-sm btn-success recon-action" data-url="{% url 'aa_stratcom:recon_action' timer.pk 'refresh' %}">{% if timer.destroyed_at %}{% translate "Restore" %}{% else %}{% translate "Still there" %}{% endif %}</button>
+        {% if not timer.destroyed_at %}
+        <button type="button" class="btn btn-sm btn-danger recon-action" data-destroy="true" data-url="{% url 'aa_stratcom:recon_action' timer.pk 'destroy' %}">{% translate "Destroyed" %}</button>
+        {% endif %}
+        <a class="btn btn-sm btn-warning" href="{% url 'aa_stratcom:edit_structure' timer.pk %}">{% translate "Edit" %}</a>
+    {% endif %}
+    {{ fit_buttons }}
+</div>

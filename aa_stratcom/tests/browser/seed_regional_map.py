@@ -55,7 +55,7 @@ for i in range(24):
         )
     system = EveSolarSystemFactory(id=s.pk, name=s.name)
     with patch(
-        "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+        "aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems",
         Mock(),
     ):
         if i in [0, 1, 23]:

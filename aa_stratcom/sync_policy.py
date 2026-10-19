@@ -5,7 +5,7 @@ from contextvars import ContextVar
 
 from django.core.exceptions import PermissionDenied
 
-_receiving = ContextVar("structuretimers_receiving", default=False)
+_receiving = ContextVar("aa_stratcom_receiving", default=False)
 
 
 def receiving():

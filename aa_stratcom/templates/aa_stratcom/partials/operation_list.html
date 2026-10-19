@@ -1,0 +1,21 @@
+{% load i18n %}
+<div id="operation-index" data-live-url="{% url 'aa_stratcom:operation_index_live' %}">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h5 mb-0">{% translate "Operations" %}</h2>
+    {% if perms.aa_stratcom.op_coordinator %}
+        <a id="operation-create" class="btn btn-primary" href="{% url 'aa_stratcom:operation_create' %}">{% translate "Create operation" %}</a>
+    {% endif %}
+</div>
+<div class="table-responsive">
+<table class="table table-striped">
+    <thead><tr><th>{% translate "Operation" %}</th><th>{% translate "Visibility" %}</th><th>{% translate "Updated (UTC)" %}</th><th></th></tr></thead>
+    <tbody id="operation-index-rows">{% for operation in operations %}
+        <tr><td><a href="{{ operation.get_absolute_url }}">{{ operation.name }}</a></td>
+            <td>{{ operation.get_visibility_display }}</td><td>{{ operation.updated_at|date:"Y-m-d H:i" }}</td>
+            <td>{% if perms.aa_stratcom.op_coordinator %}<a href="{% url 'aa_stratcom:operation_edit' operation.pk %}" class="btn btn-sm btn-outline-secondary">{% translate "Edit" %}</a>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="4">{% translate "No operations available." %}</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+
+<p id="operation-index-status" class="small text-muted" role="status"></p>
+</div>

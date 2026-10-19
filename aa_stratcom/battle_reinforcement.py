@@ -22,7 +22,7 @@ def editable_timer(user, body, lock=False):
     if body.get("operation"):
         operation = get_operation(user, body["operation"])
         get_object_or_404(operation_timers(operation, user), pk=timer.pk)
-        permitted = user.has_perm("structuretimers.op_coordinator")
+        permitted = user.has_perm("aa_stratcom.op_coordinator")
     else:
         permitted = timer.user_can_edit(user)
     if not permitted:

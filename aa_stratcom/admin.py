@@ -39,6 +39,7 @@ from .models import (
     StandingsSource,
     Structure,
     StructureHistory,
+    StructureTimersImport,
     Timer,
     TimerboardImport,
 )
@@ -896,10 +897,24 @@ class TimerboardImportAdmin(admin.ModelAdmin):
         return format_html(
             '<a href="{}">{}</a>',
             reverse(
-                "admin:structuretimers_structure_change", args=[obj.timer.structure_id]
+                "admin:aa_stratcom_structure_change", args=[obj.timer.structure_id]
             ),
             obj.timer.structure,
         )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StructureTimersImport)
+class StructureTimersImportAdmin(admin.ModelAdmin):
+    """Read-only audit of a completed legacy copy."""
+
+    list_display = ("source", "completed_at")
+    readonly_fields = ("source", "completed_at", "counts")
 
     def has_add_permission(self, request):
         return False

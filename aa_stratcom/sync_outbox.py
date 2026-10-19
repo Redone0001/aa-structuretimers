@@ -25,10 +25,10 @@ def authorized_destination(destination):
         return False
     return (
         user.is_active
-        and user.has_perm("structuretimers.manage_timer_sharing")
+        and user.has_perm("aa_stratcom.manage_timer_sharing")
         and (
             destination.scope != TimerSyncDestination.Scope.ALL
-            or user.has_perm("structuretimers.opsec_access")
+            or user.has_perm("aa_stratcom.opsec_access")
         )
     )
 

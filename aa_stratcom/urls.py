@@ -12,7 +12,7 @@ from . import (
     views,
 )
 
-app_name = "structuretimers"
+app_name = "aa_stratcom"
 
 urlpatterns = [
     path("api/v1/sync/timers/", sync_api.timer_sync, name="timer_sync_api"),

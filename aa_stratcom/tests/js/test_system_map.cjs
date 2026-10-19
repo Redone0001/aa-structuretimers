@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {boundary,connectionPath,indicatorSlots}=require('../../static/structuretimers/js/system_map.js');
+const {boundary,connectionPath,indicatorSlots}=require('../../static/aa_stratcom/js/system_map.js');
 const a={x:0,y:0,width:160,height:34},b={x:300,y:0,width:90,height:34};
 assert.deepEqual(boundary(a,b),{x:85,y:0});
 assert.deepEqual(boundary(b,a,9),{x:246,y:0});
@@ -15,7 +15,7 @@ assert.equal(slots[0].y,35);assert.equal(slots[4].y,59);assert.equal(slots[6].y,
 assert.deepEqual(indicatorSlots([]),[]);
 console.log('Rectangle boundary intersections, parallel curves, self loops, category rows and overflow passed.');
 
-const {tokenSlots,dropTarget}=require('../../static/structuretimers/js/system_map.js');
+const {tokenSlots,dropTarget}=require('../../static/aa_stratcom/js/system_map.js');
 const tokens=tokenSlots(Array.from({length:5},(_,id)=>({id})),90);
 assert.equal(tokens.length,5);assert.ok(tokens.every(t=>t.size===45&&t.y+t.size < -31));
 for(let i=0;i<tokens.length;i++)for(let j=i+1;j<tokens.length;j++){

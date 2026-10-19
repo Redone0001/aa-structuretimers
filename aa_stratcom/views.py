@@ -41,8 +41,8 @@ from aa_stratcom import (
     structures_bridge,
 )
 from aa_stratcom.app_settings import (
-    STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
-    STRUCTURETIMERS_PAGING_ENABLED,
+    AA_STRATCOM_DEFAULT_PAGE_LENGTH,
+    AA_STRATCOM_PAGING_ENABLED,
 )
 from aa_stratcom.constants import EveTypeId
 from aa_stratcom.distance_ranges import JUMP_RANGES, distance_range
@@ -125,11 +125,11 @@ def fit_buttons_html(fitting: str) -> str:
 class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     """View for showing a list of timer."""
 
-    template_name = "structuretimers/timer_list.html"
-    permission_required = "structuretimers.basic_access"
+    template_name = "aa_stratcom/timer_list.html"
+    permission_required = "aa_stratcom.basic_access"
 
     def _standings_context(self) -> dict:
-        if not self.request.user.has_perm("structuretimers.recon_coordinator"):
+        if not self.request.user.has_perm("aa_stratcom.recon_coordinator"):
             return {}
         organizations = list(Organization.objects.select_related("alliance"))
         for organization in organizations:
@@ -156,15 +156,15 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         tab = self.request.GET.get("tab", "current")
         tab = {"manage-recon": "preliminary"}.get(tab, tab)
         if tab in ("preliminary", "recon-campaigns") and not self.request.user.has_perm(
-            "structuretimers.recon_member"
+            "aa_stratcom.recon_member"
         ):
             return "current"
         if tab == "standings" and not self.request.user.has_perm(
-            "structuretimers.recon_coordinator"
+            "aa_stratcom.recon_coordinator"
         ):
             return "current"
         if tab == "ops" and not any(
-            self.request.user.has_perm("structuretimers." + role)
+            self.request.user.has_perm("aa_stratcom." + role)
             for role in ("op_coordinator", "op_viewer")
         ):
             return "current"
@@ -194,8 +194,8 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "current_time": now().strftime("%H:%M"),
                 "max_hours_expired": MAX_HOURS_PASSED,
                 "title": __title__,
-                "data_tables_page_length": STRUCTURETIMERS_DEFAULT_PAGE_LENGTH,
-                "data_tables_paging": STRUCTURETIMERS_PAGING_ENABLED,
+                "data_tables_page_length": AA_STRATCOM_DEFAULT_PAGE_LENGTH,
+                "data_tables_paging": AA_STRATCOM_PAGING_ENABLED,
                 "selected_staging_system": selected_staging_system,
                 "stageing_systems": stageing_systems,
                 "tab": self._selected_tab(),
@@ -203,7 +203,7 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 **self._standings_context(),
                 "campaigns": ReconCampaign.objects.all(),
                 "can_view_ops": any(
-                    self.request.user.has_perm("structuretimers." + role)
+                    self.request.user.has_perm("aa_stratcom." + role)
                     for role in ("op_coordinator", "op_viewer")
                 ),
                 "operations": Operation.visible_to(self.request.user),
@@ -269,7 +269,7 @@ class TimerListDataView(
     """Produce timer list in JSON for AJAX call."""
 
     model = Timer
-    permission_required = "structuretimers.basic_access"
+    permission_required = "aa_stratcom.basic_access"
 
     def render_to_response(self, context, **response_kwargs):
         return self.render_to_json_response(context, **response_kwargs)
@@ -463,7 +463,7 @@ class TimerListDataView(
                 else timer.reinforcement_time
             ),
         }
-        return render_to_string("structuretimers/partials/structure_box.html", context)
+        return render_to_string("aa_stratcom/partials/structure_box.html", context)
 
     @staticmethod
     def _calc_location_for_timer(timer: Timer):
@@ -517,7 +517,7 @@ class TimerListDataView(
         actions = ""
         if any((timer.details_image_url, timer.details_notes)) or (
             (timer.structure_id or timer.structures_structure_id)
-            and self.request.user.has_perm("structuretimers.recon_member")
+            and self.request.user.has_perm("aa_stratcom.recon_member")
         ):
             disabled_html = ""
             button_type = "primary"
@@ -548,25 +548,22 @@ class TimerListDataView(
         if timer.user_can_edit(self.request.user):
             actions += (
                 timer_action_button_html(
-                    reverse("structuretimers:delete", args=(timer.pk,)),
+                    reverse("aa_stratcom:delete", args=(timer.pk,)),
                     "far fa-trash-alt",
                     "danger",
                     "Delete this timer",
                 )
                 + "&nbsp;"
                 + timer_action_button_html(
-                    reverse("structuretimers:edit", args=(timer.pk,)),
+                    reverse("aa_stratcom:edit", args=(timer.pk,)),
                     "far fa-edit",
                     "warning",
                     "Edit this timer",
                 )
             )
-        if (
-            self.request.user.has_perm("structuretimers.create_timer")
-            and not read_only()
-        ):
+        if self.request.user.has_perm("aa_stratcom.create_timer") and not read_only():
             actions += "&nbsp;" + timer_action_button_html(
-                reverse("structuretimers:copy", args=(timer.pk,)),
+                reverse("aa_stratcom:copy", args=(timer.pk,)),
                 "far fa-copy",
                 "success",
                 "Copy this timer",
@@ -583,8 +580,8 @@ class ManageReconDataView(TimerListDataView):
 
     model = Structure
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
     def get_queryset(self):
@@ -689,7 +686,7 @@ class ManageReconDataView(TimerListDataView):
 
     def _get_data_actions(self, timer):
         return render_to_string(
-            "structuretimers/partials/recon_actions.html",
+            "aa_stratcom/partials/recon_actions.html",
             {
                 "timer": timer,
                 "can_edit": timer.user_can_edit(self.request.user),
@@ -702,11 +699,11 @@ class StructureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     """A Database record with its fitting and reinforcement history."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
     model = Structure
-    template_name = "structuretimers/structure_detail.html"
+    template_name = "aa_stratcom/structure_detail.html"
 
     def get_queryset(self):
         return Structure.objects.visible_to_user(self.request.user).select_related(
@@ -731,7 +728,7 @@ class StructureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
 class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """View for showing details of a timer."""
 
-    permission_required = "structuretimers.basic_access"
+    permission_required = "aa_stratcom.basic_access"
     model = Timer
 
     def get_queryset(self):
@@ -747,7 +744,7 @@ class TimerDetailDataView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
             self.object, self.request.user
         )
         user = self.request.user
-        if user.has_perm("structuretimers.recon_member"):
+        if user.has_perm("aa_stratcom.recon_member"):
             if self.object.structure_id:
                 context["database_entry"] = (
                     Structure.objects.visible_to_user(user)
@@ -795,8 +792,8 @@ class AddUpdateMixin:
 class CreateTimerView(TimerManagementView, AddUpdateMixin, CreateView):
     template_name_suffix = "_create_form"
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.create_timer",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.create_timer",
     )
     title = _("Create New Timer")
 
@@ -824,7 +821,7 @@ class AddInformationView(CreateTimerView):
     duplicate, and adds a reinforcement timer when a date is given.
     """
 
-    template_name = "structuretimers/add_information.html"
+    template_name = "aa_stratcom/add_information.html"
     title = "Add information"
 
     def get_context_data(self, **kwargs):
@@ -843,8 +840,8 @@ class ParseInformationView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Read a paste and return the form values found, with the matching record."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.create_timer",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.create_timer",
     )
 
     def post(self, request):
@@ -857,23 +854,23 @@ class FastCreateTimerView(CreateTimerView):
     """Create a timer from text copied from EVE Online."""
 
     form_class = FastTimerForm
-    template_name = "structuretimers/timer_fast_create_form.html"
+    template_name = "aa_stratcom/timer_fast_create_form.html"
     title = _("Quick Add Timer")
 
 
 class CreateReconView(CreateTimerView):
     form_class = ReconForm
-    template_name = "structuretimers/recon_create_form.html"
+    template_name = "aa_stratcom/recon_create_form.html"
     title = _("Add recon")
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.create_timer",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.create_timer",
+        "aa_stratcom.recon_member",
     )
 
 
 class EditTimerMixin:
-    permission_required = "structuretimers.basic_access"
+    permission_required = "aa_stratcom.basic_access"
 
     def dispatch(self, request, *args, **kwargs):
         # Check object-level permission before processing the request - an
@@ -898,14 +895,14 @@ class EditTimerView(EditTimerMixin, TimerManagementView, AddUpdateMixin, UpdateV
 
     def get_success_url(self):
         if self.request.GET.get("tab") in ("preliminary", "manage-recon"):
-            return reverse("structuretimers:timer_list") + "?tab=preliminary"
+            return reverse("aa_stratcom:timer_list") + "?tab=preliminary"
         return super().get_success_url()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if self.request.GET.get("tab") in ("preliminary", "manage-recon"):
             context["cancel_url"] = (
-                reverse("structuretimers:timer_list") + "?tab=preliminary"
+                reverse("aa_stratcom:timer_list") + "?tab=preliminary"
             )
         return context
 
@@ -920,11 +917,11 @@ class EditStructureView(TimerManagementView, AddUpdateMixin, UpdateView):
 
     model = Structure
     form_class = ReconForm
-    template_name = "structuretimers/timer_update_form.html"
+    template_name = "aa_stratcom/timer_update_form.html"
     title = "Edit Database record"
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
     def get_queryset(self):
@@ -938,13 +935,11 @@ class EditStructureView(TimerManagementView, AddUpdateMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["cancel_url"] = (
-            reverse("structuretimers:timer_list") + "?tab=preliminary"
-        )
+        context["cancel_url"] = reverse("aa_stratcom:timer_list") + "?tab=preliminary"
         return context
 
     def get_success_url(self):
-        return reverse("structuretimers:timer_list") + "?tab=preliminary"
+        return reverse("aa_stratcom:timer_list") + "?tab=preliminary"
 
     def form_valid(self, form):
         result = super().form_valid(form)
@@ -956,10 +951,10 @@ class RemoveStructureView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
     """Delete a Database record."""
 
     model = Structure
-    template_name = "structuretimers/timer_confirm_delete.html"
+    template_name = "aa_stratcom/timer_confirm_delete.html"
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     )
 
     def get_queryset(self):
@@ -972,7 +967,7 @@ class RemoveStructureView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
-        return reverse("structuretimers:timer_list") + "?tab=preliminary"
+        return reverse("aa_stratcom:timer_list") + "?tab=preliminary"
 
 
 class CopyTimerView(CreateTimerView):

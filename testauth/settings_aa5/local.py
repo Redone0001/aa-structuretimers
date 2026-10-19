@@ -88,4 +88,4 @@ STORAGES["staticfiles"][
 INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS + ["eve_sde"]
 
 # Only the bearer-authenticated timer sync view opts out of AA's browser login.
-APPS_WITH_PUBLIC_VIEWS = ["structuretimers"]
+APPS_WITH_PUBLIC_VIEWS = ["aa_stratcom"]

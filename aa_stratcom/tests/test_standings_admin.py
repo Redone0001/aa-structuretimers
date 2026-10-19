@@ -14,7 +14,7 @@ from aa_stratcom.models import Organization, StandingsSource, Timer
 from aa_stratcom.tests.testdata.factory import TimerFactory
 
 
-@patch("structuretimers.models._task_calc_structure_distances", Mock())
+@patch("aa_stratcom.models._task_calc_structure_distances", Mock())
 class TestStandingsAdmin(NoSocketsTestCase):
     def setUp(self):
         self.user = UserFactory(is_staff=True, is_superuser=True)
@@ -29,8 +29,8 @@ class TestStandingsAdmin(NoSocketsTestCase):
             ]
         )
         self.token.scopes.add(Scope.objects.create(name=standings.CONTACTS_SCOPE))
-        self.list_url = reverse("admin:structuretimers_standingssource_changelist")
-        self.add_url = reverse("admin:structuretimers_standingssource_add")
+        self.list_url = reverse("admin:aa_stratcom_standingssource_changelist")
+        self.add_url = reverse("admin:aa_stratcom_standingssource_add")
 
     def source(self):
         return StandingsSource.objects.create(
@@ -45,18 +45,18 @@ class TestStandingsAdmin(NoSocketsTestCase):
         self.assertContains(response, "Chosen Diplomat")
         self.assertContains(response, "Contacts unavailable")
         response = self.client.get(
-            reverse("admin:structuretimers_standingssource_change", args=[source.pk])
+            reverse("admin:aa_stratcom_standingssource_change", args=[source.pk])
         )
         self.assertContains(response, "Last sync at")
         self.assertNotContains(response, 'name="access_token"')
         self.assertNotContains(response, 'name="refresh_token"')
 
-    @patch("structuretimers.admin.standings.sync_source")
+    @patch("aa_stratcom.admin.standings.sync_source")
     @patch(
-        "structuretimers.admin.EveEntity.objects.resolve_name",
+        "aa_stratcom.admin.EveEntity.objects.resolve_name",
         return_value="Correct Alliance",
     )
-    @patch("structuretimers.admin.requests.get")
+    @patch("aa_stratcom.admin.requests.get")
     def test_explicit_token_derives_alliance_and_syncs(self, get, resolve, sync):
         get.return_value.json.return_value = {"alliance_id": 123}
         response = self.client.post(
@@ -77,7 +77,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(StandingsSource.objects.exists())
 
-    @patch("structuretimers.admin.requests.get")
+    @patch("aa_stratcom.admin.requests.get")
     def test_character_without_alliance_is_rejected(self, get):
         get.return_value.json.return_value = {}
         response = self.client.post(self.add_url, {"token": self.token.pk})
@@ -85,7 +85,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
         self.assertFalse(StandingsSource.objects.exists())
 
     @patch(
-        "structuretimers.admin.standings.sync_source",
+        "aa_stratcom.admin.standings.sync_source",
         side_effect=RuntimeError("Token revoked"),
     )
     def test_failed_sync_is_saved_and_reported(self, sync):
@@ -100,7 +100,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
             any(message.level == 40 for message in get_messages(response.wsgi_request))
         )
 
-    @patch("structuretimers.models._task_calc_timer_distances_for_all_staging_systems")
+    @patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems")
     def test_override_save_and_source_delete_recalculate_objectives(self, task):
         source = self.source()
         corp = Organization.objects.create(
@@ -108,7 +108,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
         )
         timer = TimerFactory(owner_corporation=corp)
         response = self.client.post(
-            reverse("admin:structuretimers_organization_change", args=[corp.pk]),
+            reverse("admin:aa_stratcom_organization_change", args=[corp.pk]),
             {
                 "id": corp.pk,
                 "name": corp.name,
@@ -148,12 +148,12 @@ class TestStandingsAdmin(NoSocketsTestCase):
         self.user.save()
         self.assertEqual(self.client.get(self.list_url).status_code, 302)
 
-    @patch("structuretimers.admin.standings.sync_source")
+    @patch("aa_stratcom.admin.standings.sync_source")
     @patch(
-        "structuretimers.admin.EveEntity.objects.resolve_name",
+        "aa_stratcom.admin.EveEntity.objects.resolve_name",
         return_value="New Alliance",
     )
-    @patch("structuretimers.admin.requests.get")
+    @patch("aa_stratcom.admin.requests.get")
     def test_existing_source_can_be_replaced(self, get, resolve, sync):
         source = self.source()
         (token,) = Token.objects.bulk_create(
@@ -168,7 +168,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
         token.scopes.add(Scope.objects.get(name=standings.CONTACTS_SCOPE))
         get.return_value.json.return_value = {"alliance_id": 456}
         response = self.client.post(
-            reverse("admin:structuretimers_standingssource_change", args=[source.pk]),
+            reverse("admin:aa_stratcom_standingssource_change", args=[source.pk]),
             {
                 "token": token.pk,
                 "_save": "Save",
@@ -187,7 +187,7 @@ class TestStandingsAdmin(NoSocketsTestCase):
             id=100, name="Corp", category="corporation", standing_auto=-5
         )
         response = self.client.post(
-            reverse("admin:structuretimers_standingssource_delete", args=[source.pk]),
+            reverse("admin:aa_stratcom_standingssource_delete", args=[source.pk]),
             {"post": "yes"},
         )
         self.assertEqual(response.status_code, 302)

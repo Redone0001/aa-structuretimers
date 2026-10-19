@@ -48,7 +48,7 @@ Homepage = "https://github.com/Redone0001/aa-structuretimers"
 version = {attr = "aa_stratcom.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["aa_stratcom*", "structuretimers*"]
+include = ["aa_stratcom*"]
 
 [tool.setuptools.package-data]
 aa_stratcom = ["templates/**/*", "static/**/*", "locale/**/*", "data/**/*", "tests/**/*.json", "tests/**/*.txt", "tests/**/*.jpg", "tests/**/*.cjs", "tests/fixtures/**/*.html", "tools/*.sql"]

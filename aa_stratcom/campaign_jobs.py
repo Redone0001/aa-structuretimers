@@ -32,7 +32,7 @@ def enqueue_campaign_job(pk, kind, refresh=False):
 
 
 @shared_task(
-    name="structuretimers.campaign_jobs.prepare_campaign",
+    name="aa_stratcom.campaign_jobs.prepare_campaign",
     soft_time_limit=600,
     time_limit=660,
     acks_late=True,
@@ -50,7 +50,7 @@ def prepare_campaign(pk, kind, refresh=False):
         if kind == "systems":
             system_ids = set()
             for region_id in campaign.region_ids:
-                key = f"structuretimers:campaign-region:{region_id}"
+                key = f"aa_stratcom:campaign-region:{region_id}"
                 cached_ids = cache.get(key)
                 if cached_ids and EveSolarSystem.objects.filter(
                     pk__in=cached_ids

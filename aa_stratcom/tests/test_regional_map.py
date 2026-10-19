@@ -61,7 +61,7 @@ class RegionalMapTests(TestCase):
         self.user = UserWithCreateFactory()
         self.client.force_login(self.user)
         self.patch = patch(
-            "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+            "aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems",
             Mock(),
         )
         self.patch.start()
@@ -69,7 +69,7 @@ class RegionalMapTests(TestCase):
 
     def get(self, layer, **params):
         return self.client.get(
-            reverse("structuretimers:regional_map_data", args=[layer]),
+            reverse("aa_stratcom:regional_map_data", args=[layer]),
             {"region": self.region.id, **params},
         )
 
@@ -120,7 +120,7 @@ class RegionalMapTests(TestCase):
         self.assertIsNone(record["refresh_url"])
         self.assertEqual(
             self.client.post(
-                reverse("structuretimers:recon_action", args=[hidden.pk, "refresh"])
+                reverse("aa_stratcom:recon_action", args=[hidden.pk, "refresh"])
             ).status_code,
             404,
         )

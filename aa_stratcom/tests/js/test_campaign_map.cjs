@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const {layout} = require('../../static/structuretimers/js/campaign_map.js');
+const {layout} = require('../../static/aa_stratcom/js/campaign_map.js');
 for (const systems of [[], [{id:1, x:0, z:0}], Array.from({length:300}, (_, id) => ({id, x:0, z:0})), Array.from({length:200}, (_, id) => ({id, x:id % 7 ? id * 1e17 : null, z:id % 7 ? id * -2e17 : null}))]) {
     const result = layout(systems);
     assert.equal(result.nodes.length, systems.length);

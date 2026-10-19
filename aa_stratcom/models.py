@@ -38,8 +38,8 @@ from app_utils.urls import reverse_absolute, static_file_absolute_url
 from aa_stratcom import __title__, structures_bridge
 from aa_stratcom import sync_models as _sync_models  # noqa: F401
 from aa_stratcom.app_settings import (
-    STRUCTURETIMER_NOTIFICATION_SET_AVATAR,
-    STRUCTURETIMERS_NOTIFICATIONS_ENABLED,
+    AA_STRATCOM_NOTIFICATION_SET_AVATAR,
+    AA_STRATCOM_NOTIFICATIONS_ENABLED,
 )
 from aa_stratcom.managers import (
     DistancesFromStagingManager,
@@ -53,7 +53,7 @@ logger = get_extension_logger(__name__)
 
 def default_avatar_url() -> str:
     """avatar url for all messages"""
-    return static_file_absolute_url("structuretimers/img/structuretimers_logo.png")
+    return static_file_absolute_url("aa_stratcom/img/aa_stratcom_logo.png")
 
 
 def _task_calc_staging_system():
@@ -122,13 +122,19 @@ class Operation(models.Model):
     )
     timers = models.ManyToManyField("Timer", related_name="operations", blank=True)
     participants = models.ManyToManyField(
-        User, related_name="timer_operations", blank=True
+        User, related_name="aa_stratcom_timer_operations", blank=True
     )
     created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="created_operations"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="aa_stratcom_created_operations",
     )
     updated_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="updated_operations"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="aa_stratcom_updated_operations",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -142,16 +148,16 @@ class Operation(models.Model):
 
     def get_absolute_url(self):
         """Open this operation's timerboard."""
-        return reverse("structuretimers:operation_detail", args=[self.pk])
+        return reverse("aa_stratcom:operation_detail", args=[self.pk])
 
     @classmethod
     def visible_to(cls, user):
         """Apply operation roles independently of recon and timer permissions."""
-        if not user.has_perm("structuretimers.basic_access"):
+        if not user.has_perm("aa_stratcom.basic_access"):
             return cls.objects.none()
-        if user.has_perm("structuretimers.op_coordinator"):
+        if user.has_perm("aa_stratcom.op_coordinator"):
             return cls.objects.all()
-        if user.has_perm("structuretimers.op_viewer"):
+        if user.has_perm("aa_stratcom.op_viewer"):
             return cls.objects.filter(visibility=cls.Visibility.ALL)
         return cls.objects.none()
 
@@ -161,7 +167,7 @@ class OperationRoleTemplate(models.Model):
 
     name = models.CharField(max_length=200, unique=True)
     systems = models.ManyToManyField(
-        EveSolarSystem, blank=True, related_name="operation_role_templates"
+        EveSolarSystem, blank=True, related_name="aa_stratcom_operation_role_templates"
     )
 
     class Meta:
@@ -191,7 +197,9 @@ class OperationRole(models.Model):
         blank=True,
         help_text="Coverage by user ID: each list must contain systems from this role.",
     )
-    users = models.ManyToManyField(User, blank=True, related_name="operation_roles")
+    users = models.ManyToManyField(
+        User, blank=True, related_name="aa_stratcom_operation_roles"
+    )
     position = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -658,8 +666,8 @@ class StructureDetails(models.Model):
 
         if read_only():
             return False
-        return user.has_perm("structuretimers.manage_timer") or (
-            self.user == user and user.has_perm("structuretimers.create_timer")
+        return user.has_perm("aa_stratcom.manage_timer") or (
+            self.user == user and user.has_perm("aa_stratcom.create_timer")
         )
 
     def label_type_for_objective(self) -> str:
@@ -870,7 +878,7 @@ class Timer(StructureDetails):
 
     def get_absolute_url(self) -> str:
         """Returns the absolute URL of a timer."""
-        return reverse("structuretimers:timer_list")
+        return reverse("aa_stratcom:timer_list")
 
     @property
     def space_type(self) -> "SpaceType":
@@ -964,12 +972,12 @@ class Timer(StructureDetails):
 
         embed = dhooks_lite.Embed(
             title=title,
-            url=reverse_absolute("structuretimers:timer_list"),
+            url=reverse_absolute("aa_stratcom:timer_list"),
             description=description,
             thumbnail=dhooks_lite.Thumbnail(structure_icon_url),
             color=color,
         )
-        if STRUCTURETIMER_NOTIFICATION_SET_AVATAR:
+        if AA_STRATCOM_NOTIFICATION_SET_AVATAR:
             username = __title__
             avatar_url = default_avatar_url()
         else:
@@ -1003,14 +1011,14 @@ class Structure(StructureDetails):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="destroyed_structure_records",
+        related_name="aa_stratcom_destroyed_structure_records",
     )
     destroyed_by_timer = models.ForeignKey(
         "Timer",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="destroyed_structure_records",
+        related_name="aa_stratcom_destroyed_structure_records",
         help_text="Battle timer that marked this structure destroyed, if applicable.",
     )
 
@@ -1054,7 +1062,7 @@ class Structure(StructureDetails):
 
     def get_absolute_url(self) -> str:
         """Return the Database tab containing this structure."""
-        return reverse("structuretimers:timer_list") + "?tab=preliminary"
+        return reverse("aa_stratcom:timer_list") + "?tab=preliminary"
 
     def get_timer_type_display(self) -> str:
         """Provide the Database label for shared timer rendering."""
@@ -1156,7 +1164,7 @@ def handle_timer_save(
     if kwargs.get("raw"):
         return
     schedule_notifications = (
-        STRUCTURETIMERS_NOTIFICATIONS_ENABLED
+        AA_STRATCOM_NOTIFICATIONS_ENABLED
         and instance.timer_type != Timer.Type.PRELIMINARY
     )
     date_changed = instance.date != instance._original_date
@@ -1308,7 +1316,7 @@ class NotificationRule(models.Model):
     exclude_corporations = models.ManyToManyField(
         EveCorporationInfo,
         blank=True,
-        related_name="notification_rule_exclude_corporations",
+        related_name="aa_stratcom_notification_rule_exclude_corporations",
         help_text="Timer must NOT be created by one of the given corporations",
     )
     require_alliances = models.ManyToManyField(
@@ -1478,8 +1486,10 @@ def handle_rule_save(
     **kwargs,
 ):
     """Update scheduled notifications a needed on save."""
+    if kwargs.get("raw"):
+        return
     if instance.trigger == NotificationRule.Trigger.SCHEDULED_TIME_REACHED:
-        if STRUCTURETIMERS_NOTIFICATIONS_ENABLED and instance.is_enabled:
+        if AA_STRATCOM_NOTIFICATIONS_ENABLED and instance.is_enabled:
             instance._import_schedule_notifications_for_rule().apply_async(
                 kwargs={"notification_rule_pk": instance.pk}, priority=4
             )
@@ -1509,7 +1519,7 @@ class ScheduledNotification(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["timer", "notification_rule"],
-                name="unique_notification_schedule",
+                name="asc_notification_schedule",
             )
         ]
 
@@ -1551,6 +1561,8 @@ def handle_staging_system_save(
     **kwargs,
 ):
     """Update distances for staging system on save as needed."""
+    if kwargs.get("raw"):
+        return
     needs_recalc = (
         created
         or instance.eve_solar_system_id != instance._original_eve_solar_system_id
@@ -1579,7 +1591,7 @@ class DistancesFromStaging(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["timer", "staging_system"], name="fpk_distances_from_staging"
+                fields=["timer", "staging_system"], name="asc_timer_staging_distance"
             )
         ]
 
@@ -1616,7 +1628,7 @@ class StructureDistance(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["structure", "staging_system"],
-                name="fpk_structure_distances_from_staging",
+                name="asc_structure_staging_distance",
             )
         ]
 
@@ -1651,7 +1663,9 @@ class ReconCampaign(models.Model):
         max_length=10, choices=ImportStatus.choices, default=ImportStatus.READY
     )
     name = models.CharField(max_length=200)
-    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    created_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="aa_stratcom_campaigns"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
 
@@ -1663,7 +1677,7 @@ class ReconCampaign(models.Model):
 
     def get_absolute_url(self):
         """Return the campaign detail page."""
-        return reverse("structuretimers:campaign_detail", args=[self.pk])
+        return reverse("aa_stratcom:campaign_detail", args=[self.pk])
 
 
 class ReconCampaignSystem(models.Model):
@@ -1672,13 +1686,17 @@ class ReconCampaignSystem(models.Model):
     campaign = models.ForeignKey(
         ReconCampaign, related_name="systems", on_delete=models.CASCADE
     )
-    solar_system = models.ForeignKey(EveSolarSystem, on_delete=models.PROTECT)
+    solar_system = models.ForeignKey(
+        EveSolarSystem,
+        on_delete=models.PROTECT,
+        related_name="aa_stratcom_campaign_systems",
+    )
     reserved_by = models.ForeignKey(
         User,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="recon_reservations",
+        related_name="aa_stratcom_recon_reservations",
     )
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(
@@ -1686,13 +1704,13 @@ class ReconCampaignSystem(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="completed_recon_systems",
+        related_name="aa_stratcom_completed_recon_systems",
     )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["campaign", "solar_system"], name="unique_recon_campaign_system"
+                fields=["campaign", "solar_system"], name="asc_recon_campaign_system"
             )
         ]
         ordering = ["solar_system__name"]
@@ -1736,6 +1754,7 @@ class DiscordTimerboardMessage(models.Model):
     )
     channel_id = models.CharField(max_length=20)
     message_id = models.CharField(max_length=20)
+    legacy_message_id = models.CharField(max_length=20, blank=True, default="")
     position = models.PositiveIntegerField()
     content = models.TextField()
 
@@ -1756,7 +1775,9 @@ class MapTimerState(models.Model):
 class MapFleetToken(models.Model):
     """Quick battle intelligence shared with regional-map users."""
 
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    creator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="aa_stratcom_fleet_tokens"
+    )
     system_id = models.PositiveIntegerField(db_index=True)
     alliance_name = models.CharField(max_length=200, blank=True)
     alliance_id = models.PositiveIntegerField(null=True, blank=True)
@@ -1786,9 +1807,7 @@ class MapFleetToken(models.Model):
 
     def user_can_edit(self, user):
         """Allow the creator or a timer manager to edit this fleet token."""
-        return self.creator_id == user.pk or user.has_perm(
-            "structuretimers.manage_timer"
-        )
+        return self.creator_id == user.pk or user.has_perm("aa_stratcom.manage_timer")
 
 
 class TimerboardImport(models.Model):
@@ -1807,3 +1826,13 @@ class TimerboardImport(models.Model):
 
     def __str__(self):
         return f"Timerboard #{self.source_id}"
+
+
+class StructureTimersImport(models.Model):
+    """Completion marker for an atomic, non-destructive legacy copy."""
+
+    source = models.CharField(
+        max_length=40, primary_key=True, default="structuretimers"
+    )
+    completed_at = models.DateTimeField(null=True)
+    counts = models.JSONField(default=dict)

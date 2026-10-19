@@ -1,0 +1,6 @@
+{% extends 'aa_stratcom/base.html' %}
+{% load i18n django_bootstrap5 %}
+{% block aa_stratcom_content %}
+<h1>{% translate 'Create recon campaign' %}</h1>
+<form method="post">{% csrf_token %}{% bootstrap_form form %}<button class="btn btn-primary" type="submit">{% translate 'Create campaign' %}</button> <a class="btn btn-secondary" href="{% url 'aa_stratcom:campaign_list' %}">{% translate 'Cancel' %}</a></form>
+{% endblock %}

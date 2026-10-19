@@ -14,7 +14,7 @@ from aa_stratcom.tests.testdata.factory import (
     TimerFactory,
 )
 
-MODELS_PATH = "structuretimers.models"
+MODELS_PATH = "aa_stratcom.models"
 
 
 class TestTimer_QuerySet(NoSocketsTestCase):
@@ -56,7 +56,7 @@ class TestTimer_QuerySet(NoSocketsTestCase):
 
 
 class TestTimer_Manger(NoSocketsTestCase):
-    @patch("structuretimers.managers.STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS", 1)
+    @patch("aa_stratcom.managers.AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS", 1)
     def test_delete_old_timer(self):
         timer_1 = TimerFactory(date=now())
         old = TimerFactory(date=now() - dt.timedelta(days=1, seconds=1))

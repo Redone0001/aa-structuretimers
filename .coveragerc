@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = aa_stratcom, structuretimers
+source = aa_stratcom
 
 [report]
 exclude_lines =

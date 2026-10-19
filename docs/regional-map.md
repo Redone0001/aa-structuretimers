@@ -43,13 +43,13 @@ Structure, gate and label layers toggle independently. With structures off, stru
 | File | Responsibility |
 | --- | --- |
 | `aa_stratcom/regional_map.py` | SDE adapter, visible timer aggregation, distance calculation, permitted sidebar actions, JSON endpoints |
-| `static/structuretimers/js/system_map.js` | Generic SVG renderer, geometry, indicator layout, selection, pan/zoom, fit and spacing; no module requests or timer logic |
-| `static/structuretimers/js/map_preferences.js` | Versioned first-party preference cookies |
-| `static/structuretimers/js/campaign_sde_map.js` | Campaign selection, region/overlay controls and reservation-aware sidebar |
-| `static/structuretimers/js/regional_map.js` | Filter state, separate/cancellable requests, sidebar and CSRF-protected recon refresh |
-| `static/structuretimers/css/regional_map.css` | Scoped AA theme tokens and responsive map/sidebar layout |
-| `templates/structuretimers/regional_map.html` | AA Bootstrap page, controls, legend, loading/error status and sidebar |
-| `templates/structuretimers/timer_list.html`, `urls.py` | Navigation and routes |
+| `static/aa_stratcom/js/system_map.js` | Generic SVG renderer, geometry, indicator layout, selection, pan/zoom, fit and spacing; no module requests or timer logic |
+| `static/aa_stratcom/js/map_preferences.js` | Versioned first-party preference cookies |
+| `static/aa_stratcom/js/campaign_sde_map.js` | Campaign selection, region/overlay controls and reservation-aware sidebar |
+| `static/aa_stratcom/js/regional_map.js` | Filter state, separate/cancellable requests, sidebar and CSRF-protected recon refresh |
+| `static/aa_stratcom/css/regional_map.css` | Scoped AA theme tokens and responsive map/sidebar layout |
+| `templates/aa_stratcom/regional_map.html` | AA Bootstrap page, controls, legend, loading/error status and sidebar |
+| `templates/aa_stratcom/timer_list.html`, `urls.py` | Navigation and routes |
 | `pyproject.toml`, `testauth/settings_aa5/local.py` | SDE dependency and test-project configuration |
 | `tests/test_regional_map.py`, `tests/js/test_system_map.cjs`, `tests/browser/*` | Adapter, geometry and browser regression coverage |
 
@@ -57,9 +57,9 @@ The page inherits the existing `allianceauth/base-bs5.html` integration. No extr
 
 ## Endpoint contract
 
-All endpoints are GET-only, require login and `structuretimers.basic_access`, and have private/no-store cache headers. Timer queries always start with `Timer.objects.visible_to_user(user)`, preserving corporation/alliance ownership and OPSEC rules. No invisible timer names, counts, objectives or action URLs are sent. UI visibility does not replace server permission checks on mutations.
+All endpoints are GET-only, require login and `aa_stratcom.basic_access`, and have private/no-store cache headers. Timer queries always start with `Timer.objects.visible_to_user(user)`, preserving corporation/alliance ownership and OPSEC rules. No invisible timer names, counts, objectives or action URLs are sent. UI visibility does not replace server permission checks on mutations.
 
-Base: `/structuretimers/map/data/<layer>/`.
+Base: `/aa_stratcom/map/data/<layer>/`.
 
 - `regions` (optional `include_test=1` reveals CCP test regions): `{ "regions": [{"id": 10000001, "name": "Region"}] }`
 - `search?q=...`: `{ "systems": [{"id": 30000001, "name": "System"}] }`; minimum two characters; at most 30 results from all regions.
@@ -167,7 +167,7 @@ The fleet POST endpoint accepts `action: "move"` with `id`, `revision`, and `sys
 Run after upgrading to populate fleet suggestions for all active player alliances, including those with no members in Auth:
 
 ```shell
-python manage.py structuretimers_sync_alliances
+python manage.py aa_stratcom_sync_alliances
 ```
 
 This reads CCP ESI's public `/v1/alliances/` list and resolves missing names in batches through Eve Universe. No character token or additional scope is needed. Names/IDs are stored in `eveuniverse.EveEntity` (`eveuniverse_eveentity`, category `alliance`), not Auth's membership records. Suggestions and exact-name logo resolution use local queries only; unknown text remains accepted. Existing records remain usable during an ESI outage, and historical names are retained. This does not import tickers or standings. Existing tokens with unresolved names get their logo when saved again after the import.
@@ -175,8 +175,8 @@ This reads CCP ESI's public `/v1/alliances/` list and resolves missing names in 
 To discover newly created alliances daily, add this entry to your existing `CELERYBEAT_SCHEDULE` in Auth settings and restart Celery workers and Beat:
 
 ```python
-CELERYBEAT_SCHEDULE["structuretimers-sync-alliances"] = {
-    "task": "structuretimers.tasks.sync_alliance_directory",
+CELERYBEAT_SCHEDULE["aa_stratcom-sync-alliances"] = {
+    "task": "aa_stratcom.tasks.sync_alliance_directory",
     "schedule": 86400.0,
 }
 ```

@@ -58,8 +58,8 @@ class TestStandingRules(NoSocketsTestCase):
 
 
 class TestStandingsSync(NoSocketsTestCase):
-    @patch("structuretimers.standings.EveEntity.objects.bulk_resolve_names")
-    @patch("structuretimers.standings._get_pages")
+    @patch("aa_stratcom.standings.EveEntity.objects.bulk_resolve_names")
+    @patch("aa_stratcom.standings._get_pages")
     def test_sync_sets_auto_standings_and_clears_old_ones(self, get_pages, resolve):
         get_pages.return_value = [
             {"contact_id": 100, "contact_type": "alliance", "standing": -10.0},
@@ -107,21 +107,21 @@ class TestStandingsTab(NoSocketsTestCase):
         )
         self.coordinator = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.recon_member",
-                "structuretimers.recon_coordinator",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.recon_member",
+                "aa_stratcom.recon_coordinator",
             ]
         )
 
     def test_only_coordinators_see_and_change_standings(self):
-        url = reverse("structuretimers:standing_set", args=[self.organization.pk])
+        url = reverse("aa_stratcom:standing_set", args=[self.organization.pk])
         self.client.force_login(UserWithAccessFactory())
-        page = self.client.get(reverse("structuretimers:timer_list"))
+        page = self.client.get(reverse("aa_stratcom:timer_list"))
         self.assertNotContains(page, 'id="tab-standings"')
         self.assertEqual(self.client.post(url, {"standing": "-10"}).status_code, 403)
 
         self.client.force_login(self.coordinator)
-        page = self.client.get(reverse("structuretimers:timer_list") + "?tab=standings")
+        page = self.client.get(reverse("aa_stratcom:timer_list") + "?tab=standings")
         self.assertContains(page, 'id="tab-standings"')
         self.assertContains(page, "Some Corp")
         self.assertEqual(page.context["tab"], "standings")
@@ -133,10 +133,10 @@ class TestStandingsTab(NoSocketsTestCase):
         self.assertIsNone(self.organization.standing_override)
         self.assertEqual(self.client.post(url, {"standing": "3"}).status_code, 400)
 
-    @patch("structuretimers.views.standings.sync_all", Mock())
+    @patch("aa_stratcom.views.standings.sync_all", Mock())
     def test_sync_now(self):
         self.client.force_login(self.coordinator)
-        response = self.client.post(reverse("structuretimers:standings_sync"))
+        response = self.client.post(reverse("aa_stratcom:standings_sync"))
         self.assertEqual(response.status_code, 302)
         self.assertTrue(
             any(
@@ -146,7 +146,7 @@ class TestStandingsTab(NoSocketsTestCase):
         )
 
     @patch(
-        "structuretimers.standings.sync_source",
+        "aa_stratcom.standings.sync_source",
         side_effect=RuntimeError("Token revoked"),
     )
     def test_failed_sync_is_reported_instead_of_success(self, sync):
@@ -155,7 +155,7 @@ class TestStandingsTab(NoSocketsTestCase):
         )
         source = StandingsSource.objects.create(token=token, alliance_id=999)
         self.client.force_login(self.coordinator)
-        response = self.client.post(reverse("structuretimers:standings_sync"))
+        response = self.client.post(reverse("aa_stratcom:standings_sync"))
         source.refresh_from_db()
         self.assertEqual(source.last_error, "Token revoked")
         messages = list(get_messages(response.wsgi_request))
@@ -165,10 +165,8 @@ class TestStandingsTab(NoSocketsTestCase):
         )
 
 
-@patch("structuretimers.models._task_calc_structure_distances", Mock())
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
+@patch("aa_stratcom.models._task_calc_structure_distances", Mock())
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
 class TestStandingDecidesObjective(NoSocketsTestCase):
     def test_owner_standing_sets_objective_and_follows_changes(self):
         from aa_stratcom.models import Timer
@@ -186,13 +184,13 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
 
         coordinator = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.recon_coordinator",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.recon_coordinator",
             ]
         )
         self.client.force_login(coordinator)
         self.client.post(
-            reverse("structuretimers:standing_set", args=[alliance.pk]),
+            reverse("aa_stratcom:standing_set", args=[alliance.pk]),
             {"standing": "10"},
         )
         timer.refresh_from_db()
@@ -204,7 +202,7 @@ class TestStandingDecidesObjective(NoSocketsTestCase):
 
 
 class TestExplicitSourceRequired(NoSocketsTestCase):
-    @patch("structuretimers.standings.requests.get")
+    @patch("aa_stratcom.standings.requests.get")
     def test_sync_does_not_discover_an_existing_scoped_token(self, get):
         from esi.models import Scope
 

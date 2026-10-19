@@ -92,7 +92,7 @@ class TestOperationRoster(NoSocketsTestCase):
 
     def test_new_operation_saves_roster_during_creation(self):
         response = self.client.post(
-            reverse("structuretimers:operation_create"),
+            reverse("aa_stratcom:operation_create"),
             self.data(
                 name="New roster op", version=0, roster=json.dumps(self.roster())
             ),
@@ -151,7 +151,7 @@ class TestOperationRoster(NoSocketsTestCase):
         for kind in ("users", "systems"):
             self.assertEqual(
                 self.client.get(
-                    reverse("structuretimers:operation_roster_lookup", args=[kind])
+                    reverse("aa_stratcom:operation_roster_lookup", args=[kind])
                 ).status_code,
                 403,
             )
@@ -220,7 +220,10 @@ class TestOperationRoster(NoSocketsTestCase):
     def test_editor_receives_templates_and_admin_can_manage_global_roles(self):
         page = self.client.get(self.url("edit"))
         self.assertEqual(
-            [role["name"] for role in page.context["operation_role_templates"]],
+            [
+                role["name"]
+                for role in page.context["aa_stratcom_operation_role_templates"]
+            ],
             ["FC", "Recon coord"],
         )
         self.assertContains(page, "Add all roles")
@@ -339,8 +342,8 @@ class TestOperationRoster(NoSocketsTestCase):
         for page, expected in (
             (self.url("detail"), "on"),
             (self.url("edit"), "off"),
-            (reverse("structuretimers:timer_list") + "?tab=current", "off"),
-            (reverse("structuretimers:timer_list") + "?tab=preliminary", "off"),
+            (reverse("aa_stratcom:timer_list") + "?tab=current", "off"),
+            (reverse("aa_stratcom:timer_list") + "?tab=preliminary", "off"),
         ):
             root = BeautifulSoup(self.client.get(page).content, "html.parser").find(
                 id="st-regional-map"

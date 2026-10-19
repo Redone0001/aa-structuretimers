@@ -19,9 +19,7 @@ from aa_stratcom.tests.testdata.factory import (
 )
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
 class TestCampaigns(NoSocketsTestCase):
     def setUp(self):
         self.user = UserWithAccessFactory()
@@ -36,7 +34,9 @@ class TestCampaigns(NoSocketsTestCase):
 
     def coordinator(self):
         self.user.user_permissions.add(
-            Permission.objects.get(codename="recon_coordinator")
+            Permission.objects.get(
+                content_type__app_label="aa_stratcom", codename="recon_coordinator"
+            )
         )
 
     def act(self, action, entries=None):
@@ -84,16 +84,14 @@ class TestCampaigns(NoSocketsTestCase):
         self.assertIsNotNone(self.campaign.finished_at)
 
     def test_creation_requires_coordinator_and_queues_region_import(self):
-        url = reverse("structuretimers:campaign_create")
+        url = reverse("aa_stratcom:campaign_create")
         self.assertEqual(self.client.get(url).status_code, 403)
         self.coordinator()
         region = self.entry.solar_system.eve_constellation.eve_region
         with (
+            patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue,
             patch(
-                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-            ) as queue,
-            patch(
-                "structuretimers.campaigns.EveRegion.objects.update_or_create_esi"
+                "aa_stratcom.campaigns.EveRegion.objects.update_or_create_esi"
             ) as importer,
         ):
             with self.captureOnCommitCallbacks(execute=True):
@@ -117,7 +115,7 @@ class TestCampaigns(NoSocketsTestCase):
             eve_solar_system=self.entry.solar_system,
         )
         url = reverse(
-            "structuretimers:campaign_recon_edit",
+            "aa_stratcom:campaign_recon_edit",
             args=[self.campaign.pk, self.entry.pk, timer.pk],
         )
         self.assertEqual(self.client.post(url, {"action": "refresh"}).status_code, 403)
@@ -148,7 +146,7 @@ class TestCampaigns(NoSocketsTestCase):
     def test_add_is_locked_to_reserved_system_and_completed_is_read_only(self):
         self.act("reserve")
         url = reverse(
-            "structuretimers:campaign_recon_add", args=[self.campaign.pk, self.entry.pk]
+            "aa_stratcom:campaign_recon_add", args=[self.campaign.pk, self.entry.pk]
         )
         response = self.client.post(
             url,
@@ -243,7 +241,7 @@ class TestCampaigns(NoSocketsTestCase):
             destination_id=other_region.solar_system_id,
         )
         response = self.client.get(
-            reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+            reverse("aa_stratcom:campaign_map_data", args=[self.campaign.pk])
         )
         regions = response.json()
         self.assertEqual(len(regions), 2)
@@ -251,7 +249,7 @@ class TestCampaigns(NoSocketsTestCase):
         node = next(s for s in region["nodes"] if s["entryId"] == self.entry.pk)
         self.assertIsNotNone(node["position"])
         geography = self.client.get(
-            reverse("structuretimers:regional_map_data", args=["geography"]),
+            reverse("aa_stratcom:regional_map_data", args=["geography"]),
             {"region": region["id"]},
         ).json()
         self.assertEqual(
@@ -272,7 +270,7 @@ class TestCampaigns(NoSocketsTestCase):
         node = next(
             s
             for r in self.client.get(
-                reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+                reverse("aa_stratcom:campaign_map_data", args=[self.campaign.pk])
             ).json()
             for s in r["nodes"]
             if s["entryId"] == self.entry.pk
@@ -282,7 +280,7 @@ class TestCampaigns(NoSocketsTestCase):
         node = next(
             s
             for r in self.client.get(
-                reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+                reverse("aa_stratcom:campaign_map_data", args=[self.campaign.pk])
             ).json()
             for s in r["nodes"]
             if s["entryId"] == self.entry.pk
@@ -295,11 +293,9 @@ class TestCampaigns(NoSocketsTestCase):
         )
         self.coordinator()
         with (
+            patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue,
             patch(
-                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-            ) as queue,
-            patch(
-                "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi"
+                "aa_stratcom.campaigns.EveSolarSystem.objects.update_or_create_esi"
             ) as importer,
         ):
             with self.captureOnCommitCallbacks(execute=True):
@@ -318,7 +314,7 @@ class TestCampaigns(NoSocketsTestCase):
 
     def test_campaign_map_keeps_systems_missing_from_sde_accessible(self):
         response = self.client.get(
-            reverse("structuretimers:campaign_map_data", args=[self.campaign.pk])
+            reverse("aa_stratcom:campaign_map_data", args=[self.campaign.pk])
         )
         node = response.json()[0]["nodes"][0]
         self.assertIsNone(node["position"])

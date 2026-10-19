@@ -30,7 +30,7 @@ On every receiving board, add this to `local.py`, preserving any existing entrie
 ```python
 APPS_WITH_PUBLIC_VIEWS = [
     *globals().get("APPS_WITH_PUBLIC_VIEWS", []),
-    "structuretimers",
+    "aa_stratcom",
 ]
 ```
 
@@ -44,7 +44,7 @@ On sending boards, explicitly allow the receiving host names (no wildcards,
 ports, schemes, paths or IP addresses):
 
 ```python
-STRUCTURETIMERS_SYNC_ALLOWED_HOSTS = ["timers.partner.example"]
+AA_STRATCOM_SYNC_ALLOWED_HOSTS = ["timers.partner.example"]
 ```
 
 Generate a dedicated encryption key once in the Auth virtualenv:
@@ -59,7 +59,7 @@ backups. Read it in `local.py`:
 ```python
 import os
 
-STRUCTURETIMERS_SYNC_ENCRYPTION_KEY = os.environ["TIMER_SYNC_ENCRYPTION_KEY"]
+AA_STRATCOM_SYNC_ENCRYPTION_KEY = os.environ["TIMER_SYNC_ENCRYPTION_KEY"]
 ```
 
 This setting is required only for boards storing outbound credentials. Keep it
@@ -80,8 +80,8 @@ after transaction commit; this task recovers failed deliveries and broker or
 worker outages:
 
 ```python
-CELERYBEAT_SCHEDULE["structuretimers_sync_delivery"] = {
-    "task": "structuretimers.sync_jobs.deliver_timer_sync",
+CELERYBEAT_SCHEDULE["aa_stratcom_sync_delivery"] = {
+    "task": "aa_stratcom.sync_jobs.deliver_timer_sync",
     "schedule": crontab(minute="*"),
 }
 ```
@@ -93,10 +93,10 @@ AA groups independently; neither permission automatically grants the other:
 
 | Permission | Allows |
 | --- | --- |
-| `structuretimers.manage_sync_keys` | Generate/revoke/rotate receiving keys, set encrypted outbound credentials |
-| `structuretimers.manage_timer_sharing` | Configure destinations and sharing scope; configure replica mode and master UUID |
+| `aa_stratcom.manage_sync_keys` | Generate/revoke/rotate receiving keys, set encrypted outbound credentials |
+| `aa_stratcom.manage_timer_sharing` | Configure destinations and sharing scope; configure replica mode and master UUID |
 
-Sharing OPSEC timers additionally requires `structuretimers.opsec_access` on the
+Sharing OPSEC timers additionally requires `aa_stratcom.opsec_access` on the
 user authorizing that destination. The delivery worker checks that the user
 remains active and retains these permissions before every attempt. A receiver
 must separately opt a receiving key into OPSEC imports. Superusers retain their
@@ -112,7 +112,7 @@ normal Django authority over both roles.
    from the one-time creation response. Only its digest remains in the database.
 3. On the sender, a sharing administrator creates a disabled **Timer sync
    destination**, with the full endpoint, for example
-   `https://timers.partner.example/structuretimers/api/v1/sync/timers/`.
+   `https://timers.partner.example/aa_stratcom/api/v1/sync/timers/`.
 4. On the sender, a key administrator creates its **Timer sync credential** and
    pastes the receiver's secret. The credential is write-only and encrypted at
    rest. This does not enable sharing.
@@ -166,7 +166,7 @@ permissions.
 
 ## API contract
 
-`POST /structuretimers/api/v1/sync/timers/`
+`POST /aa_stratcom/api/v1/sync/timers/`
 
 Headers:
 

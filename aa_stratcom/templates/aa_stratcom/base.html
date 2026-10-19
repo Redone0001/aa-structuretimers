@@ -1,0 +1,26 @@
+{% extends 'allianceauth/base-bs5.html' %}
+{% load i18n static stratcom_sync %}
+
+{% block header_nav_brand %}{% translate "AA StratCom" %}{% endblock %}
+
+{% block page_title %}{% translate title %}{% endblock %}
+
+{% block content %}<div class="st-page">{% block aa_stratcom_content %}{% endblock %}</div>{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'aa_stratcom/css/theme.css' %}">
+{% block aa_stratcom_extra_css %}{% endblock %}
+{% endblock %}
+
+{% block header_nav_collapse_right %}
+    {% timer_sync_read_only as sync_read_only %}
+    {% if perms.aa_stratcom.create_timer and not sync_read_only %}
+        <li class="nav-item">
+            <a class="btn btn-success me-2" href="{% url 'aa_stratcom:add_info' %}" title="Add a timer, recon or fitting">
+                <i class="fa-solid fa-plus"></i>&nbsp;Add information
+            </a>
+        </li>
+    {% endif %}
+    <li class="nav-item navbar-text">
+        <span class="mx-2" id="current-time" title="Current EVE time">{{ current_time }}</span>
+    </li>
+{% endblock header_nav_collapse_right %}

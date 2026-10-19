@@ -25,7 +25,7 @@ def scan_rows(type_id, count):
 
 
 class ScanFetchTests(TestCase):
-    @patch("structuretimers.dscan.requests.get")
+    @patch("aa_stratcom.dscan.requests.get")
     def test_real_page_structure_and_example_counts(self, get):
         response = Mock(status_code=200)
         response.iter_content.return_value = [PAGE[:30], PAGE[30:]]
@@ -36,7 +36,7 @@ class ScanFetchTests(TestCase):
         )
         self.assertFalse(get.call_args.kwargs["allow_redirects"])
 
-    @patch("structuretimers.dscan.requests.get")
+    @patch("aa_stratcom.dscan.requests.get")
     def test_url_allowlist_prevents_unrelated_fetches(self, get):
         for url in (
             "http://dscan.info/v/03b7e51b4e04",
@@ -49,7 +49,7 @@ class ScanFetchTests(TestCase):
                 dscan.fetch_scan(url)
         get.assert_not_called()
 
-    @patch("structuretimers.dscan.requests.get")
+    @patch("aa_stratcom.dscan.requests.get")
     def test_redirect_missing_scan_oversize_and_timeout_are_errors(self, get):
         for status, chunks in (
             (302, []),
@@ -96,7 +96,7 @@ class ScanImportTests(RegionalMapTests):
 
     def save(self, **body):
         return self.client.post(
-            reverse("structuretimers:battle_map_data", args=["fleet"]),
+            reverse("aa_stratcom:battle_map_data", args=["fleet"]),
             json.dumps({"system_id": self.a.pk, **body}),
             content_type="application/json",
         )
@@ -111,7 +111,7 @@ class ScanImportTests(RegionalMapTests):
         self.assertEqual(dscan.parse_paste(scan_rows(11987, 3))["dps"], 0)
         self.assertEqual(dscan.parse_paste(scan_rows(642, 2))["logi"], 0)
 
-    @patch("structuretimers.dscan.fetch_scan")
+    @patch("aa_stratcom.dscan.fetch_scan")
     def test_paste_has_priority_and_bad_paste_does_not_fall_back(self, fetch):
         result = self.save(dscan=self.scan, dscan_url="invalid ignored URL")
         self.assertEqual(result.status_code, 200, result.content)
@@ -143,7 +143,7 @@ class ScanImportTests(RegionalMapTests):
         tied = dscan.parse_paste(scan_rows(642, 2) + "\n" + scan_rows(17726, 2))
         self.assertEqual(tied["ship_name"], "Apocalypse")
 
-    @patch("structuretimers.dscan.fetch_scan")
+    @patch("aa_stratcom.dscan.fetch_scan")
     def test_token_changed_during_external_fetch_cannot_be_overwritten_or_added(
         self, fetch
     ):
@@ -164,7 +164,7 @@ class ScanImportTests(RegionalMapTests):
         self.assertEqual(MapFleetToken.objects.get(pk=token["id"]).dps, 30)
 
     @patch(
-        "structuretimers.dscan.fetch_scan",
+        "aa_stratcom.dscan.fetch_scan",
         return_value={"dps": 9, "logi": 5, "ship_name": "Apocalypse Navy Issue"},
     )
     def test_url_import_persists_source(self, fetch):
@@ -216,7 +216,7 @@ class ScanImportTests(RegionalMapTests):
         self.assertEqual(saved.dps, 4)
         self.assertEqual(saved.revision, token["revision"])
 
-    @patch("structuretimers.dscan.fetch_scan")
+    @patch("aa_stratcom.dscan.fetch_scan")
     def test_cannot_fetch_or_reinforce_someone_elses_token(self, fetch):
         token = self.save(dps=20).json()["token"]
         self.client.force_login(UserWithAccessFactory())

@@ -18,7 +18,7 @@ from .sync_outbox import authorized_destination, backfill
 from .sync_security import decrypt_secret, post_payload
 
 
-@shared_task(name="structuretimers.sync_jobs.deliver_timer_sync")
+@shared_task(name="aa_stratcom.sync_jobs.deliver_timer_sync")
 def deliver_timer_sync():
     """Drain up to 100 rows per run; a periodic task recovers broker/worker outages."""
     for destination in TimerSyncDestination.objects.filter(

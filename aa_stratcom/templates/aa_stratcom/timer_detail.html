@@ -1,0 +1,54 @@
+{% load i18n %}
+
+<h5>{% translate "Timer" %}</h5>
+<p>{{ object }}</p>
+
+{% if database_entry %}
+    <h5>Database record</h5>
+    <p>
+        <a href="{% url 'aa_stratcom:timer_list' %}?tab=preliminary">{{ database_entry.structure_display_name }}</a>
+        {% if database_entry.fitting %}<button type="button" class="btn btn-sm btn-secondary st-copy-fit ms-2" data-fit="{{ database_entry.fitting }}">Copy fit</button>{% endif %}
+        <span class="text-muted small">· last updated {{ database_entry.last_updated_at|date:"Y-m-d H:i" }} UTC</span>
+    </p>
+{% endif %}
+{% if structures_structure %}
+    <h5>Database record</h5>
+    <p>
+        <a href="{{ structures_structure.url }}" target="_blank" rel="noopener">{{ structures_structure.name }}</a>
+        <span class="badge text-bg-info">Structures</span>
+    </p>
+{% endif %}
+{% if linked_timers is not None %}
+    <h5>Timers for this structure</h5>
+    {% if linked_timers %}
+        <ul>
+            {% for timer in linked_timers %}
+                <li>{{ timer.get_timer_type_display }} · {{ timer.date|date:"Y-m-d H:i" }} UTC{% if timer.date and timer.date < now %} <span class="text-muted">(past)</span>{% endif %}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-muted">None yet</p>
+    {% endif %}
+{% endif %}
+
+<h5>{% translate "Assigned to" %}</h5>
+<div>{{ operation_assignment }}</div>
+
+{% if object.reinforcement_time != None %}
+    <h5>{% translate "Vulnerability windows" %}</h5>
+    <p>{{ object.reinforcement_time|time:"H:i" }} UTC</p>
+{% endif %}
+
+<h5>{% translate "Image" %}</h5>
+<p>
+    {% if object.details_image_url %}
+    <a href="{{ object.details_image_url }}" target="_blank">
+        <img id="timerboardImgScreenshot" class="img-fluid" alt="details image" src="{{ object.details_image_url }}"/>
+    </a>
+    {% else %}
+    <span class="text-muted">-</span>
+    {% endif %}
+</p>
+
+<label class="h5" for="timerboardNotes">{% translate "Notes" %}</label>
+<textarea id="timerboardNotes" class="form-control" rows="3" readonly>{{ object.details_notes }}</textarea>

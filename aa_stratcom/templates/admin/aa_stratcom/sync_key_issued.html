@@ -1,0 +1,8 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Timer sync API key</h1>
+<p>Copy this key now. It is shown once and cannot be retrieved later. A rotation invalidates the previous key immediately.</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:all">{{ secret }}</pre>
+<p>Enter it in the sending board's outbound credential admin. Requests use <code>Authorization: Bearer &lt;key&gt;</code> over HTTPS.</p>
+<p><a href="{% url 'admin:aa_stratcom_timersynckey_changelist' %}">Return to receiving keys</a></p>
+{% endblock %}

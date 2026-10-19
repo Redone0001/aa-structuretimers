@@ -1,0 +1,6 @@
+{% load i18n %}
+<span class="float-end">
+    <a href="{% if cancel_url %}{{ cancel_url }}{% else %}{% url 'aa_stratcom:timer_list' %}{% endif %}" class="btn btn-secondary">
+        {% translate "Cancel" %}
+    </a>
+</span>

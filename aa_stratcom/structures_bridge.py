@@ -136,7 +136,7 @@ def database_rows(user: User, staging_system=None, visible_timers=None) -> list:
                 ),
                 "distance": {"display": distance_text, "sort": light_years},
                 "structure_details": render_to_string(
-                    "structuretimers/partials/structure_box.html",
+                    "aa_stratcom/partials/structure_box.html",
                     {
                         "type_icon_url": structure.eve_type.icon_url(size=64),
                         "type_name": structure.eve_type.name,

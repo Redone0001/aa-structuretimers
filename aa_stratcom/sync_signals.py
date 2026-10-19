@@ -10,14 +10,14 @@ from .models import Timer
 from .sync_outbox import changed
 
 
-@receiver(post_save, sender=Timer, dispatch_uid="st_sync_timer_saved")
+@receiver(post_save, sender=Timer, dispatch_uid="asc_sync_timer_saved")
 def timer_saved(sender, instance, raw=False, **kwargs):
     """Fixture loading is not a publish operation."""
     if not raw:
         changed(instance)
 
 
-@receiver(pre_delete, sender=Timer, dispatch_uid="st_sync_timer_deleted")
+@receiver(pre_delete, sender=Timer, dispatch_uid="asc_sync_timer_deleted")
 def timer_deleted(sender, instance, **kwargs):
     """Keep tombstones and latest delete deliveries after local deletion."""
     from .sync_policy import require_local_write

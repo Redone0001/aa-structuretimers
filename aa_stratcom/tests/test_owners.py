@@ -10,12 +10,10 @@ from aa_stratcom import owners
 from aa_stratcom.models import Organization, Timer
 from aa_stratcom.tests.testdata.factory import TimerFactory
 
-MODULE = "structuretimers.owners"
+MODULE = "aa_stratcom.owners"
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
 class TestOwners(NoSocketsTestCase):
     def test_known_owner_needs_no_esi(self):
         known = Organization.objects.create(

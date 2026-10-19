@@ -101,9 +101,9 @@ wide content uses local scrolling.
 The complete local test invocation was:
 
 ```sh
-PYTHONPATH=/tmp:. DJANGO_SETTINGS_MODULE=structuretimers_test_settings \
-  /tmp/structuretimers-aa5-review/bin/python \
-  /tmp/structuretimers_review_manage.py test structuretimers.tests --noinput
+PYTHONPATH=/tmp:. DJANGO_SETTINGS_MODULE=aa_stratcom_test_settings \
+  /tmp/aa_stratcom-aa5-review/bin/python \
+  /tmp/aa_stratcom_review_manage.py test aa_stratcom.tests --noinput
 ```
 
 The temporary settings and runner adapt the repository's AA 5 settings to the

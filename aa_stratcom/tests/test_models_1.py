@@ -38,7 +38,7 @@ from .testdata.factory import (
     UserWithAccessFactory,
 )
 
-MODULE_PATH = "structuretimers.models"
+MODULE_PATH = "aa_stratcom.models"
 
 
 class TestTimer(NoSocketsTestCase):
@@ -234,8 +234,8 @@ class TestTimer_UserCanEdit(NoSocketsTestCase):
     def test_creator_can_edit_own_timer(self):
         user = UserWithAccessFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.create_timer",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.create_timer",
             ]
         )
         timer = TimerFactory(user=user)
@@ -244,8 +244,8 @@ class TestTimer_UserCanEdit(NoSocketsTestCase):
     def test_manager_can_edit_other_timers(self):
         user = UserWithAccessFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.manage_timer",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.manage_timer",
             ]
         )
         timer = TimerFactory(user=UserWithAccessFactory())
@@ -254,8 +254,8 @@ class TestTimer_UserCanEdit(NoSocketsTestCase):
     def test_non_manager_can_not_edit_other_timer(self):
         user = UserWithAccessFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.create_timer",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.create_timer",
             ]
         )
         timer = TimerFactory(user=UserWithAccessFactory())
@@ -328,7 +328,7 @@ class TestTimer_UserCanEdit(NoSocketsTestCase):
 
 @patch(MODULE_PATH + ".DiscordWebhook.send_message", spec=True)
 class TestTimer_SendNotification(NoSocketsTestCase):
-    @patch(MODULE_PATH + ".STRUCTURETIMER_NOTIFICATION_SET_AVATAR", True)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATION_SET_AVATAR", True)
     def test_should_send_minimal_notification(self, mock_send_message):
         # given
         timer = TimerFactory()
@@ -343,7 +343,7 @@ class TestTimer_SendNotification(NoSocketsTestCase):
         self.assertEqual(kwargs["username"], __title__)
         self.assertIsNotNone(kwargs["avatar_url"])
 
-    @patch(MODULE_PATH + ".STRUCTURETIMER_NOTIFICATION_SET_AVATAR", False)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATION_SET_AVATAR", False)
     def test_should_send_notification_without_avatar(self, mock_send_message):
         # given
         timer = TimerFactory()

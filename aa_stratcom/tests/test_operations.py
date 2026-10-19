@@ -21,7 +21,7 @@ class TestOperations(NoSocketsTestCase):
             "_task_calc_timer_distances_for_all_staging_systems",
             "_task_schedule_notifications_for_timer",
         ):
-            mocked = patch("structuretimers.models." + name, Mock())
+            mocked = patch("aa_stratcom.models." + name, Mock())
             mocked.start()
             self.addCleanup(mocked.stop)
         self.coordinator = self.user("op_coordinator")
@@ -46,14 +46,14 @@ class TestOperations(NoSocketsTestCase):
     def user(*roles):
         return UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                *["structuretimers." + role for role in roles],
+                "aa_stratcom.basic_access",
+                *["aa_stratcom." + role for role in roles],
             ]
         )
 
     def url(self, action, operation=None):
         return reverse(
-            "structuretimers:operation_" + action,
+            "aa_stratcom:operation_" + action,
             kwargs={"pk": (operation or self.operation).pk},
         )
 
@@ -76,7 +76,7 @@ class TestOperations(NoSocketsTestCase):
             **values,
         }
         return (client or self.client).post(
-            reverse("structuretimers:battle_map_data", args=["timer"]),
+            reverse("aa_stratcom:battle_map_data", args=["timer"]),
             json.dumps(body),
             content_type="application/json",
         )
@@ -84,7 +84,7 @@ class TestOperations(NoSocketsTestCase):
     def test_tab_order_and_role_visibility(self):
         user = self.user("recon_member", "recon_coordinator", "op_coordinator")
         self.client.force_login(user)
-        html = self.client.get(reverse("structuretimers:timer_list")).content.decode()
+        html = self.client.get(reverse("aa_stratcom:timer_list")).content.decode()
         positions = [
             html.index('id="tab-' + name + '"')
             for name in (
@@ -98,9 +98,7 @@ class TestOperations(NoSocketsTestCase):
         ]
         self.assertEqual(positions, sorted(positions))
         self.client.force_login(self.outsider)
-        response = self.client.get(
-            reverse("structuretimers:timer_list"), {"tab": "ops"}
-        )
+        response = self.client.get(reverse("aa_stratcom:timer_list"), {"tab": "ops"})
         self.assertNotContains(response, 'id="tab-ops"')
         self.assertEqual(response.context["tab"], "current")
         for action in ("detail", "data", "live", "edit", "picker"):
@@ -109,7 +107,7 @@ class TestOperations(NoSocketsTestCase):
     def test_viewers_only_see_shared_operations(self):
         private = Operation.objects.create(name="SECRET operation")
         self.client.force_login(self.viewer)
-        page = self.client.get(reverse("structuretimers:timer_list"), {"tab": "ops"})
+        page = self.client.get(reverse("aa_stratcom:timer_list"), {"tab": "ops"})
         self.assertContains(page, self.operation.name)
         self.assertNotContains(page, private.name)
         self.assertEqual(self.client.get(self.url("detail")).status_code, 200)
@@ -119,13 +117,13 @@ class TestOperations(NoSocketsTestCase):
             self.client.post(self.url("edit"), self.data()).status_code, 403
         )
         self.assertEqual(
-            self.client.get(reverse("structuretimers:operation_create")).status_code,
+            self.client.get(reverse("aa_stratcom:operation_create")).status_code,
             403,
         )
 
     def test_coordinator_can_create_and_modify_an_operation(self):
         response = self.client.post(
-            reverse("structuretimers:operation_create"),
+            reverse("aa_stratcom:operation_create"),
             self.data(version=0, timers=[self.timer.pk, self.other.pk]),
         )
         self.assertEqual(response.status_code, 302)
@@ -155,7 +153,7 @@ class TestOperations(NoSocketsTestCase):
         old = TimerFactory(date=now() - timedelta(days=3))
         for ids in ([], [self.hidden.pk], [old.pk]):
             response = self.client.post(
-                reverse("structuretimers:operation_create"),
+                reverse("aa_stratcom:operation_create"),
                 self.data(version=0, timers=ids),
             )
             self.assertEqual(response.status_code, 200)
@@ -258,7 +256,7 @@ class TestOperations(NoSocketsTestCase):
         self.assertTrue(self.operation.timers.filter(pk=self.hidden.pk).exists())
 
     def test_coordinator_can_record_armor_and_viewer_cannot_use_prompt_or_action(self):
-        prompt_url = reverse("structuretimers:battle_map_data", args=["reinforcement"])
+        prompt_url = reverse("aa_stratcom:battle_map_data", args=["reinforcement"])
         params = {"operation": self.operation.pk, "id": self.timer.pk}
         self.assertEqual(self.client.get(prompt_url, params).status_code, 200)
         self.client.force_login(self.viewer)
@@ -299,7 +297,7 @@ class TestOperations(NoSocketsTestCase):
     def test_live_index_only_lists_permitted_operations_and_detects_new_ones(self):
         private = Operation.objects.create(name="Private operation")
         self.client.force_login(self.viewer)
-        url = reverse("structuretimers:operation_index_live")
+        url = reverse("aa_stratcom:operation_index_live")
         response = self.client.get(url)
         self.assertEqual(
             [row["name"] for row in response.json()["operations"]],
@@ -324,7 +322,7 @@ class TestOperations(NoSocketsTestCase):
 
     def test_editor_selection_is_retained_after_validation_error(self):
         response = self.client.post(
-            reverse("structuretimers:operation_create"),
+            reverse("aa_stratcom:operation_create"),
             self.data(name="", version=0, timers=[self.timer.pk, self.other.pk]),
         )
         self.assertEqual(response.status_code, 200)

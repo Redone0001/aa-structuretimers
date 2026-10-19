@@ -88,9 +88,7 @@ class TestReconTranslations(NoSocketsTestCase):
         with translation.override("en"):
             response = TimerListView.as_view()(self.request)
             required = set(messages_in(response.context_data["recon_translations"]))
-        templates = (
-            Path(__file__).resolve().parents[1] / "templates" / "structuretimers"
-        )
+        templates = Path(__file__).resolve().parents[1] / "templates" / "aa_stratcom"
         for relative in [
             "partials/manage_recon.html",
             "partials/recon_actions.html",

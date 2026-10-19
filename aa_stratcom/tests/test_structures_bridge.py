@@ -23,9 +23,7 @@ from .test_forms import FUTURE, create_form_data
 
 
 @skipUnless(structures_bridge.is_available(), "aa-structures is not installed")
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
 class TestStructuresBridge(NoSocketsTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -54,9 +52,9 @@ class TestStructuresBridge(NoSocketsTestCase):
     def viewer(self, *extra):
         return UserWithCreateFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.recon_member",
-                "structuretimers.create_timer",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.recon_member",
+                "aa_stratcom.create_timer",
                 *extra,
             ]
         )
@@ -80,7 +78,7 @@ class TestStructuresBridge(NoSocketsTestCase):
             structure_type_id=self.structure.eve_type_id,
             structure_name="Friendly Keep",
         )
-        url = reverse("structuretimers:recon_data")
+        url = reverse("aa_stratcom:recon_data")
         self.client.force_login(self.viewer())
         ids = [row["id"] for row in self.client.get(url).json()]
         self.assertNotIn(f"s-{self.structure.id}", ids)
@@ -98,7 +96,7 @@ class TestStructuresBridge(NoSocketsTestCase):
         user = self.viewer("structures.view_all_structures")
         self.client.force_login(user)
         results = self.client.get(
-            reverse("structuretimers:select2_database_entries"), {"term": "friendly"}
+            reverse("aa_stratcom:select2_database_entries"), {"term": "friendly"}
         ).json()["results"]
         self.assertEqual(results[0]["id"], f"s-{self.structure.id}")
 
@@ -133,9 +131,9 @@ class TestStructuresBridge(NoSocketsTestCase):
 
 
 class TestStructuresBridgeMissing(NoSocketsTestCase):
-    @patch("structuretimers.structures_bridge.is_available", return_value=False)
+    @patch("aa_stratcom.structures_bridge.is_available", return_value=False)
     def test_without_aa_structures_nothing_changes(self, _):
-        user = UserMainFactory(permissions__=["structuretimers.basic_access"])
+        user = UserMainFactory(permissions__=["aa_stratcom.basic_access"])
         self.assertEqual(structures_bridge.database_rows(user), [])
         self.assertEqual(structures_bridge.picker_results(user, "any"), [])
         self.assertIsNone(structures_bridge.find_structure_id(Timer()))

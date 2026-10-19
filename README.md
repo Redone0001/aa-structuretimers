@@ -1,39 +1,85 @@
 # AA StratCom
 
-An app for keeping track of Eve Online structure timers with Alliance Auth and Discord.
+Operations, structure intelligence, recon campaigns and timers for Alliance Auth.
 
-## Upgrade from aa-structuretimers
+## Upgrade to independent AA StratCom
 
-AA StratCom's distribution is `aa-stratcom`; its Python module is `aa_stratcom`.
-Stop your Auth web/Celery services for the upgrade, activate the existing venv, and
-back up the database. Uninstall the old distribution **before** installing the new
-one because both provide the legacy compatibility package:
+AA StratCom 4.1 is a separate app: Python/Django label `aa_stratcom`, database
+`aa_stratcom_*`, permissions `aa_stratcom.*`, URLs `/aa_stratcom/`, and Celery
+`aa_stratcom.tasks.*`. It can run alongside the real `structuretimers` app and
+Alliance Auth's built-in `allianceauth.timerboard`. It no longer supplies a
+`structuretimers` Python package or aliases the old app.
+
+Back up the database, activate your Auth venv, and stop the web/Celery services
+while upgrading and copying. If you installed the earlier 4.0 compatibility
+rename, uninstall it first to remove its shim. Restore the old fork from its last
+commit before the rename; the existing `structuretimers_*` tables, permissions,
+and migration records will be reused without changing their identity:
 
 ```bash
-python -m pip uninstall -y aa-structuretimers
-python -m pip install --upgrade --no-deps --no-cache-dir \
+python -m pip uninstall -y aa-stratcom
+python -m pip install --force-reinstall --no-deps --no-cache-dir \
+  "aa-structuretimers @ git+https://github.com/Redone0001/aa-structuretimers.git@dd3a34aa1d164c67c7bd226428c6698559685fc4"
+python -m pip install --force-reinstall --no-deps --no-cache-dir \
   "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
+```
+
+If you already have an original `aa-structuretimers` installation and never
+installed the 4.0 rename, keep that installed version; only install aa-stratcom.
+Do not install the current branch under the old distribution name.
+
+In the existing `INSTALLED_APPS` list in `local.py`, keep/add each app once:
+
+```python
+INSTALLED_APPS += [
+    "structuretimers",  # The real old app, from its own distribution
+    "aa_stratcom",     # Independent StratCom
+]
+```
+
+Keep `allianceauth.timerboard` too if you use the built-in timerboard. Keep old
+`STRUCTURETIMERS_*` settings and `structuretimers.*` Celery entries for the old app.
+Configure StratCom separately with `AA_STRATCOM_*` settings and `aa_stratcom.*`
+tasks (installation step 3). Do not rename the old schedules: both apps need their
+own jobs. Copy any custom notification/retention settings to their StratCom
+counterparts explicitly before restarting workers.
+
+Create the new schema, then copy legacy data into **empty StratCom tables**:
+
+```bash
 python manage.py migrate
+python manage.py stratcom_import_structuretimers --dry-run
+python manage.py stratcom_import_structuretimers
 python manage.py collectstatic --noinput
 python -m pip check
 ```
 
-In `local.py`, replace the existing `"structuretimers"` installed-app entry with
-`"aa_stratcom"`. Do not add both. An unchanged legacy entry or explicit
-`structuretimers.apps.StructureTimersConfig` also works through the compatibility
-package. Restart the same Auth web, Celery worker and Beat services afterwards.
-No existing database is copied or recreated by this rename: the Django app label,
-`structuretimers_*` tables, migration history, content types, user/group permissions,
-URLs, static/template namespaces, settings and Celery task names stay stable.
-Existing Celery schedules require **no changes**, including federation delivery.
-Keep `APPS_WITH_PUBLIC_VIEWS = ["structuretimers"]` for the sync endpoint; it uses
-the stable URL namespace. Keep `STRUCTURETIMERS_SYNC_ENCRYPTION_KEY` unchanged so
-stored outbound API credentials can still be decrypted. Compatibility imports let
-existing integrations continue using `structuretimers.models`.
+The copy retains original IDs, relationships, past/future timers, structure
+history, operations/roles/participants, configuration, and available legacy tables.
+It adds corresponding StratCom permissions to users/groups without removing their
+old grants. Source tables and migration records are never rewritten or deleted.
+A completion marker makes reruns a no-op; this is a one-time snapshot, not ongoing
+synchronization. A nonempty target is rejected rather than overwritten. Dry runs
+and failed copies roll back the target changes and permission grants. Stop both
+apps' workers and web processes during the copy to prevent concurrent edits.
+Older releases with no Structure table get separate Database records derived from
+their timers. Shared Auth users, EVE data and ESI tokens remain shared dependencies.
 
-`--no-deps` intentionally preserves the installed dependency versions. Any missing
-new dependencies should be installed separately; do not blanket-upgrade Auth's venv.
-The optional classic timerboard copy is described in installation step 6 below.
+Copied notification rules, webhooks, Discord boards and federation connections
+start **disabled** to prevent duplicate posts and conflicting edits to the old
+board's messages. Copied Discord message IDs are retained as `legacy_message_id`;
+StratCom creates its own messages when enabled instead of editing the originals. Review them in StratCom admin before enabling. StratCom gets a
+fresh federation instance UUID and starts writable; configure its master/replica
+relationship separately. Reissue receiving keys for the new endpoint; re-enter
+outbound credentials using StratCom's own encryption setting. Their encrypted
+source records and audit history remain in the copied tables. See
+[Timer sharing](docs/timer-sync.md). Restart your Auth web, Celery worker and Beat
+services after configuration and the copy are complete.
+
+`--no-deps` preserves your existing dependency versions. Install any missing
+requirements individually rather than upgrading the entire Auth environment.
+The optional import from the built-in timerboard remains
+`stratcom_import_timerboard`; run it only if you also want those separate records.
 
 ## Contents
 
@@ -63,11 +109,12 @@ Here is an overview of **AA StratCom**'s main features.
 - Automatic cleanup of elapsed timers
 - Integrated with several other community apps
 
-**AA StratCom** is integrated with the following community apps:
-
-- [aa-structures](https://github.com/AllianceAuth-Apps/aa-structures): Automatically adds new timers from structure and moon mining notifications
-- [allianceauth-opcalendar](https://gitlab.com/paulipa/allianceauth-opcalendar): Shows timers in a calendar view and with other events
-- [allianceauth-restapi](https://gitlab.com/munsking/allianceauth-restapi): Adds a REST API for fetching and adding timers
+AA StratCom can display friendly structures from
+[aa-structures](https://github.com/AllianceAuth-Apps/aa-structures) through its
+read-only bridge. Integrations that import `structuretimers.models` continue to
+write to the old app. Calendar/API/notification integrations need explicit
+`aa_stratcom` support to target StratCom; this package no longer redirects those
+imports.
 
 ## Screenshots
 
@@ -114,60 +161,47 @@ python -m pip install --upgrade --no-deps --no-cache-dir \
 
 ### Step 3 - Configure AA StratCom in local.py
 
-Use **`aa_stratcom`** as the installed Python module. For an upgrade, replace the
-existing `"structuretimers"` entry in `INSTALLED_APPS` with `"aa_stratcom"`; do not
-add a second entry. For a fresh installation, add:
-
-```python
-INSTALLED_APPS += [
-    "aa_stratcom",
-]
-```
-
-To keep Alliance Auth's original timerboard running alongside StratCom, retain
-`"allianceauth.timerboard"` in `INSTALLED_APPS`. That is a separate app. The old
-`aa-structuretimers` distribution must be uninstalled before installing StratCom.
-
-**Celery on an existing installation:** keep your current StratCom schedules.
-There is no Celery task-name change in this upgrade. Do not add duplicate schedules.
-
-**Celery on a fresh installation:** add the entries below. AA StratCom deliberately
-keeps the registered `structuretimers.tasks.*` task identifiers so existing Beat
-entries and queued jobs continue to work. These identifiers are not the module
-name to put in `INSTALLED_APPS`; do not replace them with `aa_stratcom.tasks.*`.
-The schedule keys also stay unchanged to avoid duplicating existing jobs.
+For a fresh installation, add `"aa_stratcom"` once to `INSTALLED_APPS`. Keep
+`"structuretimers"` only if the separate old distribution is installed and you
+want it to run too. Configure these **StratCom** schedules independently:
 
 ```python
 from celery.schedules import crontab
 
-CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
-    'task': 'structuretimers.tasks.housekeeping',
-    'schedule': crontab(minute=0, hour='*/3'),  # Every three hours
+CELERYBEAT_SCHEDULE["aa_stratcom_housekeeping"] = {
+    "task": "aa_stratcom.tasks.housekeeping",
+    "schedule": crontab(minute=0, hour="*/3"),
 }
-CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
-    'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
-    'schedule': crontab(minute='*'),  # Every minute
+CELERYBEAT_SCHEDULE["aa_stratcom_dispatch_scheduled_notifications"] = {
+    "task": "aa_stratcom.tasks.dispatch_scheduled_notifications",
+    "schedule": crontab(minute="*"),
 }
-CELERYBEAT_SCHEDULE['structuretimers_sync_standings'] = {
-    'task': 'structuretimers.tasks.sync_standings',
-    'schedule': crontab(minute=0),  # Every hour
+CELERYBEAT_SCHEDULE["aa_stratcom_sync_standings"] = {
+    "task": "aa_stratcom.tasks.sync_standings",
+    "schedule": crontab(minute=0),
+}
+CELERYBEAT_SCHEDULE["aa_stratcom_sync_alliances"] = {
+    "task": "aa_stratcom.tasks.sync_alliance_directory",
+    "schedule": crontab(minute=0, hour=0),
+}
+CELERYBEAT_SCHEDULE["aa_stratcom_discord_timerboards"] = {
+    "task": "aa_stratcom.tasks.refresh_discord_timerboards",
+    "schedule": crontab(minute="*/5"),
 }
 ```
 
-> **Standings**: owner standings come from your alliance's contacts. A recon coordinator adds a character with the `esi-alliances.read_contacts.v1` scope on the Standings tab; `structuretimers_sync_standings` keeps them current. Coordinators can override any standing there. Tokens are never selected automatically from other Auth apps. In Django admin, use **Standings sources** to explicitly select or replace a scoped character token, inspect the last successful sync and error, retry a sync, or remove a source. Use **Organizations** to correct owner alliance links and standing overrides; saving recalculates timer and structure objectives. Removing the last source clears cached automatic standings while preserving overrides. Existing sources remain configured after upgrading; inspect and replace or delete any previously auto-selected source in admin.
+Leave the old app's schedules and settings intact. StratCom exclusively reads
+`AA_STRATCOM_*` settings and checks `aa_stratcom.*` permissions. Neither app's
+permissions grant access to the other until grants are copied explicitly.
 
-> **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
+Standings tokens are explicitly selected on StratCom's Standing tab or in its
+**Standings sources** admin page; they are not automatically selected from other
+apps. See [Settings](#settings) for optional notification and retention settings.
 
-Optional settings keep their existing `STRUCTURETIMERS_*` names. Existing
-permissions keep the `structuretimers.*` prefix, and the page stays at
-`/structuretimers/`. These compatibility identifiers belong to AA StratCom and
-preserve existing data and integrations. See [Settings](#settings) for defaults.
-
-If federation is already configured, keep its delivery schedule,
-`STRUCTURETIMERS_SYNC_ENCRYPTION_KEY`, and other sync settings unchanged. Keep
-`"structuretimers"` in the existing `APPS_WITH_PUBLIC_VIEWS` list; that setting
-matches the stable URL namespace, not the new Python module. For a new federation
-setup, follow [Timer sharing and replicas](docs/timer-sync.md).
+For federation, add `"aa_stratcom"` to the existing `APPS_WITH_PUBLIC_VIEWS` list,
+keep the other entries, and use independent `AA_STRATCOM_SYNC_*` configuration and
+`aa_stratcom.sync_jobs.deliver_timer_sync` schedule. The endpoint is
+`/aa_stratcom/api/v1/sync/timers/`. See [Timer sharing](docs/timer-sync.md).
 
 ### Step 4 - Finalize installation
 
@@ -191,7 +225,7 @@ python manage.py eveuniverse_load_data map
 ```
 
 ```bash
-python manage.py structuretimers_load_eve
+python manage.py aa_stratcom_load_eve
 ```
 
 You may want to wait until the data loading is complete before starting to create new timers.
@@ -234,12 +268,12 @@ Here is a list of available settings for this app. They can be configured by add
 
 Name | Description | Default
 -- | -- | --
-`STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS` | Grace period in minutes. A scheduled notification will still be sent if its timer elapsed less than this many minutes ago, and discarded as outdated otherwise | `15`
-`STRUCTURETIMERS_NOTIFICATIONS_ENABLED` | Whether notifications for timers are scheduled at all | `True`
-`STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` | Minimum age in days for a timer to be considered obsolete. Obsolete timers will automatically be deleted. If you want to keep all timers, set to `None` | `30`
-`STRUCTURETIMERS_DEFAULT_PAGE_LENGTH` | Default page size for timerboard. Must be an integer value from the available options in the app. | `10`
-`STRUCTURETIMERS_PAGING_ENABLED` | Whether paging is enabled on the timerboard. | `True`
-`STRUCTURETIMER_NOTIFICATION_SET_AVATAR` | Whether structuretimers sets the name and avatar icon of a webhook. When False the webhook will use its own values as set on the platform. | `True`
+`AA_STRATCOM_MAX_AGE_FOR_NOTIFICATIONS` | Grace period in minutes. A scheduled notification will still be sent if its timer elapsed less than this many minutes ago, and discarded as outdated otherwise | `15`
+`AA_STRATCOM_NOTIFICATIONS_ENABLED` | Whether notifications for timers are scheduled at all | `True`
+`AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS` | Minimum age in days for a timer to be considered obsolete. Obsolete timers will automatically be deleted. If you want to keep all timers, set to `None` | `30`
+`AA_STRATCOM_DEFAULT_PAGE_LENGTH` | Default page size for timerboard. Must be an integer value from the available options in the app. | `10`
+`AA_STRATCOM_PAGING_ENABLED` | Whether paging is enabled on the timerboard. | `True`
+`AA_STRATCOM_NOTIFICATION_SET_AVATAR` | Whether aa_stratcom sets the name and avatar icon of a webhook. When False the webhook will use its own values as set on the platform. | `True`
 
 ## Notification Rules
 
@@ -303,24 +337,24 @@ Codename | Description
 `general - Can create new timers and edit own timers` | Users with this permission can create new timers and edit or delete their own timers.
 `general - Can edit and delete any timer` | Users with this permission can edit and delete any timer.
 `general - Can create and see opsec timers` | Users with this permission can create and view timers that are opsec restricted.
-`general - Can create, edit and coordinate operations` (`structuretimers.op_coordinator`) | Create and edit operations, see coordinator-only operations, and control selected timers' battle observations within an operation.
-`general - Can view shared operations` (`structuretimers.op_viewer`) | Read operations shared with coordinators and viewers; cannot edit operations or control their battle observations.
+`general - Can create, edit and coordinate operations` (`aa_stratcom.op_coordinator`) | Create and edit operations, see coordinator-only operations, and control selected timers' battle observations within an operation.
+`general - Can view shared operations` (`aa_stratcom.op_viewer`) | Read operations shared with coordinators and viewers; cannot edit operations or control their battle observations.
 
 ## Management commands
 
 The following management commands are available:
 
-- **structuretimers_load_eve**: Preload all eve objects required for this app to function
+- **aa_stratcom_load_eve**: Preload all eve objects required for this app to function
 - **stratcom_import_timerboard**: Copy all classic timerboard timers and access grants without changing source data; supports `--dry-run`
-- **structuretimers_migrate_timers**: Legacy importer for supported pending timers only
+- **aa_stratcom_migrate_timers**: Legacy importer for supported pending timers only
 
 
 ### Operations
 
 The tabs are ordered **Database, Current, Past, Standing, Recon Campaigns, Ops**.
 Each tab still requires its existing access permission. The Ops tab requires
-`structuretimers.basic_access` plus either `structuretimers.op_coordinator` or
-`structuretimers.op_viewer`. Run `python manage.py migrate` after upgrading to add
+`aa_stratcom.basic_access` plus either `aa_stratcom.op_coordinator` or
+`aa_stratcom.op_viewer`. Run `python manage.py migrate` after upgrading to add
 the operation tables and permissions, then assign these roles to the appropriate
 groups. Operations are independent of recon coordinator permissions.
 
@@ -390,7 +424,7 @@ active lists and Discord timerboards. Apply migrations after upgrading: migratio
 ### Recon campaigns
 
 The **Recon campaigns** navigation link lists active and finished campaigns.
-Grant `structuretimers.recon_coordinator` and `structuretimers.basic_access`
+Grant `aa_stratcom.recon_coordinator` and `aa_stratcom.basic_access`
 to a coordinator user or group in Alliance Auth to enable campaign creation and
 coordination. Coordinators enter system names (commas or new lines) and/or select
 regions. Region systems are imported from ESI; overlapping selections are deduplicated.
@@ -505,13 +539,13 @@ Each timer is one naturally wrapping line: `YYYY-MM-DD HH:MM` • Discord live r
 Upcoming timers appear next due first. Blank lines separate rolling 24-hour groups measured from refresh time; recently elapsed timers form a separate group at the bottom and disappear after one hour without being deleted from the app. Empty groups add no extra spacing. Messages split only between timers and stay within Discord’s 2,000-character limit. Text fields are bounded and Discord markup is escaped. The bot uses discordproxy to edit existing messages only when their content changes; there is no countdown footer.
 
 1. Apply migrations with `python manage.py migrate`. The data migration flags all existing non-preliminary timers.
-2. Run [Redone0001/discordproxy 1.6.0](https://github.com/Redone0001/discordproxy) on the proxy server. This app pins the compatible client commit as a dependency. With `--no-deps`, install that client separately only if it is missing or incompatible. Upgrade and restart the proxy server first if it runs in a separate environment. Only the proxy server needs the bot token. Give its bot View Channel, Send Messages, and Read Message History permissions in the target channel. Configure `STRUCTURETIMERS_DISCORD_PROXY_TARGET` in Auth settings if the proxy is not at `localhost:50051` (for Docker, use the proxy service hostname). `STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT` defaults to 30 seconds.
+2. Run [Redone0001/discordproxy 1.6.0](https://github.com/Redone0001/discordproxy) on the proxy server. This app pins the compatible client commit as a dependency. With `--no-deps`, install that client separately only if it is missing or incompatible. Upgrade and restart the proxy server first if it runs in a separate environment. Only the proxy server needs the bot token. Give its bot View Channel, Send Messages, and Read Message History permissions in the target channel. Configure `AA_STRATCOM_DISCORD_PROXY_TARGET` in Auth settings if the proxy is not at `localhost:50051` (for Docker, use the proxy service hostname). `AA_STRATCOM_DISCORD_PROXY_TIMEOUT` defaults to 30 seconds.
 3. In Django admin, add a **Discord timerboard** with the channel ID. All scheduled timer types and **Include unflagged** are selected by default. Deselect Include unflagged to require the per-timer flag. Preliminary timers are always excluded, even if flagged.
 4. Add this periodic task and restart Celery workers/beat:
 
 ```python
-CELERYBEAT_SCHEDULE['structuretimers_discord_timerboards'] = {
-    'task': 'structuretimers.tasks.refresh_discord_timerboards',
+CELERYBEAT_SCHEDULE['aa_stratcom_discord_timerboards'] = {
+    'task': 'aa_stratcom.tasks.refresh_discord_timerboards',
     'schedule': 300.0, # Every five minutes (seconds)
 }
 ```
@@ -520,13 +554,13 @@ Quick Add sets the Discord timerboard flag automatically. Add Timer starts unche
 
 Boards publish the selected timers to everyone who can read the configured Discord channel, including any timers with restricted Auth visibility or OPSEC. Choose channel permissions accordingly. No mentions are sent. Disable a board to remove its messages on the next refresh; wait for that refresh before deleting its configuration. Changing its channel removes the old messages before posting in the new channel.
 
-Existing app housekeeping retention is controlled by `STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS` (currently 30 days by default, minimum one day). Discord independently hides timers more than one hour past due on the next refresh, without changing app retention. If you already configured this Celery Beat task, update its interval to 300 seconds; if it is managed in Django admin, update that periodic task there too.
+Existing app housekeeping retention is controlled by `AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS` (currently 30 days by default, minimum one day). Discord independently hides timers more than one hour past due on the next refresh, without changing app retention. If you already configured this Celery Beat task, update its interval to 300 seconds; if it is managed in Django admin, update that periodic task there too.
 
 #### Upgrading from the direct Discord transport (3.4.0)
 
 All timerboard message creation, editing, and deletion now use Discord Proxy.
 Use the same bot identity that authored existing messages; saved message IDs are
-preserved. `STRUCTURETIMERS_DISCORD_BOT_TOKEN` is no longer used by this app and
+preserved. `AA_STRATCOM_DISCORD_BOT_TOKEN` is no longer used by this app and
 can be removed from Auth settings after configuring the proxy server.
 
 If the proxy server has a separate virtualenv, upgrade there first and restart

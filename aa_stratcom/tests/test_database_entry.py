@@ -20,10 +20,8 @@ from aa_stratcom.tests.testdata.factory import (
 from .test_forms import FUTURE, create_form_data
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
-@patch("structuretimers.models._task_calc_structure_distances", Mock())
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
+@patch("aa_stratcom.models._task_calc_structure_distances", Mock())
 class TestDatabaseEntry(NoSocketsTestCase):
     def test_new_timer_creates_record_from_its_details(self):
         timer = TimerFactory(
@@ -161,8 +159,8 @@ class TestDatabaseEntry(NoSocketsTestCase):
         self.assertIn("database_entry_2", form.errors)
         basic = UserMainFactory(
             permissions__=[
-                "structuretimers.basic_access",
-                "structuretimers.create_timer",
+                "aa_stratcom.basic_access",
+                "aa_stratcom.create_timer",
             ]
         )
         self.assertNotIn("database_entry_2", TimerForm(user=basic).fields)
@@ -172,7 +170,7 @@ class TestDatabaseEntry(NoSocketsTestCase):
         record = StructureFactory(structure_name="Home base")
         StructureFactory(structure_name="Home secret", is_opsec=True)
         self.client.force_login(user)
-        url = reverse("structuretimers:select2_database_entries")
+        url = reverse("aa_stratcom:select2_database_entries")
         results = self.client.get(url, {"term": "home"}).json()["results"]
         self.assertEqual([row["id"] for row in results], [record.pk])
         self.assertEqual(results[0]["structure_name"], "Home base")
@@ -186,7 +184,7 @@ class TestDatabaseEntry(NoSocketsTestCase):
         rows = {
             row["id"]: row
             for row in self.client.get(
-                reverse("structuretimers:timer_list_data", args=["current"])
+                reverse("aa_stratcom:timer_list_data", args=["current"])
             ).json()
         }
         self.assertIn("st-view-fit", rows[timer.pk]["actions"])

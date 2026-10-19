@@ -25,7 +25,7 @@ from .sync_outbox import _kick
 class ScopedSyncAdmin(admin.ModelAdmin):
     """Default model permissions must never bypass the dedicated AA permission."""
 
-    sync_permission = "structuretimers.manage_timer_sharing"
+    sync_permission = "aa_stratcom.manage_timer_sharing"
 
     def has_module_permission(self, request):
         return request.user.has_perm(self.sync_permission)
@@ -58,7 +58,7 @@ class ReceivingKeyForm(forms.ModelForm):
 class ReceivingKeyAdmin(ScopedSyncAdmin):
     """Only the creation/rotation response contains plaintext; subsequent views do not."""
 
-    sync_permission = "structuretimers.manage_sync_keys"
+    sync_permission = "aa_stratcom.manage_sync_keys"
     form = ReceivingKeyForm
     fields = (
         "local_instance",
@@ -115,7 +115,7 @@ class ReceivingKeyAdmin(ScopedSyncAdmin):
     def _response(self, request, obj):
         response = TemplateResponse(
             request,
-            "admin/structuretimers/sync_key_issued.html",
+            "admin/aa_stratcom/sync_key_issued.html",
             {
                 **self.admin_site.each_context(request),
                 "title": "Timer sync key issued",
@@ -160,7 +160,7 @@ class OutboundCredentialForm(forms.ModelForm):
 
 @admin.register(TimerSyncCredential)
 class OutboundCredentialAdmin(ScopedSyncAdmin):
-    sync_permission = "structuretimers.manage_sync_keys"
+    sync_permission = "aa_stratcom.manage_sync_keys"
     form = OutboundCredentialForm
     fields = ("destination", "endpoint", "secret", "updated_at")
     readonly_fields = ("endpoint", "updated_at")
@@ -198,9 +198,7 @@ class DestinationAdmin(ScopedSyncAdmin):
     actions = None
 
     def save_model(self, request, obj, form, change):
-        if obj.scope == "all" and not request.user.has_perm(
-            "structuretimers.opsec_access"
-        ):
+        if obj.scope == "all" and not request.user.has_perm("aa_stratcom.opsec_access"):
             raise PermissionDenied("Sharing OPSEC timers also requires OPSEC access.")
         obj.authorized_by = request.user
         obj.needs_backfill = True
@@ -294,5 +292,5 @@ class AuditAdmin(SyncReadOnlyAdmin):
 
     def has_module_permission(self, request):
         return super().has_module_permission(request) or request.user.has_perm(
-            "structuretimers.manage_sync_keys"
+            "aa_stratcom.manage_sync_keys"
         )

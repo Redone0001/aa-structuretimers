@@ -49,8 +49,8 @@ class UserWithAccessFactory(UserMainFactory):
     """User with basic rights."""
 
     permissions__ = [
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
     ]
 
 
@@ -58,9 +58,9 @@ class UserWithCreateFactory(UserMainFactory):
     """User with basic rights."""
 
     permissions__ = [
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
-        "structuretimers.create_timer",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
+        "aa_stratcom.create_timer",
     ]
 
 
@@ -68,9 +68,9 @@ class UserWithManageFactory(UserMainFactory):
     """User with manager permission."""
 
     permissions__ = [
-        "structuretimers.basic_access",
-        "structuretimers.recon_member",
-        "structuretimers.manage_timer",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.recon_member",
+        "aa_stratcom.manage_timer",
     ]
 
 
@@ -259,8 +259,8 @@ def create_user(character: EveCharacter) -> User:
     User.objects.filter(username=character.character_name).delete()
     user = AuthUtils.create_user(character.character_name)
     add_main_to_user(user, character)
-    AuthUtils.add_permission_to_user_by_name("structuretimers.basic_access", user)
-    AuthUtils.add_permission_to_user_by_name("structuretimers.recon_member", user)
+    AuthUtils.add_permission_to_user_by_name("aa_stratcom.basic_access", user)
+    AuthUtils.add_permission_to_user_by_name("aa_stratcom.recon_member", user)
     user = User.objects.get(pk=user.pk)
     return user
 
@@ -288,14 +288,14 @@ def create_timer(light_years=None, jumps=None, enabled_notifications=False, **kw
 
     params.update(kwargs)
     with patch(
-        "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+        "aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems",
         Mock(),
     ):
         if enabled_notifications:
             timer = Timer.objects.create(**params)
         else:
             with patch(
-                "structuretimers.models._task_schedule_notifications_for_timer", Mock()
+                "aa_stratcom.models._task_schedule_notifications_for_timer", Mock()
             ):
                 timer = Timer.objects.create(**params)
         if light_years or jumps:
@@ -311,7 +311,7 @@ def create_timer(light_years=None, jumps=None, enabled_notifications=False, **kw
 def create_staging_system(light_years=None, jumps=None, **kwargs):
     params = {"eve_solar_system": EveSolarSystem.objects.get(id=30045339)}  # enaluri
     params.update(kwargs)
-    with patch("structuretimers.models._task_calc_staging_system", Mock()):
+    with patch("aa_stratcom.models._task_calc_staging_system", Mock()):
         staging_system = StagingSystem.objects.create(**params)
         if light_years or jumps:
             for timer in Timer.objects.all():
@@ -343,7 +343,7 @@ def create_notification_rule(schedule_notification=False, **kwargs):
     if "scheduled_time" not in kwargs:
         kwargs["scheduled_time"] = 60
     with patch(
-        "structuretimers.models.STRUCTURETIMERS_NOTIFICATIONS_ENABLED",
+        "aa_stratcom.models.AA_STRATCOM_NOTIFICATIONS_ENABLED",
         schedule_notification,
     ):
         return NotificationRule.objects.create(**kwargs)

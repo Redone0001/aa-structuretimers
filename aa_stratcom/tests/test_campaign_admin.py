@@ -23,9 +23,9 @@ class TestCampaignAdmin(NoSocketsTestCase):
         self.entry = ReconCampaignSystem.objects.create(
             campaign=self.campaign, solar_system=EveSolarSystemFactory()
         )
-        self.list_url = reverse("admin:structuretimers_reconcampaign_changelist")
+        self.list_url = reverse("admin:aa_stratcom_reconcampaign_changelist")
         self.change_url = reverse(
-            "admin:structuretimers_reconcampaign_change", args=[self.campaign.pk]
+            "admin:aa_stratcom_reconcampaign_change", args=[self.campaign.pk]
         )
 
     def data(self, completed=False, delete=False):
@@ -85,7 +85,7 @@ class TestCampaignAdmin(NoSocketsTestCase):
         self.assertIsNone(self.campaign.finished_at)
 
     @patch(
-        "structuretimers.models._task_calc_timer_distances_for_all_staging_systems",
+        "aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems",
         Mock(),
     )
     def test_campaign_delete_keeps_timers_and_universe(self):
@@ -93,9 +93,7 @@ class TestCampaignAdmin(NoSocketsTestCase):
             eve_solar_system=self.entry.solar_system,
         )
         system = self.entry.solar_system
-        url = reverse(
-            "admin:structuretimers_reconcampaign_delete", args=[self.campaign.pk]
-        )
+        url = reverse("admin:aa_stratcom_reconcampaign_delete", args=[self.campaign.pk])
         self.assertContains(self.client.get(url), "Admin campaign")
         self.assertEqual(self.client.post(url, {"post": "yes"}).status_code, 302)
         self.assertFalse(ReconCampaign.objects.filter(pk=self.campaign.pk).exists())
@@ -106,9 +104,7 @@ class TestCampaignAdmin(NoSocketsTestCase):
     def test_failed_import_retry_action(self):
         self.campaign.import_status = "failed"
         self.campaign.save()
-        with patch(
-            "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-        ) as queue:
+        with patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post(
                     self.list_url,

@@ -30,7 +30,7 @@ class Command(BaseCommand):
             raise CommandError("Import on the master: this instance is read-only.")
         # Optional source app: importing its models before this check breaks sites
         # that have never installed timerboard.
-        from .structuretimers_migrate_timers import (
+        from .aa_stratcom_migrate_timers import (
             _OBJECTIVE_MAP,
             _STRUCTURE_MAP,
             _TIMER_TYPE_MAP,
@@ -122,7 +122,7 @@ class Command(BaseCommand):
             ):
                 for code in targets:
                     target = Permission.objects.get(
-                        content_type__app_label="structuretimers",
+                        content_type__app_label="aa_stratcom",
                         content_type__model="general",
                         codename=code,
                     )

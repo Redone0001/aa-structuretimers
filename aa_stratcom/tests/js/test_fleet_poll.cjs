@@ -5,7 +5,7 @@ const fs=require('node:fs');
 function setup(){
     const nodes={fleets:{checked:true},'fleet-sync':{textContent:''}};
     const context={window:{StructureBattleTimeline:{}},document:{hidden:false,getElementById:id=>nodes[id.replace('st-battle-','')]},AbortController,Date};
-    vm.runInNewContext(fs.readFileSync(require.resolve('../../static/structuretimers/js/battle_map.js'),'utf8'),context);
+    vm.runInNewContext(fs.readFileSync(require.resolve('../../static/aa_stratcom/js/battle_map.js'),'utf8'),context);
     const map=Object.create(context.window.StructureBattleMap.prototype);
     Object.assign(map,{data:{region:{id:1}},fleetVersion:0,moving:new Set(),selected:null,hooks:{},applyFleets:tokens=>{map.applied=tokens;}});
     return {map,nodes,context};

@@ -21,7 +21,7 @@ from aa_stratcom.tests.testdata.factory import (
     TimerFactory,
 )
 
-MODULE_PATH = "structuretimers.models"
+MODULE_PATH = "aa_stratcom.models"
 
 
 class TestNotificationRule_IsMatchingTimer(NoSocketsTestCase):
@@ -278,7 +278,7 @@ class TestNotificationRule_IsMatchingTimer(NoSocketsTestCase):
 
 @patch(MODULE_PATH + ".NotificationRule._import_schedule_notifications_for_rule")
 class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", True)
     def test_should_schedule_notifications(self, mock_schedule_notifications):
         rule = NotificationRule(
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
@@ -288,7 +288,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
         rule.save()
         self.assertTrue(mock_schedule_notifications.called)
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
     def test_should_not_schedule_when_global_disabled(
         self, mock_schedule_notifications
     ):
@@ -300,7 +300,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
         rule.save()
         self.assertFalse(mock_schedule_notifications.called)
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", True)
     def test_should_not_schedule_when_rule_disabled(self, mock_schedule_notifications):
         rule = NotificationRule(
             trigger=NotificationRule.Trigger.SCHEDULED_TIME_REACHED,
@@ -311,7 +311,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
         rule.save()
         self.assertFalse(mock_schedule_notifications.called)
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
     def test_created_trigger(self, mock_schedule_notifications):
         """
         when trigger is created
@@ -337,7 +337,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
 
         self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", True)
     def test_should_delete_scheduled_notifications_when_rule_disabled(
         self, mock_schedule_notifications
     ):
@@ -360,7 +360,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
 
         self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
     def test_should_delete_scheduled_notifications_when_globally_disabled(
         self, mock_schedule_notifications
     ):
@@ -382,7 +382,7 @@ class TestNotificationRule_UpdateOnSave(NoSocketsTestCase):
 
         self.assertFalse(ScheduledNotification.objects.filter(pk=obj.pk).exists())
 
-    @patch(MODULE_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", True)
+    @patch(MODULE_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", True)
     def test_should_not_delete_scheduled_notifications_when_rule_stays_enabled(
         self, mock_schedule_notifications
     ):

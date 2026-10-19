@@ -98,7 +98,9 @@ def board_context(context, user, operation=None, form=None):
                 if editor and form.is_bound
                 else (form.initial["roster"] if editor else roster_payload(operation))
             ),
-            "operation_role_templates": template_payload() if editor else [],
+            "aa_stratcom_operation_role_templates": (
+                template_payload() if editor else []
+            ),
             "operation": operation,
             "operation_form": form,
             "operation_editor": editor,
@@ -107,9 +109,9 @@ def board_context(context, user, operation=None, form=None):
             "operation_selected_ids": [int(pk) for pk in selected if str(pk).isdigit()],
             "operation_data_url": reverse(
                 (
-                    "structuretimers:operation_picker"
+                    "aa_stratcom:operation_picker"
                     if editor
-                    else "structuretimers:operation_data"
+                    else "aa_stratcom:operation_data"
                 ),
                 kwargs={"pk": operation.pk} if operation else {},
             ),
@@ -135,8 +137,8 @@ class OperationEditorView(TimerListView):
     """Coordinators create and edit selections without changing the timers."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.op_coordinator",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.op_coordinator",
     )
 
     def get_context_data(self, **kwargs):
@@ -230,9 +232,7 @@ class OperationTimerDataView(TimerListDataView):
                 row["battle"] = observation_payload(
                     timers[row["id"]],
                     self.request.user,
-                    can_edit=self.request.user.has_perm(
-                        "structuretimers.op_coordinator"
-                    ),
+                    can_edit=self.request.user.has_perm("aa_stratcom.op_coordinator"),
                 )
         return rows
 
@@ -243,7 +243,7 @@ class OperationTimerDataView(TimerListDataView):
     def _get_data_actions(self, timer):
         """Keep timer details available without granting global edit rights."""
         return render_to_string(
-            "structuretimers/partials/operation_timer_actions.html",
+            "aa_stratcom/partials/operation_timer_actions.html",
             {
                 "timer": timer,
                 "fit_buttons": fit_buttons_html(
@@ -265,7 +265,7 @@ class OperationPickerDataView(OperationTimerDataView):
 def operation_live(request, pk):
     """Poll only membership metadata and observations, with conditional responses."""
     operation = get_operation(request.user, pk)
-    can_edit = request.user.has_perm("structuretimers.op_coordinator")
+    can_edit = request.user.has_perm("aa_stratcom.op_coordinator")
     timers = (
         operation_timers(operation, request.user)
         .select_related("map_state", "structure", "structure_type", "eve_solar_system")
@@ -320,7 +320,7 @@ def conditional_response(request, payload):
 def operation_index_live(request):
     """Keep the Ops list current when another coordinator creates or edits an op."""
     require_operation_access(request.user)
-    can_edit = request.user.has_perm("structuretimers.op_coordinator")
+    can_edit = request.user.has_perm("aa_stratcom.op_coordinator")
     return conditional_response(
         request,
         {
@@ -332,7 +332,7 @@ def operation_index_live(request):
                     "visibility": operation.get_visibility_display(),
                     "updated_at": operation.updated_at.isoformat(),
                     "edit_url": (
-                        reverse("structuretimers:operation_edit", args=[operation.pk])
+                        reverse("aa_stratcom:operation_edit", args=[operation.pk])
                         if can_edit
                         else None
                     ),

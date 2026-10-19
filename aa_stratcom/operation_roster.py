@@ -174,8 +174,8 @@ def clean_roster(value, operation):
             get_user_model()
             .objects.filter(
                 Q(is_active=True)
-                | Q(timer_operations=operation)
-                | Q(operation_roles__operation=operation)
+                | Q(aa_stratcom_timer_operations=operation)
+                | Q(aa_stratcom_operation_roles__operation=operation)
             )
             .distinct()
         )

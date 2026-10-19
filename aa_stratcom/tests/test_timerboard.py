@@ -33,9 +33,7 @@ from aa_stratcom.timerboard import render_board, sync_board
 class TimerboardTests(TestCase):
     def setUp(self):
         self.board = DiscordTimerboard.objects.create(name="Timers", channel_id="123")
-        self.client_patch = patch(
-            "structuretimers.timerboard.DiscordClient", autospec=True
-        )
+        self.client_patch = patch("aa_stratcom.timerboard.DiscordClient", autospec=True)
         self.client_class = self.client_patch.start()
         self.addCleanup(self.client_patch.stop)
         self.client = self.client_class.return_value
@@ -101,7 +99,7 @@ class TimerboardTests(TestCase):
             (96, "At96"),
         ]:
             self.timer(date=current + dt.timedelta(hours=hours), system_name=name)
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         data = page.split("\n\n", 1)[1].splitlines()
         groups = [[]]
@@ -129,7 +127,7 @@ class TimerboardTests(TestCase):
             self.timer(
                 date=current + dt.timedelta(days=index), system_name=f"Day{index:02d}"
             )
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             pages = render_board(self.board)
         self.assertGreater(len(pages), 1)
         for page in pages:
@@ -144,7 +142,7 @@ class TimerboardTests(TestCase):
         current = now()
         self.timer(date=current + dt.timedelta(hours=1), system_name="Upcoming")
         self.timer(date=current - dt.timedelta(minutes=10), system_name="Elapsed")
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         data = page.split("\n\n", 1)[1].splitlines()
         self.assertEqual(len(data), 3)
@@ -172,7 +170,7 @@ class TimerboardTests(TestCase):
         expired = self.timer(
             date=current - dt.timedelta(hours=1, seconds=1), system_name="Expired"
         )
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         self.assertIn("Recent", page)
         self.assertIn("Boundary", page)
@@ -188,7 +186,7 @@ class TimerboardTests(TestCase):
             system_name="Jita 漢字",
             location_details="Hidden location ``` @everyone",
         )
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             page = render_board(self.board)[0]
         self.assertIn(
             f"`2030-01-01 12:00` • <t:{int(timer.date.timestamp())}:R> • [Jita 漢字](<https://evemaps.dotlan.net/map/",
@@ -228,11 +226,11 @@ class TimerboardTests(TestCase):
     def test_live_timestamp_does_not_require_periodic_edits(self):
         current = now()
         self.timer(date=current + dt.timedelta(hours=2))
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             sync_board(self.board)
         self.client.reset_mock()
         with patch(
-            "structuretimers.timerboard.now",
+            "aa_stratcom.timerboard.now",
             return_value=current + dt.timedelta(minutes=5),
         ):
             sync_board(self.board)
@@ -362,12 +360,12 @@ class TimerboardTests(TestCase):
     def test_expiry_refresh_updates_existing_message(self):
         current = now()
         self.timer(date=current - dt.timedelta(minutes=59), system_name="Expiring")
-        with patch("structuretimers.timerboard.now", return_value=current):
+        with patch("aa_stratcom.timerboard.now", return_value=current):
             sync_board(self.board)
         message_id = self.board.messages.get().message_id
         self.client.reset_mock()
         with patch(
-            "structuretimers.timerboard.now",
+            "aa_stratcom.timerboard.now",
             return_value=current + dt.timedelta(minutes=5),
         ):
             sync_board(self.board)
@@ -381,7 +379,7 @@ class TimerboardTests(TestCase):
 
     def test_reuses_edits_and_removes_surplus_messages(self):
         with patch(
-            "structuretimers.timerboard.render_board", return_value=["first", "second"]
+            "aa_stratcom.timerboard.render_board", return_value=["first", "second"]
         ):
             sync_board(self.board)
             self.assertEqual(self.client.create_channel_message.call_count, 2)
@@ -390,7 +388,7 @@ class TimerboardTests(TestCase):
             self.assertEqual(self.client.mock_calls, [])
         first_id = int(self.board.messages.first().message_id)
         second_id = int(self.board.messages.last().message_id)
-        with patch("structuretimers.timerboard.render_board", return_value=["updated"]):
+        with patch("aa_stratcom.timerboard.render_board", return_value=["updated"]):
             sync_board(self.board)
         self.client.edit_channel_message.assert_called_once_with(
             channel_id=123,
@@ -441,9 +439,7 @@ class TimerboardTests(TestCase):
             Message(id=456, content="one"),
             timeout,
         ]
-        with patch(
-            "structuretimers.timerboard.render_board", return_value=["one", "two"]
-        ):
+        with patch("aa_stratcom.timerboard.render_board", return_value=["one", "two"]):
             with patch.object(
                 refresh_discord_timerboard, "retry", side_effect=timeout
             ) as retry:
@@ -477,7 +473,7 @@ class TimerboardTests(TestCase):
             id=456, content="before lost reply"
         )
         with patch(
-            "structuretimers.timerboard.render_board", return_value=["current state"]
+            "aa_stratcom.timerboard.render_board", return_value=["current state"]
         ):
             sync_board(self.board)
             self.assertEqual(self.board.messages.get().content, "before lost reply")
@@ -491,8 +487,8 @@ class TimerboardTests(TestCase):
         )
 
     @override_settings(
-        STRUCTURETIMERS_DISCORD_PROXY_TARGET="discordproxy:50051",
-        STRUCTURETIMERS_DISCORD_PROXY_TIMEOUT=45,
+        AA_STRATCOM_DISCORD_PROXY_TARGET="discordproxy:50051",
+        AA_STRATCOM_DISCORD_PROXY_TIMEOUT=45,
     )
     def test_proxy_configuration_needs_no_bot_token(self):
         sync_board(self.board)
@@ -523,9 +519,7 @@ class TimerboardTests(TestCase):
     def test_backfill_flags_only_non_preliminary_timers(self):
         scheduled = self.timer()
         preliminary = self.timer(timer_type=Timer.Type.PRELIMINARY, date=None)
-        migration = import_module(
-            "structuretimers.migrations.0013_backfill_discord_timerboard"
-        )
+        migration = import_module("aa_stratcom.legacy_backfill")
         migration.flag_existing_timers(
             apps, SimpleNamespace(connection=SimpleNamespace(alias="default"))
         )
@@ -540,9 +534,7 @@ class TimerboardTests(TestCase):
         self.timer(date=now() - dt.timedelta(days=31), system_name="Expired")
         self.assertNotIn("Expired", render_board(self.board)[0])
         self.assertTrue(Timer.objects.filter(eve_solar_system__name="Expired").exists())
-        with patch(
-            "structuretimers.managers.STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS", 30
-        ):
+        with patch("aa_stratcom.managers.AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS", 30):
             housekeeping()
         self.assertIn("No timers", render_board(self.board)[0])
         self.assertFalse(
@@ -605,7 +597,7 @@ class ProxyWireTests(TestCase):
             message=Message(id=message_id, content="updated")
         )
         stub.DeleteChannelMessage.return_value = DeleteChannelMessageResponse()
-        with patch("structuretimers.timerboard.render_board", return_value=["first"]):
+        with patch("aa_stratcom.timerboard.render_board", return_value=["first"]):
             sync_board(board)
         create = stub.SendChannelMessage.call_args.kwargs
         self.assertEqual(create["timeout"], 30)
@@ -614,7 +606,7 @@ class ProxyWireTests(TestCase):
         self.assertTrue(create["request"].enforce_nonce)
         self.assertTrue(create["request"].nonce)
         self.assertEqual(board.messages.get().message_id, str(message_id))
-        with patch("structuretimers.timerboard.render_board", return_value=["updated"]):
+        with patch("aa_stratcom.timerboard.render_board", return_value=["updated"]):
             sync_board(board)
         edit = stub.EditChannelMessage.call_args.kwargs["request"]
         self.assertEqual(edit.channel_id, channel_id)

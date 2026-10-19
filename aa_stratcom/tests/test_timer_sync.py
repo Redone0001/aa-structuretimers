@@ -36,15 +36,13 @@ from aa_stratcom.sync_security import (
 from aa_stratcom.tests.testdata.factory import TimerFactory, UserWithCreateFactory
 
 HOST = "timers.example.org"
-ENDPOINT = f"https://{HOST}/structuretimers/api/v1/sync/timers/"
+ENDPOINT = f"https://{HOST}/aa_stratcom/api/v1/sync/timers/"
 ENCRYPTION_KEY = Fernet.generate_key().decode()
 
 
 def grant(user, codename):
     user.user_permissions.add(
-        Permission.objects.get(
-            content_type__app_label="structuretimers", codename=codename
-        )
+        Permission.objects.get(content_type__app_label="aa_stratcom", codename=codename)
     )
     for name in ("_perm_cache", "_user_perm_cache", "_group_perm_cache"):
         user.__dict__.pop(name, None)
@@ -52,8 +50,8 @@ def grant(user, codename):
 
 @override_settings(
     CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
-    STRUCTURETIMERS_SYNC_ALLOWED_HOSTS=[HOST],
-    STRUCTURETIMERS_SYNC_ENCRYPTION_KEY=ENCRYPTION_KEY,
+    AA_STRATCOM_SYNC_ALLOWED_HOSTS=[HOST],
+    AA_STRATCOM_SYNC_ENCRYPTION_KEY=ENCRYPTION_KEY,
 )
 class TimerSyncTests(TestCase):
     def setUp(self):
@@ -63,7 +61,7 @@ class TimerSyncTests(TestCase):
             "_task_calc_timer_distances_for_all_staging_systems",
             "_task_schedule_notifications_for_timer",
         ):
-            mock = patch("structuretimers.models." + name)
+            mock = patch("aa_stratcom.models." + name)
             mock.start()
             self.addCleanup(mock.stop)
         self.actor = UserWithCreateFactory(is_staff=True)
@@ -88,7 +86,7 @@ class TimerSyncTests(TestCase):
             "timer": serialize_timer(self.local),
         }
         self.payload["timer"]["structure_name"] = "Partner structure"
-        self.url = reverse("structuretimers:timer_sync_api")
+        self.url = reverse("aa_stratcom:timer_sync_api")
 
     def post(self, payload=None, secret=None, **kwargs):
         return self.client.post(
@@ -236,7 +234,7 @@ class TimerSyncTests(TestCase):
         self.assertEqual(TimerSyncDelivery.objects.get().payload["action"], "delete")
 
     @patch(
-        "structuretimers.sync_jobs.deliver_timer_sync.delay",
+        "aa_stratcom.sync_jobs.deliver_timer_sync.delay",
         side_effect=RuntimeError("broker down"),
     )
     def test_broker_failure_keeps_durable_delivery_for_periodic_recovery(self, _delay):
@@ -258,12 +256,12 @@ class TimerSyncTests(TestCase):
         self.client.force_login(self.actor)
         self.assertEqual(
             self.client.get(
-                reverse("structuretimers:copy", args=[self.local.pk])
+                reverse("aa_stratcom:copy", args=[self.local.pk])
             ).status_code,
             403,
         )
         response = self.client.post(
-            reverse("structuretimers:battle_map_data", args=["timer"]),
+            reverse("aa_stratcom:battle_map_data", args=["timer"]),
             json.dumps({"id": self.local.pk, "revision": 0, "action": "kill"}),
             content_type="application/json",
         )
@@ -362,7 +360,7 @@ class TimerSyncTests(TestCase):
         self.client.force_login(self.actor)
         for url_name in ("add", "add_fast", "add_info", "add_recon"):
             self.assertEqual(
-                self.client.get(reverse("structuretimers:" + url_name)).status_code, 403
+                self.client.get(reverse("aa_stratcom:" + url_name)).status_code, 403
             )
         self.assertFalse(self.local.user_can_edit(self.actor))
         for mutation in (
@@ -380,12 +378,12 @@ class TimerSyncTests(TestCase):
                 mutation()
         self.assertEqual(Timer.objects.delete_obsolete(), 0)
 
-    @patch("structuretimers.sync_security.cache.add", side_effect=RuntimeError("down"))
+    @patch("aa_stratcom.sync_security.cache.add", side_effect=RuntimeError("down"))
     def test_rate_limit_failure_does_not_disable_protection(self, _mock):
         self.assertEqual(self.post().status_code, 503)
         self.assertEqual(Timer.objects.count(), 1)
 
-    @patch("structuretimers.sync_api.within_rate_limit", return_value=False)
+    @patch("aa_stratcom.sync_api.within_rate_limit", return_value=False)
     def test_rate_limit_is_enforced(self, _mock):
         response = self.post()
         self.assertEqual(response.status_code, 429)
@@ -400,7 +398,7 @@ class TimerSyncTests(TestCase):
         self.assertNotIn(self.secret, credential.ciphertext)
         self.assertEqual(decrypt_secret(credential), self.secret)
         target.endpoint = (
-            "https://elsewhere.example.org/structuretimers/api/v1/sync/timers/"
+            "https://elsewhere.example.org/aa_stratcom/api/v1/sync/timers/"
         )
         target.save()
         credential.destination = target
@@ -417,13 +415,13 @@ class TimerSyncTests(TestCase):
             ENDPOINT.replace(HOST, "evil.example.org"),
             ENDPOINT.replace(HOST, "user@" + HOST),
             ENDPOINT.replace(HOST, HOST + ":443"),
-            "https://127.0.0.1/structuretimers/api/v1/sync/timers/",
+            "https://127.0.0.1/aa_stratcom/api/v1/sync/timers/",
         ):
             with self.subTest(url=url), self.assertRaises(ValidationError):
                 validate_endpoint(url)
 
-    @patch("structuretimers.sync_security.socket.getaddrinfo")
-    @patch("structuretimers.sync_security.urllib3.HTTPSConnectionPool")
+    @patch("aa_stratcom.sync_security.socket.getaddrinfo")
+    @patch("aa_stratcom.sync_security.urllib3.HTTPSConnectionPool")
     def test_private_or_mixed_dns_addresses_never_receive_a_credential(
         self, pool, resolve
     ):
@@ -442,8 +440,8 @@ class TimerSyncTests(TestCase):
                 post_payload(target, self.secret, self.payload)
         pool.assert_not_called()
 
-    @patch("structuretimers.sync_security.socket.getaddrinfo")
-    @patch("structuretimers.sync_security.urllib3.HTTPSConnectionPool")
+    @patch("aa_stratcom.sync_security.socket.getaddrinfo")
+    @patch("aa_stratcom.sync_security.urllib3.HTTPSConnectionPool")
     def test_https_pins_public_ip_preserves_sni_and_never_follows_redirect(
         self, pool, resolve
     ):
@@ -483,7 +481,7 @@ class TimerSyncTests(TestCase):
         self.assertTrue(TimerSyncDelivery.objects.exists())
         self.actor.user_permissions.remove(
             Permission.objects.get(
-                content_type__app_label="structuretimers",
+                content_type__app_label="aa_stratcom",
                 codename="manage_timer_sharing",
             )
         )
@@ -492,7 +490,7 @@ class TimerSyncTests(TestCase):
         target.refresh_from_db()
         self.assertFalse(authorized_destination(target))
 
-    @patch("structuretimers.sync_jobs.post_payload")
+    @patch("aa_stratcom.sync_jobs.post_payload")
     def test_delivery_retry_retains_row_and_ack_cannot_erase_a_newer_event(self, send):
         from aa_stratcom.sync_jobs import _deliver
 
@@ -524,15 +522,15 @@ class TimerSyncTests(TestCase):
 
     def test_admin_key_and_sharing_permissions_are_independent(self):
         self.client.force_login(self.actor)
-        keys = reverse("admin:structuretimers_timersynckey_changelist")
-        targets = reverse("admin:structuretimers_timersyncdestination_changelist")
+        keys = reverse("admin:aa_stratcom_timersynckey_changelist")
+        targets = reverse("admin:aa_stratcom_timersyncdestination_changelist")
         self.assertEqual(self.client.get(keys).status_code, 403)
         self.assertEqual(self.client.get(targets).status_code, 403)
         grant(self.actor, "manage_sync_keys")
         self.assertEqual(self.client.get(keys).status_code, 200)
         self.assertEqual(self.client.get(targets).status_code, 403)
         key_page = self.client.get(
-            reverse("admin:structuretimers_timersynckey_change", args=[self.key.pk])
+            reverse("admin:aa_stratcom_timersynckey_change", args=[self.key.pk])
         )
         self.assertNotContains(key_page, self.secret)
         other = UserWithCreateFactory(is_staff=True)
@@ -540,7 +538,7 @@ class TimerSyncTests(TestCase):
         self.client.force_login(other)
         self.assertEqual(self.client.get(keys).status_code, 403)
         self.assertEqual(self.client.get(targets).status_code, 200)
-        credential_url = reverse("admin:structuretimers_timersynccredential_add")
+        credential_url = reverse("admin:aa_stratcom_timersynccredential_add")
         self.assertEqual(self.client.get(credential_url).status_code, 403)
 
     def test_admin_sharing_page_never_contains_saved_credential(self):
@@ -550,9 +548,7 @@ class TimerSyncTests(TestCase):
         credential.save()
         self.client.force_login(self.actor)
         page = self.client.get(
-            reverse(
-                "admin:structuretimers_timersyncdestination_change", args=[target.pk]
-            )
+            reverse("admin:aa_stratcom_timersyncdestination_change", args=[target.pk])
         )
         self.assertNotContains(page, self.secret)
         self.assertNotContains(page, credential.ciphertext)

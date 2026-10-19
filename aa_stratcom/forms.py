@@ -270,7 +270,7 @@ class TimerForm(forms.ModelForm):
 
         if (
             not self.user
-            or not self.user.has_perm("structuretimers.recon_member")
+            or not self.user.has_perm("aa_stratcom.recon_member")
             or isinstance(my_instance, Structure)
         ):
             self.fields.pop("database_entry_2", None)

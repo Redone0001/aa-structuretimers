@@ -10,7 +10,7 @@ from app_utils.django import app_labels
 from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom.constants import EveTypeId
-from aa_stratcom.management.commands.structuretimers_migrate_timers import (
+from aa_stratcom.management.commands.aa_stratcom_migrate_timers import (
     _STRUCTURE_MAP,
 )
 from aa_stratcom.models import Timer
@@ -21,13 +21,13 @@ from aa_stratcom.tests.testdata.factory import (
 )
 from aa_stratcom.tests.utils import isolated_subtest
 
-PACKAGE_PATH = "structuretimers.management.commands"
-MODELS_PATH = "structuretimers.models"
+PACKAGE_PATH = "aa_stratcom.management.commands"
+MODELS_PATH = "aa_stratcom.models"
 
 
 @skipIf("timerboard" not in app_labels(), "timerboard not installed")
 @patch(MODELS_PATH + "._task_calc_timer_distances_for_all_staging_systems", Mock())
-@patch(MODELS_PATH + ".STRUCTURETIMERS_NOTIFICATIONS_ENABLED", False)
+@patch(MODELS_PATH + ".AA_STRATCOM_NOTIFICATIONS_ENABLED", False)
 class TestMigrateTimers(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
@@ -60,7 +60,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         )
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         # then
         self.assertEqual(
@@ -88,7 +88,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 )
 
                 # when
-                call_command("structuretimers_migrate_timers", stdout=self.out)
+                call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
                 # then
                 self.assertEqual(
@@ -107,7 +107,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 )
 
                 # when
-                call_command("structuretimers_migrate_timers", stdout=self.out)
+                call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
                 # then
                 self.assertEqual(
@@ -127,7 +127,7 @@ class TestMigrateTimers(NoSocketsTestCase):
                 )
 
                 # when
-                call_command("structuretimers_migrate_timers", stdout=self.out)
+                call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
                 # then
                 self.assertEqual(
@@ -144,7 +144,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         )
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         # then
         self.assertEqual(
@@ -162,7 +162,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         )
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         # then
         new_timer = Timer.objects.exclude(timer_type=Timer.Type.PRELIMINARY).first()
@@ -177,7 +177,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         )
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         self.assertFalse(Timer.objects.all().exists())
 
@@ -189,7 +189,7 @@ class TestMigrateTimers(NoSocketsTestCase):
         )
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         self.assertFalse(Timer.objects.all().exists())
 
@@ -198,8 +198,8 @@ class TestMigrateTimers(NoSocketsTestCase):
         AuthTimerFactory()
 
         # when
-        call_command("structuretimers_migrate_timers", stdout=self.out)
-        call_command("structuretimers_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
+        call_command("aa_stratcom_migrate_timers", stdout=self.out)
 
         # then
         self.assertEqual(

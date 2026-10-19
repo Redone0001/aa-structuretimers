@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils.timezone import now
 
-from .app_settings import STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS
+from .app_settings import AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS
 
 
 class NotificationRuleQuerySet(models.QuerySet):
@@ -40,7 +40,7 @@ def _visible_to_user(qs: models.QuerySet, user: User) -> models.QuerySet:
     )
     user_corporation_ids = {x["character__corporation_id"] for x in user_characters_qs}
     user_alliance_ids = {x["character__alliance_id"] for x in user_characters_qs}
-    if not user.has_perm("structuretimers.opsec_access"):
+    if not user.has_perm("aa_stratcom.opsec_access"):
         qs = qs.exclude(is_opsec=True)
     return (
         qs.filter(visibility=qs.model.Visibility.UNRESTRICTED)
@@ -162,10 +162,8 @@ class TimerManagerBase(models.Manager):
 
         if read_only():
             return 0
-        if STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS:
-            deadline = now() - timedelta(
-                days=STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS
-            )
+        if AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS:
+            deadline = now() - timedelta(days=AA_STRATCOM_TIMERS_OBSOLETE_AFTER_DAYS)
             # Timers of a known structure are its reinforcement history.
             _, details = (
                 self.filter(date__lt=deadline)
@@ -199,7 +197,7 @@ class DistancesFromStagingManager(models.Manager):
 class StructureQuerySet(ReplicaProtectedQuerySet):
     def visible_to_user(self, user: User) -> models.QuerySet:
         """Database records this user may see: recon members only."""
-        if not user.has_perm("structuretimers.recon_member"):
+        if not user.has_perm("aa_stratcom.recon_member"):
             return self.none()
         return _visible_to_user(
             self.select_related("structure_type", "eve_corporation", "eve_alliance"),

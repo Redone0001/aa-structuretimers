@@ -27,8 +27,8 @@ from aa_stratcom.tests.testdata.factory import (
 
 from .testdata import test_image_filename
 
-FORMS_PATH = "structuretimers.forms"
-MODELS_PATH = "structuretimers.models"
+FORMS_PATH = "aa_stratcom.forms"
+MODELS_PATH = "aa_stratcom.models"
 
 
 def bytes_from_file(filename, chunksize=8192):

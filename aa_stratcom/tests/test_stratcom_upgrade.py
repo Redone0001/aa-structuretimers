@@ -1,11 +1,9 @@
 """Upgrade compatibility and non-destructive classic timerboard copying."""
 
 from datetime import timedelta
-from importlib import import_module
 from io import StringIO
 from unittest.mock import patch
 
-from django.apps import apps
 from django.contrib.auth.models import Group, Permission
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -13,7 +11,6 @@ from django.test import TestCase, override_settings
 from django.utils.timezone import now
 from eveuniverse.tests.testdata.factories_2 import EveTypeFactory
 
-from aa_stratcom import __title__
 from aa_stratcom.models import Structure, Timer, TimerboardImport
 from aa_stratcom.sync_models import TimerSyncConfig
 from aa_stratcom.tests.testdata.factory import (
@@ -38,7 +35,7 @@ class StratComUpgradeTests(TestCase):
             corp_timer=True,
             important=True,
         )
-        from aa_stratcom.management.commands.structuretimers_migrate_timers import (
+        from aa_stratcom.management.commands.aa_stratcom_migrate_timers import (
             _STRUCTURE_MAP,
         )
 
@@ -46,23 +43,6 @@ class StratComUpgradeTests(TestCase):
 
     def run_import(self, *args):
         call_command("stratcom_import_timerboard", *args, stdout=self.output)
-
-    def test_legacy_imports_preserve_model_identity_and_celery_names(self):
-        self.assertIs(import_module("structuretimers.models").Timer, Timer)
-        self.assertIs(
-            import_module("structuretimers.apps").StructureTimersConfig,
-            apps.get_app_config("structuretimers").__class__,
-        )
-        self.assertEqual(Timer._meta.db_table, "structuretimers_timer")
-        self.assertEqual(apps.get_app_config("structuretimers").name, "aa_stratcom")
-        self.assertEqual(__title__, "AA StratCom")
-        from aa_stratcom.sync_jobs import deliver_timer_sync
-        from aa_stratcom.tasks import housekeeping
-
-        self.assertEqual(housekeeping.name, "structuretimers.tasks.housekeeping")
-        self.assertEqual(
-            deliver_timer_sync.name, "structuretimers.sync_jobs.deliver_timer_sync"
-        )
 
     @patch("aa_stratcom.models._task_calc_structure_distances")
     @patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems")
@@ -155,24 +135,24 @@ class StratComUpgradeTests(TestCase):
         group = Group.objects.create(name="Timerboard managers")
         group.permissions.add(source_manage)
         original_id = Permission.objects.get(
-            content_type__app_label="structuretimers", codename="basic_access"
+            content_type__app_label="aa_stratcom", codename="basic_access"
         ).pk
         self.run_import()
-        self.assertTrue(viewer.has_perm("structuretimers.basic_access"))
-        self.assertFalse(viewer.has_perm("structuretimers.create_timer"))
-        self.assertFalse(viewer.has_perm("structuretimers.manage_timer"))
-        self.assertTrue(self.user.has_perm("structuretimers.create_timer"))
-        self.assertTrue(self.user.has_perm("structuretimers.manage_timer"))
+        self.assertTrue(viewer.has_perm("aa_stratcom.basic_access"))
+        self.assertFalse(viewer.has_perm("aa_stratcom.create_timer"))
+        self.assertFalse(viewer.has_perm("aa_stratcom.manage_timer"))
+        self.assertTrue(self.user.has_perm("aa_stratcom.create_timer"))
+        self.assertTrue(self.user.has_perm("aa_stratcom.manage_timer"))
         self.assertTrue(group.permissions.filter(pk=source_manage.pk).exists())
         self.assertTrue(
             group.permissions.filter(
-                codename="manage_timer", content_type__app_label="structuretimers"
+                codename="manage_timer", content_type__app_label="aa_stratcom"
             ).exists()
         )
         self.assertTrue(viewer.user_permissions.filter(pk=source_view.pk).exists())
         self.assertEqual(
             Permission.objects.get(
-                content_type__app_label="structuretimers", codename="basic_access"
+                content_type__app_label="aa_stratcom", codename="basic_access"
             ).pk,
             original_id,
         )
@@ -228,7 +208,7 @@ class StratComUpgradeTests(TestCase):
         archive_admin = TimerboardImportAdmin(TimerboardImport, admin.site)
         self.assertIn(
             reverse(
-                "admin:structuretimers_structure_change",
+                "admin:aa_stratcom_structure_change",
                 args=[record.timer.structure_id],
             ),
             archive_admin.structure_record(record),

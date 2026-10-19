@@ -15,12 +15,12 @@ class TimersMenuItem(MenuItemHook):
             self,
             _(__title__),
             "far fa-calendar-times fa-fw",
-            "structuretimers:timer_list",
-            navactive=["structuretimers:"],
+            "aa_stratcom:timer_list",
+            navactive=["aa_stratcom:"],
         )
 
     def render(self, request):
-        if request.user.has_perm("structuretimers.basic_access"):
+        if request.user.has_perm("aa_stratcom.basic_access"):
             return MenuItemHook.render(self, request)
         return ""
 
@@ -34,7 +34,7 @@ def register_menu():
 def register_urls():
     return UrlHook(
         urls,
-        "structuretimers",
-        r"^structuretimers/",
+        "aa_stratcom",
+        r"^aa_stratcom/",
         excluded_views=["aa_stratcom.sync_api.timer_sync"],
     )

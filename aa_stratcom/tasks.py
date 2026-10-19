@@ -16,7 +16,7 @@ from allianceauth.services.tasks import QueueOnce
 
 # Re-export the task so Celery autodiscovery registers campaign imports.
 from aa_stratcom import __title__, campaign_jobs, sync_jobs
-from aa_stratcom.app_settings import STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
+from aa_stratcom.app_settings import AA_STRATCOM_MAX_AGE_FOR_NOTIFICATIONS
 from aa_stratcom.models import (
     DiscordWebhook,
     DistancesFromStaging,
@@ -36,7 +36,7 @@ TASK_PRIORITY_HIGH = 4
 
 
 @shared_task(
-    name="structuretimers.tasks.send_messages_for_webhook",
+    name="aa_stratcom.tasks.send_messages_for_webhook",
     base=QueueOnce,
     acks_late=True,
 )
@@ -52,7 +52,7 @@ def send_messages_for_webhook(webhook_pk: int) -> None:
 
 
 @shared_task(
-    name="structuretimers.tasks.send_scheduled_notification",
+    name="aa_stratcom.tasks.send_scheduled_notification",
     base=QueueOnce,
     bind=True,
     acks_late=True,
@@ -107,9 +107,7 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
             "Discarding notification for destroyed structure: %s", timer.structure_id
         )
         return
-    grace_cutoff = now() - dt.timedelta(
-        minutes=STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
-    )
+    grace_cutoff = now() - dt.timedelta(minutes=AA_STRATCOM_MAX_AGE_FOR_NOTIFICATIONS)
     if (
         not timer.date
         or timer.date < grace_cutoff
@@ -144,7 +142,7 @@ def send_scheduled_notification(self, scheduled_notification_pk: int) -> None:
     )
 
 
-@shared_task(name="structuretimers.tasks.notify_about_new_timer")
+@shared_task(name="aa_stratcom.tasks.notify_about_new_timer")
 def notify_about_new_timer(timer_pk: int, notification_rule_pk: int) -> None:
     """Send notification about new timer."""
     timer = Timer.objects.get(pk=timer_pk)
@@ -168,7 +166,7 @@ def notify_about_new_timer(timer_pk: int, notification_rule_pk: int) -> None:
 
 
 @shared_task(
-    name="structuretimers.tasks.dispatch_scheduled_notifications",
+    name="aa_stratcom.tasks.dispatch_scheduled_notifications",
     base=QueueOnce,
     acks_late=True,
 )
@@ -184,7 +182,7 @@ def dispatch_scheduled_notifications() -> None:
 
 
 @shared_task(
-    name="structuretimers.tasks.schedule_notifications_for_timer",
+    name="aa_stratcom.tasks.schedule_notifications_for_timer",
     base=QueueOnce,
     acks_late=True,
 )
@@ -239,7 +237,7 @@ def schedule_notifications_for_timer(timer_pk: int, is_new: bool = False) -> Non
 
 
 @shared_task(
-    name="structuretimers.tasks.schedule_notifications_for_rule",
+    name="aa_stratcom.tasks.schedule_notifications_for_rule",
     base=QueueOnce,
     acks_late=True,
 )
@@ -276,7 +274,7 @@ def schedule_notifications_for_rule(notification_rule_pk: int) -> None:
             timer.schedule_notification(notification_rule=notification_rule)
 
 
-@shared_task(name="structuretimers.tasks.send_test_message_to_webhook")
+@shared_task(name="aa_stratcom.tasks.send_test_message_to_webhook")
 def send_test_message_to_webhook(
     webhook_pk: int, user_pk: Optional[int] = None
 ) -> None:
@@ -308,7 +306,7 @@ def send_test_message_to_webhook(
     )
 
 
-@shared_task(name="structuretimers.tasks.housekeeping")
+@shared_task(name="aa_stratcom.tasks.housekeeping")
 def housekeeping() -> None:
     """Perform housekeeping tasks"""
     logger.info("Performing housekeeping")
@@ -316,7 +314,7 @@ def housekeeping() -> None:
     logger.info("Deleted %d obsolete timers.", deleted_count)
 
 
-@shared_task(name="structuretimers.tasks.calc_staging_system")
+@shared_task(name="aa_stratcom.tasks.calc_staging_system")
 def calc_staging_system(staging_system_pk: int, force_update: bool = False) -> None:
     """Recalc distances from a staging system for all timers and structures."""
     for timer_pk in Timer.objects.values_list("pk", flat=True):
@@ -327,7 +325,7 @@ def calc_staging_system(staging_system_pk: int, force_update: bool = False) -> N
         calc_structure_distances.delay(structure_pk, force_update)
 
 
-@shared_task(name="structuretimers.tasks.calc_structure_distances")
+@shared_task(name="aa_stratcom.tasks.calc_structure_distances")
 @rate_limit_retry_task
 def calc_structure_distances(structure_pk: int, force_update: bool = False) -> None:
     """Calc distances of a Database record from every staging system."""
@@ -341,7 +339,7 @@ def calc_structure_distances(structure_pk: int, force_update: bool = False) -> N
             obj.save()
 
 
-@shared_task(name="structuretimers.tasks.calc_timer_distances_for_all_staging_systems")
+@shared_task(name="aa_stratcom.tasks.calc_timer_distances_for_all_staging_systems")
 def calc_timer_distances_for_all_staging_systems(
     timer_pk: int, force_update: bool = False
 ) -> None:
@@ -358,7 +356,7 @@ def calc_timer_distances_for_all_staging_systems(
         )
 
 
-@shared_task(name="structuretimers.tasks.calc_timer_distances_for_staging_system")
+@shared_task(name="aa_stratcom.tasks.calc_timer_distances_for_staging_system")
 @rate_limit_retry_task
 def calc_timer_distances_for_staging_system(
     timer_pk: int, staging_system_pk: int, force_update: bool = False
@@ -372,7 +370,7 @@ def calc_timer_distances_for_staging_system(
 
 
 @shared_task(
-    name="structuretimers.tasks.refresh_discord_timerboards",
+    name="aa_stratcom.tasks.refresh_discord_timerboards",
     base=QueueOnce,
     acks_late=True,
 )
@@ -391,7 +389,7 @@ def refresh_discord_timerboards():
 
 
 @shared_task(
-    name="structuretimers.tasks.refresh_discord_timerboard",
+    name="aa_stratcom.tasks.refresh_discord_timerboard",
     bind=True,
     max_retries=5,
     acks_late=True,
@@ -419,9 +417,7 @@ def refresh_discord_timerboard(self, board_pk):
         raise self.retry(exc=error, countdown=60)
 
 
-@shared_task(
-    name="structuretimers.tasks.sync_standings", base=QueueOnce, acks_late=True
-)
+@shared_task(name="aa_stratcom.tasks.sync_standings", base=QueueOnce, acks_late=True)
 def sync_standings():
     """Refresh automatic owner standings from the alliance contacts."""
     from . import standings  # pylint: disable=import-outside-toplevel
@@ -430,7 +426,7 @@ def sync_standings():
 
 
 @shared_task(
-    name="structuretimers.tasks.sync_alliance_directory", base=QueueOnce, acks_late=True
+    name="aa_stratcom.tasks.sync_alliance_directory", base=QueueOnce, acks_late=True
 )
 def sync_alliance_directory():
     """Refresh public fleet autocomplete; schedule daily in Celery Beat."""

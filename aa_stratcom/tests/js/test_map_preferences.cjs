@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 let cookie='';const document={get cookie(){return cookie;},set cookie(value){cookie=value;}};
 const context={window:{},document,location:{protocol:'https:'}};
-vm.runInNewContext(fs.readFileSync(require.resolve('../../static/structuretimers/js/map_preferences.js'),'utf8'),context);
+vm.runInNewContext(fs.readFileSync(require.resolve('../../static/aa_stratcom/js/map_preferences.js'),'utf8'),context);
 const prefs=context.window.StructureMapPreferences;
 prefs.save('map',{region:'10000001',structures:false});assert.match(cookie,/SameSite=Lax; Secure$/);assert.match(cookie,/Max-Age=15552000/);assert.equal(prefs.load('map').region,'10000001');assert.equal(prefs.load('map').structures,false);
 cookie='map=%broken';assert.equal(Object.keys(prefs.load('map')).length,0);

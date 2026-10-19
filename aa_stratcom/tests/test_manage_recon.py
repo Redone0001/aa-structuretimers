@@ -23,14 +23,12 @@ from aa_stratcom.tests.testdata.factory import (
 )
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
-@patch("structuretimers.models._task_calc_structure_distances", Mock())
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
+@patch("aa_stratcom.models._task_calc_structure_distances", Mock())
 class TestManageRecon(NoSocketsTestCase):
     def setUp(self):
         distance_task = patch(
-            "structuretimers.models._task_calc_structure_distances", Mock()
+            "aa_stratcom.models._task_calc_structure_distances", Mock()
         )
         distance_task.start()
         self.addCleanup(distance_task.stop)
@@ -40,11 +38,11 @@ class TestManageRecon(NoSocketsTestCase):
             user=self.user,
             reinforcement_time=time(12, 0),
         )
-        self.url = reverse("structuretimers:recon_data")
+        self.url = reverse("aa_stratcom:recon_data")
 
     def action_url(self, action, timer=None):
         return reverse(
-            "structuretimers:recon_action", args=[(timer or self.timer).pk, action]
+            "aa_stratcom:recon_action", args=[(timer or self.timer).pk, action]
         )
 
     def test_data_contains_only_visible_preliminary_timers(self):
@@ -74,7 +72,7 @@ class TestManageRecon(NoSocketsTestCase):
         Timer.objects.filter(pk=self.timer.pk).update(last_updated_at=old_date)
         before = now()
         with patch(
-            "structuretimers.models._task_schedule_notifications_for_timer"
+            "aa_stratcom.models._task_schedule_notifications_for_timer"
         ) as schedule:
             response = self.client.post(self.action_url("refresh"))
         self.assertEqual(response.status_code, 200)
@@ -106,7 +104,7 @@ class TestManageRecon(NoSocketsTestCase):
         self.assertIn("Destroyed", data[0]["name_objective"])
         self.assertIn("Restore", data[0]["actions"])
         self.assertContains(
-            self.client.get(reverse("structuretimers:timer_list")),
+            self.client.get(reverse("aa_stratcom:timer_list")),
             "recon-show-destroyed",
         )
 
@@ -149,7 +147,7 @@ class TestManageRecon(NoSocketsTestCase):
                 self.client.post(self.action_url(action, hidden)).status_code, 404
             )
             self.assertTrue(Structure.objects.filter(pk=hidden.pk).exists())
-            missing = reverse("structuretimers:recon_action", args=[999999, action])
+            missing = reverse("aa_stratcom:recon_action", args=[999999, action])
             self.assertEqual(self.client.post(missing).status_code, 404)
 
     def test_recon_type_can_be_saved_and_missing_type_is_supported(self):
@@ -183,7 +181,7 @@ class TestManageRecon(NoSocketsTestCase):
     def test_edit_returns_to_database_tab(self):
         self.timer.structure_type = None
         self.timer.save()
-        url = reverse("structuretimers:edit_structure", args=[self.timer.pk])
+        url = reverse("aa_stratcom:edit_structure", args=[self.timer.pk])
         response = self.client.post(
             url,
             {
@@ -194,5 +192,5 @@ class TestManageRecon(NoSocketsTestCase):
             },
         )
         self.assertRedirects(
-            response, reverse("structuretimers:timer_list") + "?tab=preliminary"
+            response, reverse("aa_stratcom:timer_list") + "?tab=preliminary"
         )

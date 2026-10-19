@@ -1,5 +1,0 @@
-{% if operation_page and key != 'ops' %}
-<a class="nav-link" href="{% url 'structuretimers:timer_list' %}?tab={{ key }}">{{ label }}</a>
-{% else %}
-<button class="nav-link" id="tab-{{ key }}" type="button" aria-selected="false" data-bs-target="#{{ key }}" aria-controls="{{ key }}" role="tab" data-bs-toggle="tab">{{ label }}</button>
-{% endif %}

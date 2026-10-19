@@ -29,7 +29,10 @@ class TimerSyncKey(models.Model):
     allow_opsec = models.BooleanField(default=False)
     expires_at = models.DateTimeField(default=key_expiry)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, editable=False
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        editable=False,
+        related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, editable=False)
@@ -104,7 +107,10 @@ class TimerSyncDestination(models.Model):
         max_length=16, choices=Scope.choices, default=Scope.NON_OPSEC
     )
     authorized_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, editable=False
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        editable=False,
+        related_name="+",
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -154,7 +160,7 @@ class TimerSyncIdentity(models.Model):
     source_instance = models.UUIDField()
     timer_uuid = models.UUIDField(default=uuid.uuid4)
     timer = models.ForeignKey(
-        "structuretimers.Timer",
+        "aa_stratcom.Timer",
         on_delete=models.SET_NULL,
         null=True,
         related_name="sync_identities",
@@ -170,10 +176,10 @@ class TimerSyncIdentity(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=("source_instance", "timer_uuid"),
-                name="st_sync_origin_timer_unique",
+                name="asc_sync_origin_timer_unique",
             ),
             models.UniqueConstraint(
-                fields=("source_instance", "timer"), name="st_sync_source_local_unique"
+                fields=("source_instance", "timer"), name="asc_sync_source_local_unique"
             ),
         ]
 
@@ -184,14 +190,15 @@ class TimerSyncStructure(models.Model):
     source_instance = models.UUIDField()
     reference = models.CharField(max_length=80)
     structure = models.ForeignKey(
-        "structuretimers.Structure", on_delete=models.SET_NULL, null=True
+        "aa_stratcom.Structure", on_delete=models.SET_NULL, null=True
     )
 
     class Meta:
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=("source_instance", "reference"), name="st_sync_structure_unique"
+                fields=("source_instance", "reference"),
+                name="asc_sync_structure_unique",
             )
         ]
 
@@ -213,7 +220,7 @@ class TimerSyncDelivery(models.Model):
         default_permissions = ()
         constraints = [
             models.UniqueConstraint(
-                fields=("destination", "identity"), name="st_sync_delivery_unique"
+                fields=("destination", "identity"), name="asc_sync_delivery_unique"
             )
         ]
 
@@ -228,7 +235,7 @@ class TimerSyncAudit(models.Model):
     result = models.CharField(max_length=32)
     key = models.ForeignKey(TimerSyncKey, on_delete=models.SET_NULL, null=True)
     actor = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
     )
     destination = models.ForeignKey(
         TimerSyncDestination, on_delete=models.SET_NULL, null=True

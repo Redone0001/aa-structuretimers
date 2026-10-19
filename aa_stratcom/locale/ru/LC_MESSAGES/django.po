@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: aa-structuretimers\n"
+"Project-Id-Version: aa-aa_stratcom\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-16 19:32+0200\n"
 "PO-Revision-Date: 2026-09-16 00:00+0000\n"
@@ -44,11 +44,11 @@ msgid ""
 " the date above in the `Date` field."
 msgstr ""
 
-#: forms.py:105 templates/structuretimers/timer_list.html:119 views.py:133
+#: forms.py:105 templates/aa_stratcom/timer_list.html:119 views.py:133
 msgid "Solar System"
 msgstr "Звёздная система"
 
-#: forms.py:110 templates/structuretimers/timer_list.html:121 views.py:135
+#: forms.py:110 templates/aa_stratcom/timer_list.html:121 views.py:135
 msgid "Structure Type"
 msgstr "Тип сооружения"
 
@@ -74,8 +74,8 @@ msgstr ""
 msgid "Minutes Remaining"
 msgstr ""
 
-#: forms.py:161 templates/structuretimers/partials/structure_box.html:9
-#: templates/structuretimers/timer_detail.html:7
+#: forms.py:161 templates/aa_stratcom/partials/structure_box.html:9
+#: templates/aa_stratcom/timer_detail.html:7
 msgid "Vulnerability windows"
 msgstr "Окна уязвимости"
 
@@ -127,9 +127,9 @@ msgid ""
 msgstr ""
 
 #: forms.py:496
-#: templates/structuretimers/partials/preliminary_list_table.html:12
-#: templates/structuretimers/partials/timer_list_table.html:14
-#: templates/structuretimers/timer_list.html:123 views.py:136
+#: templates/aa_stratcom/partials/preliminary_list_table.html:12
+#: templates/aa_stratcom/partials/timer_list_table.html:14
+#: templates/aa_stratcom/timer_list.html:123 views.py:136
 msgid "Owner"
 msgstr "Владелец"
 
@@ -171,9 +171,9 @@ msgid "Name of the corporation owning the structure."
 msgstr "Название корпорации, владеющей сооружением."
 
 #: forms.py:557
-#: templates/structuretimers/partials/preliminary_list_table.html:11
-#: templates/structuretimers/partials/timer_list_table.html:13
-#: templates/structuretimers/timer_list.html:124 views.py:137
+#: templates/aa_stratcom/partials/preliminary_list_table.html:11
+#: templates/aa_stratcom/partials/timer_list_table.html:13
+#: templates/aa_stratcom/timer_list.html:124 views.py:137
 msgid "Objective"
 msgstr "Цель"
 
@@ -217,7 +217,7 @@ msgstr ""
 msgid "Theft"
 msgstr ""
 
-#: models.py:316 templates/structuretimers/timer_list.html:11
+#: models.py:316 templates/aa_stratcom/timer_list.html:11
 msgid "Preliminary"
 msgstr "Предварительные"
 
@@ -328,61 +328,61 @@ msgstr ""
 msgid "T - 120 minutes"
 msgstr ""
 
-#: templates/structuretimers/base.html:4
+#: templates/aa_stratcom/base.html:4
 msgid "Structure Timers"
 msgstr "Таймеры сооружений"
 
-#: templates/structuretimers/base.html:13
+#: templates/aa_stratcom/base.html:13
 msgid "Add reconnaissance"
 msgstr "Добавить разведданные"
 
-#: templates/structuretimers/base.html:14
-#: templates/structuretimers/recon_create_form.html:4 views.py:542
+#: templates/aa_stratcom/base.html:14
+#: templates/aa_stratcom/recon_create_form.html:4 views.py:542
 msgid "Add recon"
 msgstr "Добавить разведданные"
 
-#: templates/structuretimers/base.html:18
+#: templates/aa_stratcom/base.html:18
 msgid "Quickly add a timer from EVE Online"
 msgstr "Быстро добавить таймер из EVE Online"
 
-#: templates/structuretimers/base.html:19
-#: templates/structuretimers/timer_fast_create_form.html:11
+#: templates/aa_stratcom/base.html:19
+#: templates/aa_stratcom/timer_fast_create_form.html:11
 msgid "Quick add timer"
 msgstr "Быстро добавить таймер"
 
-#: templates/structuretimers/base.html:23
+#: templates/aa_stratcom/base.html:23
 msgid "Add new timer"
 msgstr "Добавить новый таймер"
 
-#: templates/structuretimers/base.html:24
+#: templates/aa_stratcom/base.html:24
 msgid "Add timer"
 msgstr "Добавить таймер"
 
-#: templates/structuretimers/partials/cancel_button.html:4
+#: templates/aa_stratcom/partials/cancel_button.html:4
 msgid "Cancel"
 msgstr "Отмена"
 
-#: templates/structuretimers/partials/manage_recon.html:6
+#: templates/aa_stratcom/partials/manage_recon.html:6
 msgid "Oldest recon / refresh"
 msgstr "Самая старая разведка / проверка"
 
-#: templates/structuretimers/partials/manage_recon.html:10
+#: templates/aa_stratcom/partials/manage_recon.html:10
 msgid "Latest recon / refresh"
 msgstr "Последняя разведка / проверка"
 
-#: templates/structuretimers/partials/manage_recon.html:14
+#: templates/aa_stratcom/partials/manage_recon.html:14
 msgid "Timers matching filters"
 msgstr "Таймеры, соответствующие фильтрам"
 
-#: templates/structuretimers/partials/manage_recon.html:15
+#: templates/aa_stratcom/partials/manage_recon.html:15
 msgid "Across all table pages"
 msgstr "На всех страницах таблицы"
 
-#: templates/structuretimers/partials/manage_recon.html:18
+#: templates/aa_stratcom/partials/manage_recon.html:18
 msgid "Vulnerability window distribution · EVE time (UTC)"
 msgstr "Распределение окон уязвимости · время EVE (UTC)"
 
-#: templates/structuretimers/partials/manage_recon.html:19
+#: templates/aa_stratcom/partials/manage_recon.html:19
 msgid ""
 "Darker cells mean more overlapping vulnerability windows. Each cell covers "
 "30 minutes. Standard: ±3 hours. Ansiblex / Metenox: ±30 minutes. Unknown "
@@ -392,234 +392,234 @@ msgstr ""
 "охватывает 30 минут. Стандарт: ±3 часа. Ansiblex / Metenox: ±30 минут. Для "
 "неизвестных типов сооружений используется ±3 часа."
 
-#: templates/structuretimers/partials/manage_recon.html:21
+#: templates/aa_stratcom/partials/manage_recon.html:21
 msgid "Vulnerability window distribution in 30-minute intervals"
 msgstr "Распределение окон уязвимости с шагом 30 минут"
 
-#: templates/structuretimers/partials/manage_recon.html:25
+#: templates/aa_stratcom/partials/manage_recon.html:25
 msgid "Low"
 msgstr "Мало"
 
-#: templates/structuretimers/partials/manage_recon.html:25
+#: templates/aa_stratcom/partials/manage_recon.html:25
 msgid "High"
 msgstr "Много"
 
-#: templates/structuretimers/partials/manage_recon.html:29
-#: templates/structuretimers/partials/preliminary_list_table.html:13
+#: templates/aa_stratcom/partials/manage_recon.html:29
+#: templates/aa_stratcom/partials/preliminary_list_table.html:13
 msgid "Last updated"
 msgstr "Последнее обновление"
 
-#: templates/structuretimers/partials/manage_recon.html:31
+#: templates/aa_stratcom/partials/manage_recon.html:31
 msgid "Any time"
 msgstr "Любое время"
 
-#: templates/structuretimers/partials/manage_recon.html:32 views.py:112
+#: templates/aa_stratcom/partials/manage_recon.html:32 views.py:112
 msgid "Older than 30 days"
 msgstr "Более 30 дней назад"
 
-#: templates/structuretimers/partials/manage_recon.html:33
+#: templates/aa_stratcom/partials/manage_recon.html:33
 msgid "Within 30 days"
 msgstr "За последние 30 дней"
 
-#: templates/structuretimers/partials/manage_recon.html:34
+#: templates/aa_stratcom/partials/manage_recon.html:34
 msgid "Within 7 days"
 msgstr "За последние 7 дней"
 
-#: templates/structuretimers/partials/manage_recon.html:37
+#: templates/aa_stratcom/partials/manage_recon.html:37
 msgid "Updated from (UTC)"
 msgstr "Обновлено с (UTC)"
 
-#: templates/structuretimers/partials/manage_recon.html:38
+#: templates/aa_stratcom/partials/manage_recon.html:38
 msgid "Updated through (UTC)"
 msgstr "Обновлено по (UTC)"
 
-#: templates/structuretimers/partials/manage_recon.html:39
+#: templates/aa_stratcom/partials/manage_recon.html:39
 msgid "Reset filters"
 msgstr "Сбросить фильтры"
 
-#: templates/structuretimers/partials/manage_recon.html:46
-#: templates/structuretimers/partials/preliminary_list_table.html:8
-#: templates/structuretimers/partials/timer_list_table.html:10
+#: templates/aa_stratcom/partials/manage_recon.html:46
+#: templates/aa_stratcom/partials/preliminary_list_table.html:8
+#: templates/aa_stratcom/partials/timer_list_table.html:10
 msgid "Location"
 msgstr "Местоположение"
 
-#: templates/structuretimers/partials/manage_recon.html:46
+#: templates/aa_stratcom/partials/manage_recon.html:46
 msgid "Structure / vulnerability windows"
 msgstr "Сооружение / окна уязвимости"
 
-#: templates/structuretimers/partials/manage_recon.html:47
+#: templates/aa_stratcom/partials/manage_recon.html:47
 msgid "Name / Owner"
 msgstr "Название / владелец"
 
-#: templates/structuretimers/partials/manage_recon.html:47
+#: templates/aa_stratcom/partials/manage_recon.html:47
 msgid "Objective / Tags"
 msgstr "Цель / метки"
 
-#: templates/structuretimers/partials/manage_recon.html:48
+#: templates/aa_stratcom/partials/manage_recon.html:48
 msgid "Last updated (UTC)"
 msgstr "Последнее обновление (UTC)"
 
-#: templates/structuretimers/partials/manage_recon.html:48
+#: templates/aa_stratcom/partials/manage_recon.html:48
 msgid "Actions"
 msgstr "Действия"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:9
-#: templates/structuretimers/partials/timer_list_table.html:11
+#: templates/aa_stratcom/partials/preliminary_list_table.html:9
+#: templates/aa_stratcom/partials/timer_list_table.html:11
 msgid "Dist. *"
 msgstr ""
 
-#: templates/structuretimers/partials/preliminary_list_table.html:10
-#: templates/structuretimers/partials/timer_list_table.html:12
+#: templates/aa_stratcom/partials/preliminary_list_table.html:10
+#: templates/aa_stratcom/partials/timer_list_table.html:12
 msgid "Structure"
 msgstr "Сооружение"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:10
-#: templates/structuretimers/partials/timer_list_table.html:12
-#: templates/structuretimers/timer_list.html:122
+#: templates/aa_stratcom/partials/preliminary_list_table.html:10
+#: templates/aa_stratcom/partials/timer_list_table.html:12
+#: templates/aa_stratcom/timer_list.html:122
 msgid "Timer Type"
 msgstr "Тип таймера"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:11
-#: templates/structuretimers/partials/timer_list_table.html:13
+#: templates/aa_stratcom/partials/preliminary_list_table.html:11
+#: templates/aa_stratcom/partials/timer_list_table.html:13
 msgid "Tags"
 msgstr "Метки"
 
-#: templates/structuretimers/partials/preliminary_list_table.html:12
-#: templates/structuretimers/partials/timer_list_table.html:14
+#: templates/aa_stratcom/partials/preliminary_list_table.html:12
+#: templates/aa_stratcom/partials/timer_list_table.html:14
 msgid "Name"
 msgstr "Название"
 
-#: templates/structuretimers/partials/recon_actions.html:3
+#: templates/aa_stratcom/partials/recon_actions.html:3
 msgid "View"
 msgstr "Просмотр"
 
-#: templates/structuretimers/partials/recon_actions.html:5
+#: templates/aa_stratcom/partials/recon_actions.html:5
 msgid "Still there"
 msgstr "На месте"
 
-#: templates/structuretimers/partials/recon_actions.html:6
+#: templates/aa_stratcom/partials/recon_actions.html:6
 msgid "Destroyed"
 msgstr "Уничтожено"
 
-#: templates/structuretimers/partials/recon_actions.html:7
+#: templates/aa_stratcom/partials/recon_actions.html:7
 msgid "Edit"
 msgstr "Изменить"
 
-#: templates/structuretimers/partials/timer_list_table.html:8
+#: templates/aa_stratcom/partials/timer_list_table.html:8
 msgid "Eve Time"
 msgstr ""
 
-#: templates/structuretimers/partials/timer_list_table.html:9
+#: templates/aa_stratcom/partials/timer_list_table.html:9
 msgid "Local Time"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:10
+#: templates/aa_stratcom/timer_confirm_delete.html:10
 msgid "Delete Structure Timer"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:15
+#: templates/aa_stratcom/timer_confirm_delete.html:15
 msgid "Are you sure you want to delete this timer?"
 msgstr ""
 
-#: templates/structuretimers/timer_confirm_delete.html:20
+#: templates/aa_stratcom/timer_confirm_delete.html:20
 msgid "Delete"
 msgstr ""
 
-#: templates/structuretimers/timer_create_form.html:5
+#: templates/aa_stratcom/timer_create_form.html:5
 msgid "Create Timer"
 msgstr ""
 
-#: templates/structuretimers/timer_detail.html:3
+#: templates/aa_stratcom/timer_detail.html:3
 msgid "Timer"
 msgstr "Таймер"
 
-#: templates/structuretimers/timer_detail.html:11
+#: templates/aa_stratcom/timer_detail.html:11
 msgid "Image"
 msgstr "Изображение"
 
-#: templates/structuretimers/timer_detail.html:22
+#: templates/aa_stratcom/timer_detail.html:22
 msgid "Notes"
 msgstr "Заметки"
 
-#: templates/structuretimers/timer_edit.html:15
+#: templates/aa_stratcom/timer_edit.html:15
 msgid "Please correct the input errors below"
 msgstr "Исправьте ошибки ввода ниже"
 
-#: templates/structuretimers/timer_edit.html:23
+#: templates/aa_stratcom/timer_edit.html:23
 msgid "required fields"
 msgstr "обязательные поля"
 
-#: templates/structuretimers/timer_fast_create_form.html:6
+#: templates/aa_stratcom/timer_fast_create_form.html:6
 msgid ""
 "Paste a reinforced or anchoring structure timer from EVE Online. The solar "
 "system, structure name, and UTC time will be filled automatically."
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:16
+#: templates/aa_stratcom/timer_list.html:16
 msgid "Current"
 msgstr "Текущие"
 
-#: templates/structuretimers/timer_list.html:21
+#: templates/aa_stratcom/timer_list.html:21
 msgid "Past"
 msgstr "Прошедшие"
 
-#: templates/structuretimers/timer_list.html:26
+#: templates/aa_stratcom/timer_list.html:26
 #: tests/test_recon_translations.py:63
 msgid "Manage recon"
 msgstr "Управление разведданными"
 
-#: templates/structuretimers/timer_list.html:32
+#: templates/aa_stratcom/timer_list.html:32
 msgid "Staging:"
 msgstr "Место сбора:"
 
-#: templates/structuretimers/timer_list.html:39
+#: templates/aa_stratcom/timer_list.html:39
 msgid "[MAIN]"
 msgstr "[ОСНОВНОЕ]"
 
-#: templates/structuretimers/timer_list.html:44
+#: templates/aa_stratcom/timer_list.html:44
 msgid "No staging system configured."
 msgstr "Система сбора не настроена."
 
-#: templates/structuretimers/timer_list.html:62
+#: templates/aa_stratcom/timer_list.html:62
 msgid "This page contains potential future timers."
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:70
+#: templates/aa_stratcom/timer_list.html:70
 #, python-format
 msgid ""
 "Timers remain on this page for %(max_hours_expired)s hours after they "
 "expired"
 msgstr ""
 
-#: templates/structuretimers/timer_list.html:80
+#: templates/aa_stratcom/timer_list.html:80
 msgid "*: Distance from selected staging system:"
 msgstr "*: Расстояние от выбранной системы сбора:"
 
-#: templates/structuretimers/timer_list.html:91
+#: templates/aa_stratcom/timer_list.html:91
 msgid "Timer details"
 msgstr "Подробности таймера"
 
-#: templates/structuretimers/timer_list.html:106
+#: templates/aa_stratcom/timer_list.html:106
 msgid "Close"
 msgstr "Закрыть"
 
-#: templates/structuretimers/timer_list.html:120 views.py:134
+#: templates/aa_stratcom/timer_list.html:120 views.py:134
 msgid "Region"
 msgstr "Регион"
 
-#: templates/structuretimers/timer_list.html:125
+#: templates/aa_stratcom/timer_list.html:125
 msgid "Visibility"
 msgstr "Видимость"
 
-#: templates/structuretimers/timer_list.html:126
+#: templates/aa_stratcom/timer_list.html:126
 msgid "Filter by"
 msgstr "Фильтр по"
 
-#: templates/structuretimers/timer_list.html:127 views.py:132
+#: templates/aa_stratcom/timer_list.html:127 views.py:132
 msgid "All"
 msgstr "Все"
 
-#: templates/structuretimers/timer_update_form.html:5
+#: templates/aa_stratcom/timer_update_form.html:5
 msgid "Update Structure Timer"
 msgstr "Обновить таймер сооружения"
 

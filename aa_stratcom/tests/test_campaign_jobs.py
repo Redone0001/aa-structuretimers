@@ -34,11 +34,9 @@ class TestCampaignJobs(NoSocketsTestCase):
         )
         with (
             patch(
-                "structuretimers.campaign_jobs.EveRegion.objects.update_or_create_esi"
+                "aa_stratcom.campaign_jobs.EveRegion.objects.update_or_create_esi"
             ) as importer,
-            patch(
-                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-            ) as queue,
+            patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue,
         ):
             with self.captureOnCommitCallbacks(execute=True):
                 prepare_campaign(self.campaign.pk, "systems")
@@ -61,7 +59,7 @@ class TestCampaignJobs(NoSocketsTestCase):
 
     def test_failure_keeps_membership_atomic_and_retry_succeeds(self):
         with patch(
-            "structuretimers.campaign_jobs.EveRegion.objects.update_or_create_esi",
+            "aa_stratcom.campaign_jobs.EveRegion.objects.update_or_create_esi",
             side_effect=RuntimeError("ESI unavailable"),
         ):
             prepare_campaign(self.campaign.pk, "systems")
@@ -70,9 +68,7 @@ class TestCampaignJobs(NoSocketsTestCase):
         self.assertEqual(self.campaign.systems.count(), 0)
         self.campaign.import_status = self.campaign.gates_status = "pending"
         self.campaign.save()
-        with patch(
-            "structuretimers.campaign_jobs.EveRegion.objects.update_or_create_esi"
-        ):
+        with patch("aa_stratcom.campaign_jobs.EveRegion.objects.update_or_create_esi"):
             prepare_campaign(self.campaign.pk, "systems")
         self.campaign.refresh_from_db()
         self.assertEqual(self.campaign.import_status, "ready")
@@ -83,7 +79,7 @@ class TestCampaignJobs(NoSocketsTestCase):
             campaign=self.campaign, solar_system=self.system
         )
         with patch(
-            "structuretimers.campaign_jobs.EveSolarSystem.objects.get_or_create_esi"
+            "aa_stratcom.campaign_jobs.EveSolarSystem.objects.get_or_create_esi"
         ) as cached:
             prepare_campaign(self.campaign.pk, "gates")
         cached.assert_called_once_with(
@@ -94,7 +90,7 @@ class TestCampaignJobs(NoSocketsTestCase):
         self.campaign.gates_status = "pending"
         self.campaign.save()
         with patch(
-            "structuretimers.campaign_jobs.EveSolarSystem.objects.update_or_create_esi",
+            "aa_stratcom.campaign_jobs.EveSolarSystem.objects.update_or_create_esi",
             side_effect=RuntimeError(),
         ):
             prepare_campaign(self.campaign.pk, "gates", True)
@@ -103,7 +99,7 @@ class TestCampaignJobs(NoSocketsTestCase):
 
     def test_broker_failure_is_retryable(self):
         with patch(
-            "structuretimers.campaign_jobs.prepare_campaign.apply_async",
+            "aa_stratcom.campaign_jobs.prepare_campaign.apply_async",
             side_effect=RuntimeError("broker unavailable"),
         ):
             enqueue_campaign_job(self.campaign.pk, "systems")
@@ -122,14 +118,14 @@ class TestCampaignJobs(NoSocketsTestCase):
         entry.refresh_from_db()
         self.assertIsNone(entry.completed_at)
         status = self.client.get(
-            reverse("structuretimers:campaign_status", args=[self.campaign.pk])
+            reverse("aa_stratcom:campaign_status", args=[self.campaign.pk])
         ).json()
         self.assertEqual(
             status, {"import_status": "pending", "gates_status": "pending"}
         )
 
     def test_detail_does_not_build_map_payload(self):
-        with patch("structuretimers.campaigns.campaign_map_data") as build:
+        with patch("aa_stratcom.campaigns.campaign_map_data") as build:
             response = self.client.get(self.campaign.get_absolute_url())
         self.assertEqual(response.status_code, 200)
         build.assert_not_called()
@@ -139,19 +135,19 @@ class TestCampaignJobs(NoSocketsTestCase):
         from django.contrib.auth.models import Permission
 
         self.user.user_permissions.add(
-            Permission.objects.get(codename="recon_coordinator")
+            Permission.objects.get(
+                content_type__app_label="aa_stratcom", codename="recon_coordinator"
+            )
         )
         with (
+            patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue,
             patch(
-                "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-            ) as queue,
-            patch(
-                "structuretimers.campaigns.EveSolarSystem.objects.update_or_create_esi"
+                "aa_stratcom.campaigns.EveSolarSystem.objects.update_or_create_esi"
             ) as importer,
         ):
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post(
-                    reverse("structuretimers:campaign_create"),
+                    reverse("aa_stratcom:campaign_create"),
                     {"name": "Instant", "systems": self.system.name},
                 )
         self.assertEqual(response.status_code, 302)
@@ -171,11 +167,11 @@ class TestCampaignJobs(NoSocketsTestCase):
             self.client.post(url, {"action": "retry_import"}).status_code, 403
         )
         self.user.user_permissions.add(
-            Permission.objects.get(codename="recon_coordinator")
+            Permission.objects.get(
+                content_type__app_label="aa_stratcom", codename="recon_coordinator"
+            )
         )
-        with patch(
-            "structuretimers.campaign_jobs.prepare_campaign.apply_async"
-        ) as queue:
+        with patch("aa_stratcom.campaign_jobs.prepare_campaign.apply_async") as queue:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(url, {"action": "retry_import"})
                 self.client.post(url, {"action": "retry_import"})
@@ -201,7 +197,7 @@ class TestCampaignJobs(NoSocketsTestCase):
         for route in ["campaign_map_data", "campaign_status"]:
             self.assertEqual(
                 self.client.get(
-                    reverse("structuretimers:" + route, args=[self.campaign.pk])
+                    reverse("aa_stratcom:" + route, args=[self.campaign.pk])
                 ).status_code,
                 403,
             )

@@ -287,12 +287,12 @@ def structure_payload(user, ids, params):
 
 
 @login_required
-@permission_required("structuretimers.basic_access", raise_exception=True)
+@permission_required("aa_stratcom.basic_access", raise_exception=True)
 @require_GET
 @never_cache
 def map_page(request):
     """The map is a section of the Current and Database tabs now."""
-    return redirect(reverse("structuretimers:timer_list") + "?tab=current")
+    return redirect(reverse("aa_stratcom:timer_list") + "?tab=current")
 
 
 def _system_layer(request, layer, system_model, systems, ids):
@@ -335,9 +335,9 @@ def _system_layer(request, layer, system_model, systems, ids):
                         "edit_url": (
                             reverse(
                                 (
-                                    "structuretimers:edit_structure"
+                                    "aa_stratcom:edit_structure"
                                     if isinstance(t, Structure)
-                                    else "structuretimers:edit"
+                                    else "aa_stratcom:edit"
                                 ),
                                 args=[t.pk],
                             )
@@ -347,9 +347,9 @@ def _system_layer(request, layer, system_model, systems, ids):
                         "delete_url": (
                             reverse(
                                 (
-                                    "structuretimers:delete_structure"
+                                    "aa_stratcom:delete_structure"
                                     if isinstance(t, Structure)
-                                    else "structuretimers:delete"
+                                    else "aa_stratcom:delete"
                                 ),
                                 args=[t.pk],
                             )
@@ -358,7 +358,7 @@ def _system_layer(request, layer, system_model, systems, ids):
                         ),
                         "refresh_url": (
                             reverse(
-                                "structuretimers:recon_action",
+                                "aa_stratcom:recon_action",
                                 args=[t.pk, "refresh"],
                             )
                             if isinstance(t, Structure)
@@ -374,7 +374,7 @@ def _system_layer(request, layer, system_model, systems, ids):
 
 
 @login_required
-@permission_required("structuretimers.basic_access", raise_exception=True)
+@permission_required("aa_stratcom.basic_access", raise_exception=True)
 @require_GET
 @never_cache
 def map_data(request, layer):

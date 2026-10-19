@@ -19,16 +19,14 @@ from aa_stratcom.tests.testdata.factory import (
 )
 
 
-@patch(
-    "structuretimers.models._task_calc_timer_distances_for_all_staging_systems", Mock()
-)
+@patch("aa_stratcom.models._task_calc_timer_distances_for_all_staging_systems", Mock())
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 class TestRecon(NoSocketsTestCase):
     def setUp(self):
         self.user = UserWithCreateFactory()
         self.system = EveSolarSystemLowSecFactory()
         self.client.force_login(self.user)
-        self.url = reverse("structuretimers:add_recon")
+        self.url = reverse("aa_stratcom:add_recon")
         self.structure_type = CitadelTypeFactory()
         self.data = {
             "structure_name": "Recon target",
@@ -56,7 +54,7 @@ class TestRecon(NoSocketsTestCase):
     def test_create_list_detail_and_edit(self):
         response = self.client.post(self.url, self.data)
         self.assertRedirects(
-            response, reverse("structuretimers:timer_list") + "?tab=preliminary"
+            response, reverse("aa_stratcom:timer_list") + "?tab=preliminary"
         )
         timer = Structure.objects.get(structure_name="Recon target")
         self.assertFalse(timer.timers.exists())
@@ -67,14 +65,14 @@ class TestRecon(NoSocketsTestCase):
         self.assertEqual(timer.structure_type, self.structure_type)
         self.assertEqual(timer.owner_name, "Owner corp")
         self.assertFalse(ScheduledNotification.objects.exists())
-        response = self.client.get(reverse("structuretimers:recon_data"))
+        response = self.client.get(reverse("aa_stratcom:recon_data"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Recon target")
         response = self.client.get(
-            reverse("structuretimers:structure_detail", args=[timer.pk])
+            reverse("aa_stratcom:structure_detail", args=[timer.pk])
         )
         self.assertContains(response, "23:45")
-        edit_url = reverse("structuretimers:edit_structure", args=[timer.pk])
+        edit_url = reverse("aa_stratcom:edit_structure", args=[timer.pk])
         response = self.client.get(edit_url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(

@@ -53,7 +53,7 @@ class TestNotificationRule_ChangeList(NoSocketsTestCase):
 
         # user tries to add new notification rule
         add_page = self.client.get(
-            reverse("admin:structuretimers_notificationrule_changelist")
+            reverse("admin:aa_stratcom_notificationrule_changelist")
         )
         self.assertEqual(add_page.status_code, HTTPStatus.OK)
 
@@ -63,10 +63,8 @@ class TestNotificationRule_Validations(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.webhook = DiscordWebhookFactory()
-        cls.add_url = reverse("admin:structuretimers_notificationrule_add")
-        cls.changelist_url = reverse(
-            "admin:structuretimers_notificationrule_changelist"
-        )
+        cls.add_url = reverse("admin:aa_stratcom_notificationrule_add")
+        cls.changelist_url = reverse("admin:aa_stratcom_notificationrule_changelist")
         cls.form_data = {
             "is_important": NotificationRule.Clause.ANY,
             "is_opsec": NotificationRule.Clause.ANY,
@@ -184,7 +182,7 @@ class TestStagingSystemAdmin(NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = UserFactory(is_staff=True, is_superuser=True)
-        cls.url_add = reverse("admin:structuretimers_stagingsystem_add")
+        cls.url_add = reverse("admin:aa_stratcom_stagingsystem_add")
 
     def test_should_create_new_staging_system(self):
         # given

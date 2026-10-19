@@ -37,12 +37,12 @@ def assignment_html(timer, user, editable=False):
     if operations is None:
         operations = list(Operation.visible_to(user).filter(timers=timer))
     return render_to_string(
-        "structuretimers/partials/timer_assignment.html",
+        "aa_stratcom/partials/timer_assignment.html",
         {
             "timer": timer,
             "assigned_operations": operations,
             "can_assign_operation": editable
-            and user.has_perm("structuretimers.op_coordinator"),
+            and user.has_perm("aa_stratcom.op_coordinator"),
         },
     )
 
@@ -52,8 +52,8 @@ class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """Only coordinators can edit a visible timer's operation memberships."""
 
     permission_required = (
-        "structuretimers.basic_access",
-        "structuretimers.op_coordinator",
+        "aa_stratcom.basic_access",
+        "aa_stratcom.op_coordinator",
     )
 
     def get(self, request, pk):
@@ -120,7 +120,7 @@ class AssignTimerView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
 @login_required
 @permission_required(
-    ("structuretimers.basic_access", "structuretimers.op_coordinator"),
+    ("aa_stratcom.basic_access", "aa_stratcom.op_coordinator"),
     raise_exception=True,
 )
 @require_GET
