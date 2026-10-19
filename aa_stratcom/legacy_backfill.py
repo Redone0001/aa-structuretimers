@@ -45,6 +45,13 @@ def archive_existing_kills(apps, schema_editor):
             )
             if existing is None:
                 snapshot = structure_model.objects.using(database).create(
+                    pk=(
+                        structure_model.objects.using(database).aggregate(
+                            value=models.Max("pk")
+                        )["value"]
+                        or 0
+                    )
+                    + 1,
                     **{
                         name: getattr(timer, name)
                         for name in (
@@ -64,7 +71,7 @@ def archive_existing_kills(apps, schema_editor):
                             "reinforcement_time",
                             "details_notes",
                         )
-                    }
+                    },
                 )
                 existing = snapshot.pk
             timer_model.objects.using(database).filter(pk=timer.pk).update(

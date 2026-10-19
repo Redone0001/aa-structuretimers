@@ -1,5 +1,6 @@
 """Run against the actual legacy app, not a second copy of StratCom models."""
 
+from datetime import timedelta
 from io import StringIO
 from unittest import skipUnless
 from unittest.mock import Mock, patch
@@ -54,7 +55,7 @@ class IndependentImportTests(TransactionTestCase):
             self.addCleanup(patcher.stop)
         old_timer = apps.get_model("structuretimers", "Timer")
         self.original = old_timer.objects.create(
-            date=now(),
+            date=now() + timedelta(days=1),
             eve_solar_system=self.system,
             structure_type=self.ship,
             structure_name="Private original",

@@ -8,21 +8,28 @@ from django.contrib.auth.models import Permission
 from django.core.management.base import CommandError, no_style
 from django.db import connection, transaction
 from django.db.migrations.loader import MigrationLoader
-from django.db.models import F
+from django.db.models import F, Max
 from django.utils.timezone import now
 
+from . import legacy_selection
 from .models import Structure, StructureTimersImport, Timer
 
 SOURCE = "structuretimers"
 
 
-def import_legacy(*, dry_run=False):
+def import_legacy(
+    *, dry_run=False, recon_only=False, include_expired=False, replace=False
+):
     """Copy into an empty StratCom namespace, retaining primary/foreign keys.
 
     Keep both applications stopped while copying. Constraint deferral permits the
     Timer/Structure history cycle; validate every target table before committing.
     Raw saves deliberately avoid jobs, notifications and replication side effects.
     """
+    if replace and not recon_only:
+        raise CommandError("--replace-stratcom-data requires --recon-only.")
+    if recon_only and include_expired:
+        raise CommandError("--recon-only cannot be combined with --include-expired.")
     tables = set(connection.introspection.table_names())
     if "structuretimers_timer" not in tables:
         raise CommandError("No structuretimers tables found in this database.")
@@ -34,6 +41,7 @@ def import_legacy(*, dry_run=False):
         if model._meta.managed and model is not StructureTimersImport
     ]
     with connection.constraint_checks_disabled(), transaction.atomic():
+        cleared = legacy_selection.clear_stratcom() if replace else 0
         (
             marker,
             _created,
@@ -52,24 +60,16 @@ def import_legacy(*, dry_run=False):
                 raise CommandError(
                     f"StratCom must be empty before copying ({model._meta.model_name} contains data)."
                 )
-        counts = {}
-        for model in models:
-            if model._meta.model_name == "timersyncconfig":
-                continue
-            source_table = SOURCE + model._meta.db_table[len("aa_stratcom") :]
-            if source_table in tables:
-                counts[model._meta.model_name] = _copy_table(model, source_table)
-        if "structuretimers_structure" not in tables:
-            _derive_structures()
-        _backfill_older_schemas(tables)
+        counts = _copy_selected(models, tables, recon_only, include_expired)
         _pause_integrations(tables)
         _copy_permissions()
-        with connection.cursor() as cursor:
-            for sql in connection.ops.sequence_reset_sql(no_style(), models):
-                cursor.execute(sql)
-        connection.check_constraints(
-            table_names=[model._meta.db_table for model in models]
-        )
+        if not dry_run:
+            with connection.cursor() as cursor:
+                for sql in connection.ops.sequence_reset_sql(no_style(), models):
+                    cursor.execute(sql)
+        connection.check_constraints()
+        if replace:
+            counts["cleared_rows"] = cleared
         marker.counts = counts
         marker.completed_at = now()
         marker.save(update_fields=["counts", "completed_at"])
@@ -78,21 +78,19 @@ def import_legacy(*, dry_run=False):
         return counts, False
 
 
-def _copy_table(model, source_table):
+def _copy_table(model, source_table, *, where="", params=(), prepare=None):
     """Convert backend-native source values using the target field converters."""
     quote = connection.ops.quote_name
     with connection.cursor() as cursor:
-        columns = {
-            column.name
-            for column in connection.introspection.get_table_description(
-                cursor, source_table
-            )
-        }
+        columns = legacy_selection.source_columns(source_table)
         fields = [
             field for field in model._meta.concrete_fields if field.column in columns
         ]
-        selected = ", ".join(quote(field.column) for field in fields)
-        cursor.execute(f"SELECT {selected} FROM {quote(source_table)}")
+        clause = f" WHERE {where}" if where else ""
+        cursor.execute(
+            f"SELECT {', '.join(quote(field.column) for field in fields)} FROM {quote(source_table)}{clause}",
+            params,
+        )
         copied = 0
         while rows := cursor.fetchmany(500):
             for row in rows:
@@ -106,6 +104,8 @@ def _copy_table(model, source_table):
                         or getattr(field, "auto_now_add", False)
                     ):
                         setattr(instance, field.attname, now())
+                if prepare:
+                    prepare(instance)
                 instance.save_base(raw=True, force_insert=True)
                 copied += 1
     return copied
@@ -126,12 +126,16 @@ def _derive_structures():
             "destroyed_by_timer",
         }
     ]
+    next_pk = (Structure.objects.aggregate(value=Max("pk"))["value"] or 0) + 1
     for timer in Timer.objects.filter(
         structure__isnull=True, structures_structure_id__isnull=True
     ):
         record = Structure(
-            **{name: getattr(timer, name) for name in fields}, created_at=now()
+            pk=next_pk,
+            **{name: getattr(timer, name) for name in fields},
+            created_at=now(),
         )
+        next_pk += 1
         record.save_base(raw=True, force_insert=True)
         Timer.objects.filter(pk=timer.pk).update(structure=record)
 
@@ -196,13 +200,7 @@ def _backfill_older_schemas(tables):
         preserve_existing_outcomes,
     )
 
-    with connection.cursor() as cursor:
-        columns = {
-            column.name
-            for column in connection.introspection.get_table_description(
-                cursor, "structuretimers_timer"
-            )
-        }
+    columns = legacy_selection.source_columns("structuretimers_timer")
     if "discord_timerboard" not in columns:
         flag_existing_timers(state, editor)
     if "structuretimers_structurehistory" not in tables:
@@ -222,3 +220,26 @@ def _row_values(fields, row, source_table):
             value = convert(value, expression, connection)
         values[field.attname] = value
     return values
+
+
+def _copy_selected(models, tables, recon_only, include_expired):
+    """Select the requested source records before deriving Database entries."""
+    counts = {}
+    if recon_only:
+        counts = legacy_selection.copy_recon(tables, _copy_table)
+    else:
+        for model in models:
+            if model._meta.model_name == "timersyncconfig":
+                continue
+            source_table = SOURCE + model._meta.db_table[len("aa_stratcom") :]
+            if source_table in tables:
+                counts[model._meta.model_name] = _copy_table(model, source_table)
+        if not include_expired:
+            counts["skipped_expired"] = legacy_selection.remove_expired()
+    if recon_only or "structuretimers_structure" not in tables:
+        _derive_structures()
+    if not recon_only:
+        _backfill_older_schemas(tables)
+    counts["timer"] = Timer.objects.count()
+    counts["structure"] = Structure.objects.count()
+    return counts

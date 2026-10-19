@@ -5,7 +5,7 @@ $(document).ready(function () {
     const messages = JSON.parse(document.getElementById('recon-translations').textContent);
     const formatMessage = (template, values) => template.replace(/%\((\w+)\)s/g, (_, key) => values[key]);
     const number = value => Number(value.toFixed(2)).toLocaleString(document.documentElement.lang || undefined);
-    const status = $('#recon-status');
+    const status = $('#recon-status, #st-map-status');
     const filters = () => ({age: $('#recon-age').val(), from: $('#recon-from').val(), to: $('#recon-to').val()});
     const stateKey = 'asc-recon-settings-v2-' + root.dataset.userId;
     let saved = {}, ready = false;
@@ -123,11 +123,10 @@ $(document).ready(function () {
         $('#recon-age').trigger('change');
         table.ajax.reload(null, false);
     });
-    $('#tbl_manage_recon').on('click', '.recon-action', async function () {
+    $('#tbl_manage_recon, #st-map-details').on('click', '.recon-action', async function () {
         const button = $(this);
         const destroy = button.attr('data-destroy') === 'true';
-        if (destroy && !window.confirm(messages.confirmDestroy)) return;
-        const buttons = button.closest('tr').find('.recon-action').prop('disabled', true);
+        const buttons = button.closest('tr, .st-map-timer').find('.recon-action').prop('disabled', true);
         status.removeClass('text-danger').text(messages.saving);
         try {
             const response = await fetch(button.attr('data-url'), {

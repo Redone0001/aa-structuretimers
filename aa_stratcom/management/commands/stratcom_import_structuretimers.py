@@ -12,9 +12,29 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument(
+            "--recon-only",
+            action="store_true",
+            help="Copy only preliminary/Database recon records.",
+        )
+        parser.add_argument(
+            "--include-expired",
+            action="store_true",
+            help="Include expired scheduled timers (excluded by default).",
+        )
+        parser.add_argument(
+            "--replace-stratcom-data",
+            action="store_true",
+            help="Clear ALL StratCom data/configuration first; requires --recon-only. Source and Auth users remain untouched.",
+        )
 
     def handle(self, *args, **options):
-        counts, already_done = import_legacy(dry_run=options["dry_run"])
+        counts, already_done = import_legacy(
+            dry_run=options["dry_run"],
+            recon_only=options["recon_only"],
+            include_expired=options["include_expired"],
+            replace=options["replace_stratcom_data"],
+        )
         if already_done:
             self.stdout.write(
                 "Already copied; no data changed. This is a one-time copy, not ongoing sync."

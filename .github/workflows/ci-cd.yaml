@@ -95,7 +95,7 @@ jobs:
       - name: Test both independent apps
         run: |
           pip install tox
-          tox -e coexist
+          tox -e coexist,upstream
 
   deployment-ready:
     name: deployment-ready

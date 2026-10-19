@@ -54,9 +54,10 @@ python manage.py collectstatic --noinput
 python -m pip check
 ```
 
-The copy retains original IDs, relationships, past/future timers, structure
+The copy retains original IDs, relationships, selected timers, structure
 history, operations/roles/participants, configuration, and available legacy tables.
-It adds corresponding StratCom permissions to users/groups without removing their
+Expired scheduled timers are excluded by default; use `--include-expired` for
+historical schedules, or `--recon-only` for just the Database. It adds corresponding StratCom permissions to users/groups without removing their
 old grants. Source tables and migration records are never rewritten or deleted.
 A completion marker makes reruns a no-op; this is a one-time snapshot, not ongoing
 synchronization. A nonempty target is rejected rather than overwritten. Dry runs
@@ -80,6 +81,50 @@ services after configuration and the copy are complete.
 requirements individually rather than upgrading the entire Auth environment.
 The optional import from the built-in timerboard remains
 `stratcom_import_timerboard`; run it only if you also want those separate records.
+
+## Clean import from the original structuretimers app
+
+The upstream AllianceAuth-Apps app stores recon as `Timer.timer_type = "PL"`.
+Use `--recon-only` to import only those preliminary records into StratCom's
+Database. Dated expired and future timers are excluded in this mode. Newer forks
+that have a separate Structure table copy those Database records as recon too.
+Notes, ownership, privacy and original recon freshness are preserved; this mode
+does not import operations, fleets, notification settings or API connections.
+
+For a new empty StratCom installation:
+
+```bash
+python manage.py stratcom_import_structuretimers --recon-only --dry-run
+python manage.py stratcom_import_structuretimers --recon-only
+```
+
+To replace an earlier import, back up the database and stop Auth web/Celery
+services, then run:
+
+```bash
+python manage.py stratcom_import_structuretimers --recon-only --replace-stratcom-data --dry-run
+python manage.py stratcom_import_structuretimers --recon-only --replace-stratcom-data
+```
+
+**`--replace-stratcom-data` clears ALL StratCom application data first**, including
+operations, API keys/connections, webhooks, notification settings and import
+markers. It creates a fresh federation instance identity. Auth users/groups,
+existing permission grants, EVE data, migration records, and all original
+`structuretimers_*` tables remain intact. Reconfigure sharing and notifications
+before restarting the services. Timers previously sent to another board are not
+automatically removed there. A dry run rolls back the reset and import; a failed
+import also restores the previous StratCom data atomically.
+
+The regular full importer now excludes expired scheduled timers by default,
+before generating Database records from an older timer-only installation. Add
+`--include-expired` explicitly if you want to retain scheduled timer history:
+
+```bash
+python manage.py stratcom_import_structuretimers --include-expired
+```
+
+The source app is never modified. All modes still require an empty target unless
+the explicit replacement option is used; a completed import is otherwise a no-op.
 
 ## Contents
 

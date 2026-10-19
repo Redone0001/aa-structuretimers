@@ -220,9 +220,6 @@ class TimerListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                     "loadError": _(
                         "Could not load recon. Reload the page to try again."
                     ),
-                    "confirmDestroy": _(
-                        "Mark this structure as destroyed? Its information and timer history will be kept."
-                    ),
                     "saving": _("Saving…"),
                     "removed": _("Marked as destroyed. Information and history kept."),
                     "refreshed": _("Recon refreshed to today."),
