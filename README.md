@@ -112,25 +112,45 @@ python -m pip install --upgrade --no-deps --no-cache-dir \
   "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
 ```
 
-### Step 3 - Configure settings
+### Step 3 - Configure AA StratCom in local.py
 
-Configure your Auth settings (`local.py`) as follows:
-
-- Add `'aa_stratcom'` to `INSTALLED_APPS` (only one of the new or legacy entry)
-- Add the following lines to your settings file:
+Use **`aa_stratcom`** as the installed Python module. For an upgrade, replace the
+existing `"structuretimers"` entry in `INSTALLED_APPS` with `"aa_stratcom"`; do not
+add a second entry. For a fresh installation, add:
 
 ```python
+INSTALLED_APPS += [
+    "aa_stratcom",
+]
+```
+
+To keep Alliance Auth's original timerboard running alongside StratCom, retain
+`"allianceauth.timerboard"` in `INSTALLED_APPS`. That is a separate app. The old
+`aa-structuretimers` distribution must be uninstalled before installing StratCom.
+
+**Celery on an existing installation:** keep your current StratCom schedules.
+There is no Celery task-name change in this upgrade. Do not add duplicate schedules.
+
+**Celery on a fresh installation:** add the entries below. AA StratCom deliberately
+keeps the registered `structuretimers.tasks.*` task identifiers so existing Beat
+entries and queued jobs continue to work. These identifiers are not the module
+name to put in `INSTALLED_APPS`; do not replace them with `aa_stratcom.tasks.*`.
+The schedule keys also stay unchanged to avoid duplicating existing jobs.
+
+```python
+from celery.schedules import crontab
+
 CELERYBEAT_SCHEDULE['structuretimers_housekeeping'] = {
     'task': 'structuretimers.tasks.housekeeping',
-    'schedule': 10800,  # 3 hours
+    'schedule': crontab(minute=0, hour='*/3'),  # Every three hours
 }
 CELERYBEAT_SCHEDULE['structuretimers_dispatch_scheduled_notifications'] = {
     'task': 'structuretimers.tasks.dispatch_scheduled_notifications',
-    'schedule': 60,
+    'schedule': crontab(minute='*'),  # Every minute
 }
 CELERYBEAT_SCHEDULE['structuretimers_sync_standings'] = {
     'task': 'structuretimers.tasks.sync_standings',
-    'schedule': 3600,  # 1 hour
+    'schedule': crontab(minute=0),  # Every hour
 }
 ```
 
@@ -138,7 +158,16 @@ CELERYBEAT_SCHEDULE['structuretimers_sync_standings'] = {
 
 > **Note**: `structuretimers_dispatch_scheduled_notifications` must be added for scheduled notifications to be delivered at all, since notifications are no longer self-scheduling via Celery ETA. If you are upgrading from an earlier version, make sure to add this periodic task alongside your existing `structuretimers_housekeeping` entry.
 
-- Optional: Add additional settings if you want to change any defaults. See [Settings](#settings) for the full list.
+Optional settings keep their existing `STRUCTURETIMERS_*` names. Existing
+permissions keep the `structuretimers.*` prefix, and the page stays at
+`/structuretimers/`. These compatibility identifiers belong to AA StratCom and
+preserve existing data and integrations. See [Settings](#settings) for defaults.
+
+If federation is already configured, keep its delivery schedule,
+`STRUCTURETIMERS_SYNC_ENCRYPTION_KEY`, and other sync settings unchanged. Keep
+`"structuretimers"` in the existing `APPS_WITH_PUBLIC_VIEWS` list; that setting
+matches the stable URL namespace, not the new Python module. For a new federation
+setup, follow [Timer sharing and replicas](docs/timer-sync.md).
 
 ### Step 4 - Finalize installation
 
@@ -146,7 +175,7 @@ Run migrations & copy static files
 
 ```bash
 python manage.py migrate
-python manage.py collectstatic
+python manage.py collectstatic --noinput
 ```
 
 Restart your supervisor services for Auth
