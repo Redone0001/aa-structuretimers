@@ -32,4 +32,9 @@ def register_menu():
 
 @hooks.register("url_hook")
 def register_urls():
-    return UrlHook(urls, "structuretimers", r"^structuretimers/")
+    return UrlHook(
+        urls,
+        "structuretimers",
+        r"^structuretimers/",
+        excluded_views=["structuretimers.sync_api.timer_sync"],
+    )

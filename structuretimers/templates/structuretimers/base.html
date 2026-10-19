@@ -1,5 +1,5 @@
 {% extends 'allianceauth/base-bs5.html' %}
-{% load i18n static %}
+{% load i18n static timer_sync %}
 
 {% block header_nav_brand %}{% translate "Structure Timers" %}{% endblock %}
 
@@ -12,7 +12,8 @@
 {% endblock %}
 
 {% block header_nav_collapse_right %}
-    {% if perms.structuretimers.create_timer %}
+    {% timer_sync_read_only as sync_read_only %}
+    {% if perms.structuretimers.create_timer and not sync_read_only %}
         <li class="nav-item">
             <a class="btn btn-success me-2" href="{% url 'structuretimers:add_info' %}" title="Add a timer, recon or fitting">
                 <i class="fa-solid fa-plus"></i>&nbsp;Add information

@@ -2,8 +2,11 @@
 {% load static %}
 {% load i18n %}
 {% load evelinks %}
+{% load timer_sync %}
 
 {% block structuretimers_content %}
+    {% timer_sync_read_only as sync_read_only %}
+    {% if sync_read_only %}<div class="alert alert-info" role="status">This timerboard is a read-only replica. Timer changes are managed by its master.</div>{% endif %}
     <div id="timer-assignment-csrf" hidden>{% csrf_token %}</div>
     {% translate 'Database' as tab_database %}
     {% translate 'Current' as tab_current %}

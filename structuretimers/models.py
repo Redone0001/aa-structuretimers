@@ -36,6 +36,7 @@ from app_utils.json import JSONDateTimeDecoder, JSONDateTimeEncoder
 from app_utils.urls import reverse_absolute, static_file_absolute_url
 
 from structuretimers import __title__, structures_bridge
+from structuretimers import sync_models as _sync_models  # noqa: F401
 from structuretimers.app_settings import (
     STRUCTURETIMER_NOTIFICATION_SET_AVATAR,
     STRUCTURETIMERS_NOTIFICATIONS_ENABLED,
@@ -97,6 +98,11 @@ class General(models.Model):
             ("opsec_access", "Can create and see opsec timers"),
             ("op_coordinator", "Can create, edit and coordinate operations"),
             ("op_viewer", "Can view shared operations"),
+            ("manage_sync_keys", "Can manage timer sync API keys and credentials"),
+            (
+                "manage_timer_sharing",
+                "Can configure outbound timer sharing and replica mode",
+            ),
         )
 
 
@@ -648,6 +654,10 @@ class StructureDetails(models.Model):
 
     def user_can_edit(self, user: User) -> bool:
         """Checks if the given user can edit this timer. Returns True or False"""
+        from .sync_policy import read_only
+
+        if read_only():
+            return False
         return user.has_perm("structuretimers.manage_timer") or (
             self.user == user and user.has_perm("structuretimers.create_timer")
         )
@@ -815,6 +825,9 @@ class Timer(StructureDetails):
         A timer without a structure is linked to the matching Database record,
         or to the aa-structures structure, or a new record is created for it.
         """
+        from .sync_policy import require_local_write
+
+        require_local_write()
         sync_owner(self)
         if not self.structure_id and not self.structures_structure_id:
             if self.eve_solar_system_id:
@@ -834,6 +847,13 @@ class Timer(StructureDetails):
                 *[f.removesuffix("_id") for f in TIMER_COPY_FIELDS],
             }
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Replicas accept timer deletion only through the authenticated sync API."""
+        from .sync_policy import require_local_write
+
+        require_local_write()
+        return super().delete(*args, **kwargs)
 
     def __str__(self):
         if self.timer_type != Timer.Type.PRELIMINARY and self.date:
@@ -1012,6 +1032,9 @@ class Structure(StructureDetails):
         return str(self.structure_display_name)
 
     def save(self, *args, **kwargs):
+        from .sync_policy import require_local_write
+
+        require_local_write()
         sync_owner(self)
         created = self._state.adding
         super().save(*args, **kwargs)

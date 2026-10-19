@@ -15,7 +15,7 @@ from allianceauth.services.hooks import get_extension_logger
 from allianceauth.services.tasks import QueueOnce
 
 # Re-export the task so Celery autodiscovery registers campaign imports.
-from structuretimers import __title__, campaign_jobs
+from structuretimers import __title__, campaign_jobs, sync_jobs
 from structuretimers.app_settings import STRUCTURETIMERS_MAX_AGE_FOR_NOTIFICATIONS
 from structuretimers.models import (
     DiscordWebhook,
@@ -29,6 +29,7 @@ from structuretimers.models import (
 )
 
 prepare_campaign = campaign_jobs.prepare_campaign
+deliver_timer_sync = sync_jobs.deliver_timer_sync
 
 logger = get_extension_logger(__name__)
 TASK_PRIORITY_HIGH = 4

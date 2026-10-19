@@ -7,3 +7,6 @@ class StructureTimersConfig(AppConfig):
     name = "structuretimers"
     label = "structuretimers"
     verbose_name = f"Structure Timers v{__version__}"
+
+    def ready(self):
+        from . import sync_signals  # noqa: F401

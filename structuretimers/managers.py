@@ -56,7 +56,67 @@ def _visible_to_user(qs: models.QuerySet, user: User) -> models.QuerySet:
     )
 
 
-class TimerQuerySet(models.QuerySet):
+class ReplicaProtectedQuerySet(models.QuerySet):
+    """Bulk writes and cascade entry points obey the same replica policy as save."""
+
+    def update(self, **kwargs):
+        from .sync_policy import require_local_write
+
+        require_local_write()
+        # Structure copies use bulk update, so queue their affected timers too.
+        from .sync_models import TimerSyncDestination
+        from .sync_policy import receiving
+
+        publish = (
+            self.model.__name__ == "Timer"
+            and not receiving()
+            and TimerSyncDestination.objects.filter(enabled=True).exists()
+        )
+        identifiers = list(self.values_list("pk", flat=True)) if publish else []
+        result = super().update(**kwargs)
+        if identifiers:
+            from .sync_outbox import changed
+
+            for timer in self.model.objects.filter(pk__in=identifiers):
+                changed(timer)
+        return result
+
+    def delete(self):
+        from .sync_policy import require_local_write
+
+        require_local_write()
+        return super().delete()
+
+    def bulk_create(
+        self,
+        objs,
+        batch_size=None,
+        ignore_conflicts=False,
+        update_conflicts=False,
+        update_fields=None,
+        unique_fields=None,
+    ):
+        from .sync_policy import require_local_write
+
+        require_local_write()
+        result = super().bulk_create(
+            objs,
+            batch_size=batch_size,
+            ignore_conflicts=ignore_conflicts,
+            update_conflicts=update_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
+        )
+        if self.model.__name__ == "Timer":
+            from .sync_outbox import changed
+
+            for timer in result:
+                if timer.pk:
+                    changed(timer)
+        return result
+
+
+class TimerQuerySet(ReplicaProtectedQuerySet):
     def select_related_for_matching(self) -> models.QuerySet:
         """Apply select related for matching."""
         return self.select_related(
@@ -98,6 +158,10 @@ class TimerQuerySet(models.QuerySet):
 class TimerManagerBase(models.Manager):
     def delete_obsolete(self) -> int:
         """delete all timers that are considered obsolete"""
+        from .sync_policy import read_only
+
+        if read_only():
+            return 0
         if STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS:
             deadline = now() - timedelta(
                 days=STRUCTURETIMERS_TIMERS_OBSOLETE_AFTER_DAYS
@@ -132,7 +196,7 @@ class DistancesFromStagingManager(models.Manager):
             obj.save()
 
 
-class StructureQuerySet(models.QuerySet):
+class StructureQuerySet(ReplicaProtectedQuerySet):
     def visible_to_user(self, user: User) -> models.QuerySet:
         """Database records this user may see: recon members only."""
         if not user.has_perm("structuretimers.recon_member"):

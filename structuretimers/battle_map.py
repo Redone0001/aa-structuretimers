@@ -36,6 +36,8 @@ def timer_events(timer):
 
 def observation_payload(timer, user, system_name=None, can_edit=None):
     """The same observations and repair clock in operations and on battle maps."""
+    from .sync_policy import read_only
+
     events, revision = timer_events(timer)
     return {
         "id": timer.pk,
@@ -56,7 +58,8 @@ def observation_payload(timer, user, system_name=None, can_edit=None):
             for event in events
         ],
         "revision": revision,
-        "can_edit": timer.user_can_edit(user) if can_edit is None else can_edit,
+        "can_edit": (timer.user_can_edit(user) if can_edit is None else can_edit)
+        and not read_only(),
     }
 
 
@@ -362,6 +365,9 @@ def battle_data(request, layer):
 @transaction.atomic
 def update_timer(user, body):
     """Apply a permitted observation to a locked timer revision."""
+    from .sync_policy import require_local_write
+
+    require_local_write()
     timer = editable_timer(user, body, lock=True)
     if timer.date is None:
         raise ValueError("Only scheduled timers support battle observations.")

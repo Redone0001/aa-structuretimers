@@ -320,6 +320,12 @@ class TimerForm(forms.ModelForm):
             self.initial["timer_type"] = Timer.Type.FINAL
 
     def clean(self):
+        from .sync_policy import read_only
+
+        if read_only():
+            raise forms.ValidationError(
+                "This timerboard is a read-only replica of its master."
+            )
         cleaned_data = super().clean()
         if cleaned_data.get("eve_solar_system_2"):
             self._clean_solar_system(cleaned_data)

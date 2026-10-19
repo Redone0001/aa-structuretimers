@@ -20,7 +20,9 @@ from eveuniverse.models import EveEntity, EveRegion
 
 from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
-from . import destruction, owners, standings, tasks
+from . import destruction, owners, standings
+from . import sync_admin as _sync_admin  # noqa: F401
+from . import tasks
 from .models import (
     DiscordTimerboard,
     DiscordWebhook,

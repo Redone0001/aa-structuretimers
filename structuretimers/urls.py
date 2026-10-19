@@ -8,12 +8,14 @@ from . import (
     operation_assignments,
     operations,
     regional_map,
+    sync_api,
     views,
 )
 
 app_name = "structuretimers"
 
 urlpatterns = [
+    path("api/v1/sync/timers/", sync_api.timer_sync, name="timer_sync_api"),
     path("ops/live/", operations.operation_index_live, name="operation_index_live"),
     path(
         "ops/create/", operations.OperationEditorView.as_view(), name="operation_create"

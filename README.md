@@ -401,6 +401,13 @@ system imports, and the **Retry failed campaign imports** action queues retries.
 Create new campaigns through the regular campaign creation page. Non-superuser
 staff need the appropriate Django campaign and campaign-system model permissions.
 
+### Timerboard federation API
+
+Timerboards can push timers to other instances, with separate permissions for
+API keys and outbound sharing. Destinations choose non-OPSEC or all timers.
+A receiver can become a read-only replica of a specific master. See the
+[setup, API contract and security design](docs/timer-sync.md) before enabling it.
+
 ### D-scan fleet imports
 
 The fleet token editor in an operation map accepts either a public

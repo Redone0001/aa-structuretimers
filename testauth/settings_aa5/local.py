@@ -86,3 +86,6 @@ STORAGES["staticfiles"][
 
 # Regional map geography comes from the EVE SDE.
 INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS + ["eve_sde"]
+
+# Only the bearer-authenticated timer sync view opts out of AA's browser login.
+APPS_WITH_PUBLIC_VIEWS = ["structuretimers"]

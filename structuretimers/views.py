@@ -68,6 +68,7 @@ from structuretimers.operation_assignments import (
     operation_prefetch,
 )
 from structuretimers.selectors import timer_type_rules
+from structuretimers.sync_policy import read_only, require_local_write
 
 # Keep the established view import paths available to callers.
 ReconActionView = lookup_views.ReconActionView
@@ -560,7 +561,10 @@ class TimerListDataView(
                     "Edit this timer",
                 )
             )
-        if self.request.user.has_perm("structuretimers.create_timer"):
+        if (
+            self.request.user.has_perm("structuretimers.create_timer")
+            and not read_only()
+        ):
             actions += "&nbsp;" + timer_action_button_html(
                 reverse("structuretimers:copy", args=(timer.pk,)),
                 "far fa-copy",
@@ -795,6 +799,10 @@ class CreateTimerView(TimerManagementView, AddUpdateMixin, CreateView):
         "structuretimers.create_timer",
     )
     title = _("Create New Timer")
+
+    def dispatch(self, request, *args, **kwargs):
+        require_local_write()
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         result = super().form_valid(form)
