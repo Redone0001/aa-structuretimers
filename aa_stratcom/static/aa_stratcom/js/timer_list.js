@@ -169,7 +169,7 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
             clear.prop("disabled", !values.length);
             column.search(buildMultiValueSearchRegex(values), true, false).draw();
         }
-        column.data().unique().sort().each(function (value) {
+        [...new Set([...column.data().toArray(), ...selected])].sort().forEach(function (value) {
             if (value === null || value === undefined || value === "") return;
             const text = String(value);
             const checkbox = $("<input>", {type: "checkbox", class: "form-check-input", value: text, checked: selected.has(text)});
@@ -199,6 +199,42 @@ function initializeMultiSelectFilters(table, filterDefinition, titleFilterBy, ti
         menu.append(search, options, empty, clear);
         wrapper.append(group.append(title, toggle, menu));
         if (selected.size) update();
+    });
+}
+
+function rebuildMultiSelectFilters(table, definition, titleFilterBy, titleAll) {
+    const id = table.table().node().id, saved = {}, page = table.page();
+    for (const column of definition.columns) {
+        saved[column.idx] = $('#' + id + '_filterSelect' + column.idx + '_menu input:checked')
+            .map(function () { return this.value; }).get();
+    }
+    const container = $(table.table().container());
+    // The Database's window controls live inside the filter row; retain them.
+    container.append(container.find('#recon-window-filter').detach());
+    container.children('.timer-filter-row').remove();
+    initializeMultiSelectFilters(table, definition, titleFilterBy, titleAll, saved);
+    table.page(Math.min(page, Math.max(0, table.page.info().pages - 1))).draw(false);
+}
+
+function refreshTableOnTab(table, panes, rebuildFilters) {
+    let pending = false;
+    function refresh() {
+        const request = table.settings()[0].jqXHR;
+        // Wait for an earlier load so an old response cannot overwrite this one.
+        if (request && request.readyState > 0 && request.readyState < 4) { pending = true; return; }
+        table.ajax.reload(function () {
+            rebuildFilters();
+            table.columns.adjust();
+        }, false);
+    }
+    $(table.table().node()).on('xhr.dt', function () {
+        if (pending) { pending = false; setTimeout(refresh, 0); }
+    });
+    $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (event) {
+        if (panes.includes(event.target.getAttribute('data-bs-target').slice(1))) refresh();
+    });
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted && panes.includes(document.querySelector('.tab-content > .tab-pane.active')?.id)) refresh();
     });
 }
 
@@ -339,7 +375,7 @@ $(document).ready(function () {
         titleOwner
     );
 
-    $("#tbl_timers_past").DataTable({
+    const table_past = $("#tbl_timers_past").DataTable({
         ajax: {
             url: listDataPastUrl,
             dataSrc: "",
@@ -398,13 +434,14 @@ $(document).ready(function () {
     });
 
     $('#tbl_timers_current').on('st:rebuild-filters', function () {
-        const saved = {};
-        for (const definition of currentFilterDefinition.columns) {
-            saved[definition.idx] = $('#tbl_timers_current_filterSelect' + definition.idx + '_menu input:checked').map(function () { return this.value; }).get();
-        }
-        $(table_current.table().container()).children('.timer-filter-row').remove();
-        initializeMultiSelectFilters(table_current, currentFilterDefinition, titleFilterBy, titleAll, saved);
+        rebuildMultiSelectFilters(table_current, currentFilterDefinition, titleFilterBy, titleAll);
     });
+    refreshTableOnTab(table_current, document.getElementById('operation-board') ? ['current', 'ops'] : ['current'],
+        () => rebuildMultiSelectFilters(table_current, currentFilterDefinition, titleFilterBy, titleAll));
+    if (document.getElementById('tbl_timers_past')) {
+        refreshTableOnTab(table_past, ['past'],
+            () => rebuildMultiSelectFilters(table_past, standardFilterDefinition, titleFilterBy, titleAll));
+    }
 
     function updateTimers() {
         table_current.rows().every(function () {

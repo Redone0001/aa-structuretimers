@@ -101,6 +101,10 @@ $(document).ready(function () {
             ready = true;
         }
     });
+    refreshTableOnTab(table, ['preliminary'], () => rebuildMultiSelectFilters(table, {columns: [
+        {idx: 8, title: messages.solarSystem}, {idx: 9, title: messages.region},
+        {idx: 10, title: messages.structureType}, {idx: 11, title: messages.owner}, {idx: 12, title: root.dataset.standingTitle}
+    ]}, exported.getAttribute('data-titleFilterBy'), exported.getAttribute('data-titleAll')));
     $('#recon-show-destroyed').on('change', () => { saveSettings(); table.ajax.reload(null, false); });
     $('#recon-age, #recon-from, #recon-to, #recon-window-from, #recon-window-to').on('change', () => table.draw());
     $('#recon-heatmap').on('click', 'button', function () {
