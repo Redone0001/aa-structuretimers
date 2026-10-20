@@ -11,10 +11,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom import standings
 from aa_stratcom.models import Organization, StandingsSource
-from aa_stratcom.tests.testdata.factory import (
-    UserMainFactory,
-    UserWithAccessFactory,
-)
+from aa_stratcom.tests.testdata.factory import UserMainFactory, UserWithAccessFactory
 
 CORP = Organization.Category.CORPORATION
 ALLIANCE = Organization.Category.ALLIANCE

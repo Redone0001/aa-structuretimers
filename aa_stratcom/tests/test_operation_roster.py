@@ -11,10 +11,7 @@ from app_utils.testing import NoSocketsTestCase
 from aa_stratcom.models import Operation, OperationRole, OperationRoleTemplate
 from aa_stratcom.operation_roster import roster_payload
 from aa_stratcom.tests import test_operations
-from aa_stratcom.tests.testdata.factory import (
-    EveSolarSystemFactory,
-    UserMainFactory,
-)
+from aa_stratcom.tests.testdata.factory import EveSolarSystemFactory, UserMainFactory
 
 
 class TestOperationRoster(NoSocketsTestCase):

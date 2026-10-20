@@ -13,12 +13,7 @@ from django.utils.timezone import now
 from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom import destruction
-from aa_stratcom.models import (
-    DiscordTimerboard,
-    MapTimerState,
-    NotificationRule,
-    Timer,
-)
+from aa_stratcom.models import DiscordTimerboard, MapTimerState, NotificationRule, Timer
 from aa_stratcom.regional_map import permitted_timers
 from aa_stratcom.tasks import (
     notify_about_new_timer,

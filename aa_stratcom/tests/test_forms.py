@@ -9,12 +9,7 @@ from django.utils.timezone import now
 from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom.constants import EveTypeId
-from aa_stratcom.forms import (
-    FastTimerForm,
-    ReconForm,
-    TimerForm,
-    parse_eve_timer_text,
-)
+from aa_stratcom.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
 from aa_stratcom.models import Organization, Structure, Timer
 from aa_stratcom.tests.testdata.factory import (
     CitadelTypeFactory,

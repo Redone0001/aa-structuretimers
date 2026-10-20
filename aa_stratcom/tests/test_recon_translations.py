@@ -10,10 +10,7 @@ from django.utils import translation
 from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom.forms import ReconForm
-from aa_stratcom.tests.testdata.factory import (
-    StructureFactory,
-    UserWithCreateFactory,
-)
+from aa_stratcom.tests.testdata.factory import StructureFactory, UserWithCreateFactory
 from aa_stratcom.views import TimerListView
 
 LOCALE_ROOT = Path(__file__).resolve().parents[1] / "locale"

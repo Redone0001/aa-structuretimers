@@ -10,9 +10,7 @@ from app_utils.django import app_labels
 from app_utils.testing import NoSocketsTestCase
 
 from aa_stratcom.constants import EveTypeId
-from aa_stratcom.management.commands.aa_stratcom_migrate_timers import (
-    _STRUCTURE_MAP,
-)
+from aa_stratcom.management.commands.aa_stratcom_migrate_timers import _STRUCTURE_MAP
 from aa_stratcom.models import Timer
 from aa_stratcom.tests.testdata.factory import (
     AuthTimerFactory,

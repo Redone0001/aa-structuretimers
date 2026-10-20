@@ -46,12 +46,7 @@ from aa_stratcom.app_settings import (
 )
 from aa_stratcom.constants import EveTypeId
 from aa_stratcom.distance_ranges import JUMP_RANGES, distance_range
-from aa_stratcom.forms import (
-    FastTimerForm,
-    ReconForm,
-    TimerForm,
-    parse_eve_timer_text,
-)
+from aa_stratcom.forms import FastTimerForm, ReconForm, TimerForm, parse_eve_timer_text
 from aa_stratcom.models import (
     DistancesFromStaging,
     Operation,
@@ -63,10 +58,7 @@ from aa_stratcom.models import (
     StructureDistance,
     Timer,
 )
-from aa_stratcom.operation_assignments import (
-    assignment_html,
-    operation_prefetch,
-)
+from aa_stratcom.operation_assignments import assignment_html, operation_prefetch
 from aa_stratcom.selectors import timer_type_rules
 from aa_stratcom.sync_policy import read_only, require_local_write
 
