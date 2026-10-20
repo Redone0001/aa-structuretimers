@@ -449,7 +449,11 @@ Visible operation pages and the Ops list check for changes every two seconds;
 unchanged responses use ETags. Timer observations update without a page refresh,
 and connection failures are shown beside the board. Polling pauses in hidden tabs
 and resumes immediately when they become visible. Enabled battle maps also sync
-timer observations every two seconds. No additional Celery schedule is required.
+timer observations every two seconds. Forces in the area also refresh every two
+seconds in an opened Ops map while the fleet overlay is enabled and the browser
+tab is visible. Additions, edits and moves from other users appear automatically.
+Polling pauses during local saves or drags and refreshes immediately when returning
+to the tab. No additional Celery schedule is required.
 
 ### Destroyed structures
 

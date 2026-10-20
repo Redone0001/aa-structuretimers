@@ -34,9 +34,10 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             });
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
-            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if(this.enabled&&!this.root.dataset.operation&&Date.now()-(this.lastStateSync||0)>=2000)this.syncTimers();if($('fleets').checked&&Date.now()-this.fleetLoaded>=120000)this.loadFleets();}},1000);
-            window.addEventListener('pagehide',event=>{this.abort?.abort();this.stateAbort?.abort();this.fleetAbort?.abort();if(!event.persisted)clearInterval(this.interval);});
-            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data){if(!this.root.dataset.operation)this.syncTimers();if(this.now()-(this.loaded||0)>=15*60000)this.load();}});
+            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if(this.enabled&&!this.root.dataset.operation&&Date.now()-(this.lastStateSync||0)>=2000)this.syncTimers();}},1000);
+            this.fleetInterval=setInterval(()=>this.pollFleets(true),this.fleetRefreshMs);
+            window.addEventListener('pagehide',event=>{this.abort?.abort();this.stateAbort?.abort();this.fleetAbort?.abort();if(!event.persisted){clearInterval(this.interval);clearInterval(this.fleetInterval);}});
+            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data){this.pollFleets(true);if(!this.root.dataset.operation)this.syncTimers();if(this.now()-(this.loaded||0)>=15*60000)this.load();}});
             window.addEventListener('st:timer-sync', event=>{if(this.root.dataset.operation)this.acceptObservations(event.detail.timers,event.detail.server_time);});
             this.updateControls();
         }
@@ -61,18 +62,24 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
         applyFleets(tokens){
             if(!this.forces)return;
             this.tokens=tokens;this.fleetLoaded=Date.now();this.syncForceRanges();this.renderFleets();this.hooks.paint();
-            $('fleet-sync').textContent=`Forces updated ${clock(this.now())} UTC · updates every 2 minutes while fleet overlay is on.`;
+            $('fleet-sync').textContent=`Forces updated ${clock(this.now())} UTC · updates every ${this.fleetRefreshLabel} while fleet overlay is on.`;
+        }
+        get fleetRefreshMs(){return this.root.dataset.operation?2000:120000;}
+        get fleetRefreshLabel(){return this.root.dataset.operation?'2 seconds':'2 minutes';}
+        pollFleets(force=false){
+            if(this.forces&&(force||Date.now()-this.fleetLoaded>=this.fleetRefreshMs))return this.loadFleets();
         }
         async loadFleets(){
-            if(!this.data||!$('fleets').checked||document.hidden||this.fleetAbort||this.saving||this.moving.size)return;
+            if(!this.data||!$('fleets').checked||document.hidden||this.fleetAbort||this.saving||this.moving.size||this.hooks.isDragging?.())return;
             const controller=new AbortController(), version=++this.fleetVersion;
             this.fleetAbort=controller;this.fleetLoaded=Date.now();
             try{
                 const data=await this.api('fleets',{region:this.data.region.id},{signal:controller.signal});
                 if(version!==this.fleetVersion)return;
+                if(document.hidden||!$('fleets').checked||this.saving||this.moving.size||this.hooks.isDragging?.()){this.fleetLoaded=0;return;}
                 this.applyFleets(data.tokens);
                 if(this.selected!==null)this.hooks.select(this.selected);
-            }catch(error){if(error.name!=='AbortError')$('fleet-sync').textContent=`Fleet update failed: ${error.message} Retrying within 2 minutes.`;}
+            }catch(error){if(error.name!=='AbortError')$('fleet-sync').textContent=`Fleet update failed: ${error.message} Retrying within ${this.fleetRefreshLabel}.`;}
             finally{if(this.fleetAbort===controller)this.fleetAbort=null;}
         }
         async load(forceFleets=false){

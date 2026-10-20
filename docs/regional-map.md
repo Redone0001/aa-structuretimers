@@ -207,7 +207,7 @@ External force systems are grouped into a shelf to the right of the map, labeled
 
 ### Fleet refresh and force summaries
 
-A fleet-only `map/battle/fleets` GET polls every two minutes while the page is visible and **Show fleet overlay** is enabled. Enabling it refreshes immediately; returning to a stale visible tab refreshes on the next tick. Turning it off cancels an in-flight fleet poll, and ordinary timer snapshots omit fleet queries while it remains off. Timer polling stays at 15 minutes. Local saves may explicitly reload fleet data even with the overlay off.
+A fleet-only `map/battle/fleets` GET polls every **two seconds in an opened Ops map** while the page is visible and **Show fleet overlay** is enabled. Outside Ops the interval remains two minutes. Enabling it refreshes immediately; returning to the visible tab refreshes immediately. Turning it off cancels an in-flight fleet poll, and ordinary timer snapshots omit fleet queries while it remains off. Ops timer observations also synchronize every two seconds; the broader region/layer refresh stays at 15 minutes. Local saves may explicitly reload fleet data even with the overlay off. Fleet polling waits during local saves, moves and active drags; late responses cannot replace a newer local edit or move. Background updates never replace an open editor's input fields.
 
 Polling updates tokens, positions, range intersections, force lists, and totals without resetting the open editor. Local mutations and response generations protect against obsolete poll results; revision checks still reject stale edits. Failed polls retain the last data, report the failure, and retry within two minutes.
 
