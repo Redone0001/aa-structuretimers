@@ -71,6 +71,70 @@ class TestAddInformation(NoSocketsTestCase):
         self.assertEqual(data["values"]["fitting"], fit)
         self.assertEqual(data["match"]["id"], record.pk)
 
+    def test_imported_name_matches_tooltip_and_saves_to_existing_record(self):
+        self.system.name = "L-6W1J"
+        self.system.save()
+        record = StructureFactory(
+            eve_solar_system=self.system,
+            structure_name="L-6W1J - K-B8DK Gate (ChuangShi)",
+            owner_name="ChuangShi",
+        )
+        data = self.parse(
+            "1. L-6W1J - K-B8DK Gate 2,284 km Reinforced until 2026.10.24 03:49:18"
+        )
+        self.assertEqual(data["found"], ["timer"])
+        self.assertEqual(data["match"]["id"], record.pk)
+        self.assertEqual(data["values"]["structure_name"], record.structure_name)
+        response = self.client.post(
+            reverse("aa_stratcom:add_info"),
+            create_form_data(
+                database_entry_2=str(data["match"]["id"]),
+                eve_solar_system_2=self.system.pk,
+                structure_type_2=record.structure_type_id,
+                structure_name=data["values"]["structure_name"],
+                owner_2=make_owner("ChuangShi"),
+                timer_type=Timer.Type.FINAL,
+                date=FUTURE,
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Structure.objects.count(), 1)
+        record.refresh_from_db()
+        self.assertEqual(record.structure_name, "L-6W1J - K-B8DK Gate (ChuangShi)")
+        self.assertEqual(record.timers.get().timer_type, Timer.Type.FINAL)
+
+    def test_short_names_do_not_guess_between_owners(self):
+        for owner in ("ChuangShi", "Other owner"):
+            StructureFactory(
+                eve_solar_system=self.system,
+                structure_name=f"SVM-3K - Gate ({owner})",
+                owner_name=owner,
+            )
+        data = self.parse("SVM-3K - Gate\nReinforced until 2030.09.05 03:47:08")
+        self.assertIsNone(data["match"])
+
+    def test_short_name_does_not_strip_arbitrary_parentheses(self):
+        StructureFactory(
+            eve_solar_system=self.system,
+            structure_name="SVM-3K - Gate (North)",
+            owner_name="ChuangShi",
+        )
+        data = self.parse("SVM-3K - Gate\nReinforced until 2030.09.05 03:47:08")
+        self.assertIsNone(data["match"])
+
+    def test_short_name_does_not_match_other_system_or_hidden_record(self):
+        StructureFactory(
+            structure_name="SVM-3K - Gate (ChuangShi)", owner_name="ChuangShi"
+        )
+        StructureFactory(
+            eve_solar_system=self.system,
+            structure_name="SVM-3K - Gate (ChuangShi)",
+            owner_name="ChuangShi",
+            is_opsec=True,
+        )
+        data = self.parse("SVM-3K - Gate\nReinforced until 2030.09.05 03:47:08")
+        self.assertIsNone(data["match"])
+
     def test_unreadable_paste_finds_nothing(self):
         data = self.parse("hello there")
         self.assertEqual(data["found"], [])

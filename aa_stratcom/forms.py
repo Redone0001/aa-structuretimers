@@ -55,7 +55,19 @@ class ParsedEveTimer:
 def parse_eve_timer_text(value: str) -> ParsedEveTimer:
     """Parse text copied from a supported EVE Online structure timer tooltip."""
 
+    # Tooltips can arrive on one line (for example after copying a list item).
+    value = re.sub(r"^\s*\d+\.\s+", "", value)
+    value = re.sub(
+        r"\s+(?=(?:Reinforced|Anchoring) until\s+\d{4}\.)",
+        "\n",
+        value,
+        flags=re.IGNORECASE,
+    )
     lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if lines:
+        lines[0] = re.sub(
+            r"\s+\d[\d,.\s]*\s+(?:km|m|AU)$", "", lines[0], flags=re.IGNORECASE
+        ).strip()
     if len(lines) < 2:
         raise ValueError(
             _(

@@ -81,7 +81,50 @@ def parse(text: str, user) -> dict:
                 if structure_type:
                     values["structure_type"] = _option(structure_type)
             found.append("timer")
-    return {"found": found, "values": values, "match": find_match(user, values)}
+    match = find_match(user, values)
+    if (
+        match
+        and "timer" in found
+        and values["structure_name"].casefold() != match["structure_name"].casefold()
+    ):
+        # A tooltip's shorter name must not rename the stored Database record.
+        values["structure_name"] = match["structure_name"]
+    return {"found": found, "values": values, "match": match}
+
+
+def _tooltip_name(name, system_name, owner_names):
+    """Strip only a known system prefix and the record's known owner suffix."""
+    name = name.strip().casefold()
+    prefix = system_name.casefold() + " - "
+    if name.startswith(prefix):
+        name = name[len(prefix) :].strip()
+    for owner in owner_names:
+        suffix = f" ({owner.strip().casefold()})" if owner else ""
+        if suffix and name.endswith(suffix):
+            return name[: -len(suffix)].strip()
+    return name
+
+
+def _database_matches(qs, name, system_id):
+    """Prefer exact names; accept a unique tooltip alias within a known system."""
+    qs = qs.select_related(
+        "eve_solar_system", "structure_type", "owner_corporation__alliance"
+    )
+    matches = list(qs.filter(structure_name__iexact=name)[:2])
+    if matches or not system_id:
+        return matches
+    for entry in qs:
+        owner_names = [entry.owner_name]
+        if entry.owner_corporation:
+            owner_names.append(entry.owner_corporation.name)
+        system_name = entry.eve_solar_system.name
+        if _tooltip_name(name, system_name, owner_names) == _tooltip_name(
+            entry.structure_name, system_name, owner_names
+        ):
+            matches.append(entry)
+            if len(matches) > 1:
+                break
+    return matches
 
 
 def find_match(user, values):
@@ -92,20 +135,16 @@ def find_match(user, values):
     system_id = (values.get("solar_system") or {}).get("id")
     type_id = (values.get("structure_type") or {}).get("id")
     if user.has_perm("aa_stratcom.recon_member"):
-        qs = Structure.objects.visible_to_user(user).filter(
-            destroyed_at__isnull=True, structure_name__iexact=name
-        )
+        qs = Structure.objects.visible_to_user(user).filter(destroyed_at__isnull=True)
         if system_id:
             qs = qs.filter(eve_solar_system_id=system_id)
         if type_id:
             qs = qs.filter(structure_type_id=type_id)
-        matches = list(
-            qs.select_related(
-                "eve_solar_system", "structure_type", "owner_corporation__alliance"
-            )[:2]
-        )
+        matches = _database_matches(qs, name, system_id)
         if len(matches) == 1:
             return picker_entry(matches[0])
+        if matches:
+            return None
     if structures_bridge.is_available() and system_id:
         term = name
         for row in structures_bridge.picker_results(user, term):

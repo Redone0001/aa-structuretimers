@@ -80,6 +80,14 @@ def create_fast_form_data(**kwargs):
 
 
 class TestParseEveTimerText(NoSocketsTestCase):
+    def test_single_line_numbered_tooltip(self):
+        parsed = parse_eve_timer_text(
+            "1. L-6W1J - K-B8DK Gate 2,284 km Reinforced until 2026.10.24 03:49:18"
+        )
+        self.assertEqual(parsed.solar_system_name, "L-6W1J")
+        self.assertEqual(parsed.structure_name, "K-B8DK Gate")
+        self.assertEqual(parsed.date.isoformat(), "2026-10-24T03:49:18+00:00")
+
     def test_should_parse_eve_timer_text_as_utc(self):
         parsed = parse_eve_timer_text(
             "SVM-3K - kongbao\r\n" "17 km\r\n" "Reinforced until 2026.09.05 03:47:08"
