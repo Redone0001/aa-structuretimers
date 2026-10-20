@@ -5,7 +5,7 @@
 
 {% block page_title %}{% translate title %}{% endblock %}
 
-{% block content %}<div class="st-page">{% block aa_stratcom_content %}{% endblock %}</div>{% endblock %}
+{% block content %}<div class="st-page">{% block aa_stratcom_content %}{% endblock %}</div><script src="{% static 'aa_stratcom/js/data_refresh.js' %}"></script>{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'aa_stratcom/css/theme.css' %}">
 {% block aa_stratcom_extra_css %}{% endblock %}

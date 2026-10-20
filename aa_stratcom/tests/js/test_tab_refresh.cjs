@@ -5,7 +5,7 @@ const {test} = require('node:test');
 
 function fixture() {
     const handlers = new Map(), pageHandlers = [], queued = [];
-    const document = {querySelector: () => ({id: 'past'})};
+    const document = {querySelector: () => ({id: 'past'}), getElementById: () => null};
     const $ = target => ({
         ready() {},
         on(event, callback) {

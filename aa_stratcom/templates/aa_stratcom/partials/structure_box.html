@@ -5,6 +5,7 @@
       <div class="d-flex flex-column gap-1">
         <div class="st-structure-line"><span class="badge text-bg-info p-1">{{ type_name }}</span></div>
         <div class="st-structure-line"><span class="badge text-bg-{{ timer_style }} p-1">{{ timer_name }}</span></div>
+        {% if destroyed %}<div><span class="badge text-bg-danger">{% translate "Destroyed" %}</span></div>{% endif %}
         {% if reinforcement_time != None %}
             <div class="st-structure-line" title="{% translate 'Vulnerability windows' %}">{{ reinforcement_time|time:"H:i" }} UTC</div>
         {% endif %}

@@ -9,7 +9,7 @@ from typing import Iterable
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -281,12 +281,17 @@ class TimerListDataView(
 
     def filter_timers(self, qs):
         """Apply board membership separately from the common row presentation."""
-        return (
-            qs.visible_to_user(self.request.user)
-            .filter(structure__destroyed_at__isnull=True)
-            .filter_by_tab(
-                tab_name=self.kwargs.get("tab_name"), max_hours_passed=MAX_HOURS_PASSED
+        qs = qs.visible_to_user(self.request.user)
+        if (
+            self.kwargs.get("tab_name") == "past"
+            and self.request.GET.get("include_destroyed") == "1"
+        ):
+            return qs.filter(
+                Q(date__lt=now())
+                | Q(structure__destroyed_at__isnull=False, date__isnull=False)
             )
+        return qs.filter(structure__destroyed_at__isnull=True).filter_by_tab(
+            tab_name=self.kwargs.get("tab_name"), max_hours_passed=MAX_HOURS_PASSED
         )
 
     def get_data(self, context):
@@ -446,6 +451,9 @@ class TimerListDataView(
             "type_name": structure_type_name,
             "timer_name": timer.get_timer_type_display(),
             "timer_style": timer.label_type_for_timer_type(),
+            "destroyed": bool(
+                getattr(getattr(timer, "structure", None), "destroyed_at", None)
+            ),
             "reinforcement_time": (
                 None
                 if self.kwargs.get("tab_name") == "preliminary"

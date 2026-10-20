@@ -153,6 +153,7 @@
     <!-- share data with JS part -->
     <div
         id="dataExport"
+        data-user-id="{{ request.user.pk }}"
         data-listDataCurrentUrl="{% if operation_page %}{{ operation_data_url }}{% else %}{% url 'aa_stratcom:timer_list_data' 'current' %}{% endif %}?staging={{ selected_staging_system.pk }}"
         data-listDataPastUrl="{% url 'aa_stratcom:timer_list_data' 'past' %}?staging={{ selected_staging_system.pk }}"
         data-listDataTargetUrl="{% url 'aa_stratcom:timer_list_data' 'preliminary' %}?staging={{ selected_staging_system.pk }}"

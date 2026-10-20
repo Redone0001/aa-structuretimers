@@ -26,10 +26,10 @@ test('obsolete fleet responses cannot replace newer state, and failures release 
     const pending=map.loadFleets();map.fleetVersion++;resolve({tokens:[{id:2}]});await pending;
     assert.equal(map.applied,undefined);assert.equal(map.fleetAbort,null);
     map.api=async()=>{throw Error('Offline');};await map.loadFleets();
-    assert.match(nodes['fleet-sync'].textContent,/Retrying within 2 minutes/);assert.equal(map.fleetAbort,null);
+    assert.match(nodes['fleet-sync'].textContent,/Retrying within 1 minute/);assert.equal(map.fleetAbort,null);
 });
 
-test('Ops fleet polling uses two seconds; non-Ops polling keeps two minutes',async()=>{
+test('Ops fleet polling uses two seconds; non-Ops polling uses one minute',async()=>{
     const {map}=setup();let requests=0;
     map.api=async()=>{requests++;return {tokens:[{id:1}]};};
     map.root.dataset.operation='12';
@@ -38,7 +38,7 @@ test('Ops fleet polling uses two seconds; non-Ops polling keeps two minutes',asy
     map.fleetLoaded=Date.now()-2100;await map.pollFleets();assert.equal(requests,1);
     delete map.root.dataset.operation;
     map.fleetLoaded=Date.now()-2100;await map.pollFleets();assert.equal(requests,1);
-    map.fleetLoaded=Date.now()-120100;await map.pollFleets();assert.equal(requests,2);
+    map.fleetLoaded=Date.now()-60100;await map.pollFleets();assert.equal(requests,2);
 });
 test('Ops polling defers during dragging and resumes without stale positions',async()=>{
     const {map}=setup();map.root.dataset.operation='12';

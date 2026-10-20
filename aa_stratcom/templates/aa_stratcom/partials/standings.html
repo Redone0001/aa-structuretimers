@@ -6,7 +6,7 @@
             An override set here wins over the automatic standing from alliance contacts.
         </p>
     </div>
-    <div class="text-end small">
+    <div class="text-end small" id="standings-source-status" data-stratcom-refresh>
         {% if standings_source %}
             <div>Automatic standings: <strong>{{ standings_source.alliance_name }}</strong> contacts via {{ standings_source.token.character_name }}</div>
             <div class="text-muted">
@@ -39,7 +39,7 @@
                 <th>Standing</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="standings-rows" data-stratcom-refresh>
             {% for organization in organizations %}
                 <tr data-name="{{ organization.name|lower }} {{ organization.alliance.name|default:''|lower }}">
                     <td>{{ organization.name }}</td>

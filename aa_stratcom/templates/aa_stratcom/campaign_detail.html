@@ -9,7 +9,7 @@
 <p id="campaign-import-changed" class="alert alert-info" hidden>{% translate 'Campaign import status changed.' %} <a href="{{ campaign.get_absolute_url }}">{% translate 'Refresh when ready' %}</a></p>
 </div>
 <p id="campaign-progress"><span class="badge {% if campaign.finished_at %}text-bg-success{% else %}text-bg-primary{% endif %}">{% if campaign.finished_at %}{% translate 'Finished' %}{% else %}{% translate 'In progress' %}{% endif %}</span> {{ completed }} / {{ entries|length }} {% translate 'systems complete' %}</p>
-<p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Refresh this page to see the latest reservations and progress.' %}</p>
+<p class="text-muted">{% translate 'Reserve systems, update their recon, then mark them complete—even if no structures were found. Reservations and progress refresh every minute.' %}</p>
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3" id="campaign-view-controls" hidden>
 <div class="btn-group" role="group" aria-label="{% translate 'Campaign view' %}">
 <button type="button" class="btn btn-outline-primary" data-campaign-view="map" aria-pressed="true">{% translate 'Map view' %}</button>

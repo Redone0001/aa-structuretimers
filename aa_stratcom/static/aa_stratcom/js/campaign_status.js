@@ -6,7 +6,7 @@
     let timer = null;
     function schedule() {
         if (timer === null && status.dataset.import === "pending") {
-            timer = window.setTimeout(poll, 5000);
+            timer = window.setTimeout(poll, 60000);
         }
     }
     async function poll() {

@@ -397,6 +397,9 @@ The following management commands are available:
 ### Operations
 
 The tabs are ordered **Database, Current, Past, Standing, Recon Campaigns, Ops**.
+Regular data views refresh every minute while visible; Ops keeps two-second updates.
+Past has a **Show destroyed structures** checkbox, saved per user in a cookie.
+Destroyed records remain hidden by default and retain their information and history.
 Each tab still requires its existing access permission. The Ops tab requires
 `aa_stratcom.basic_access` plus either `aa_stratcom.op_coordinator` or
 `aa_stratcom.op_viewer`. Run `python manage.py migrate` after upgrading to add
@@ -485,7 +488,7 @@ and mark their reserved systems complete. Within reserved systems they can add,
 edit, refresh, or delete visible preliminary timers, including another scout's
 recon. Existing OPSEC visibility is respected. Coordinators can work on any campaign
 system and see reservation identities. Everyone sees reservation and completion
-status on the campaign page; refresh to load changes made by other users.
+status on the campaign page; reservations and recon update every minute while the page is visible.
 
 A campaign finishes automatically once every system is marked complete, including
 systems with no structures. Coordinators may reopen systems, which reactivates the

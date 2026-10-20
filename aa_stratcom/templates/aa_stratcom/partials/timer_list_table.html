@@ -1,6 +1,12 @@
 {% load i18n %}
 {% load humanize %}
 
+{% if tab_name == 'past' %}
+<div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="past-show-destroyed">
+    <label class="form-check-label" for="past-show-destroyed">{% translate "Show destroyed structures" %}</label>
+</div>
+{% endif %}
 <div class="table-responsive">
     <table class="table table-sm table-striped align-middle table_timers" id="tbl_timers_{{ tab_name }}" style="width:100%;">
         <thead>

@@ -141,7 +141,7 @@
         remembering=true;remember();
     }catch(e){error(e.message);}}
     $('refresh').addEventListener('click',()=>{if(!$('region').options.length)init();});
-    const interval=setInterval(()=>{if(!document.hidden&&state.data)refresh();},15*60000);
+    const interval=setInterval(()=>{if(!document.hidden&&state.data&&!root.closest('[hidden]')&&!map.tokenDrag&&!battle.saving&&!battle.moving.size&&!document.getElementById('st-battle-editor').open)refresh();},60000);
     window.addEventListener('pagehide',event=>{requests.forEach(controller=>controller.abort());if(!event.persisted){clearInterval(interval);map.destroy();}});
     for(const id of ['range','spacing']){if(Array.from($(id).options).some(o=>o.value===saved[id]))$(id).value=saved[id];}
     for(const [id,key] of [['structures','structures'],['gates','gates'],['labels','labels'],['test-regions','testRegions']])if(typeof saved[key]==='boolean')$(id).checked=saved[key];

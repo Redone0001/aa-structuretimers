@@ -85,6 +85,36 @@ class TestDestruction(NoSocketsTestCase):
         content = "\n".join(render_board(board))
         self.assertNotIn(self.structure.structure_name, content)
 
+    def test_past_can_include_destroyed_timers_before_scheduled_end(self):
+        self.archive()
+        self.client.force_login(self.user)
+        past_url = reverse("aa_stratcom:timer_list_data", args=["past"])
+        self.assertNotIn(
+            self.timer.pk, [r["id"] for r in self.client.get(past_url).json()]
+        )
+        rows = self.client.get(past_url, {"include_destroyed": "1"}).json()
+        self.assertIn(self.timer.pk, [r["id"] for r in rows])
+        self.assertIn(
+            "Destroyed",
+            next(r for r in rows if r["id"] == self.timer.pk)["structure_details"],
+        )
+        current = self.client.get(
+            reverse("aa_stratcom:timer_list_data", args=["current"]),
+            {"include_destroyed": "1"},
+        ).json()
+        self.assertNotIn(self.timer.pk, [r["id"] for r in current])
+
+    def test_past_destroyed_option_still_obeys_visibility_and_hides_recon_only(self):
+        self.archive()
+        Timer.objects.filter(pk=self.timer.pk).update(is_opsec=True)
+        self.client.force_login(self.user)
+        url = reverse("aa_stratcom:timer_list_data", args=["past"])
+        rows = self.client.get(url, {"include_destroyed": "1"}).json()
+        self.assertNotIn(self.timer.pk, [r["id"] for r in rows])
+        Timer.objects.filter(pk=self.timer.pk).update(is_opsec=False, date=None)
+        rows = self.client.get(url, {"include_destroyed": "1"}).json()
+        self.assertNotIn(self.timer.pk, [r["id"] for r in rows])
+
     def test_new_matching_timer_does_not_overwrite_destroyed_structure(self):
         self.archive()
         timer = TimerFactory(

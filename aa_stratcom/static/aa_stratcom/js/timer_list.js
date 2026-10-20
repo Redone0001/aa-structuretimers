@@ -236,6 +236,13 @@ function refreshTableOnTab(table, panes, rebuildFilters) {
     window.addEventListener('pageshow', function (event) {
         if (event.persisted && panes.includes(document.querySelector('.tab-content > .tab-pane.active')?.id)) refresh();
     });
+    const operation = Boolean(document.getElementById('operation-board'));
+    window.StratComRefresh?.every(refresh, {
+        interval: operation ? 2000 : 60000,
+        active: () => panes.includes(document.querySelector('.tab-content > .tab-pane.active')?.id) &&
+            !document.querySelector('.select2-container--open, .timer-operation:disabled, .timer-filter-menu.show'),
+    });
+    return refresh;
 }
 
 $(document).ready(function () {
@@ -284,20 +291,25 @@ $(document).ready(function () {
     const dataTablesPaging =
         elem.getAttribute("data-dataTablesPaging") == "True";
     const tabId = elem.getAttribute("data-tabId");
+    const destroyedToggle = document.getElementById('past-show-destroyed');
+    const destroyedCookie = 'asc-past-destroyed-' + elem.dataset.userId;
+    if (destroyedToggle) destroyedToggle.checked = window.StratComRefresh.preference(destroyedCookie);
 
     /* activate selected tab */
     $('button[data-bs-target="#' + tabId + '"]').tab("show");
 
     /* Update modal with requested timer */
+    let openDetailUrl = null;
     $("#modalTimerDetails").on("show.bs.modal", function (event) {
         const timer_pk = $(event.relatedTarget).data("timerpk");
         const detailUrl = $(event.relatedTarget).data("detailUrl");
+        openDetailUrl = detailUrl || getTimerDataUrl.replace("pk_dummy", timer_pk);
 
         $("#modalLoadError").html("");
         $("#modalContent").hide();
         $("#modal_div_spinner").show();
         $("#modalContent").load(
-            detailUrl || getTimerDataUrl.replace("pk_dummy", timer_pk),
+            openDetailUrl,
             function (responseText, textStatus, req) {
                 $("#modal_div_spinner").hide();
                 $("#modalContent").show();
@@ -315,6 +327,18 @@ $(document).ready(function () {
             }
         );
     });
+    $('#modalTimerDetails').on('hidden.bs.modal', () => { openDetailUrl = null; });
+    window.StratComRefresh.every(async () => {
+        const url = openDetailUrl;
+        const response = await fetch(url, {credentials: 'same-origin', cache: 'no-store'});
+        if (!response.ok || response.redirected) return;
+        const html = await response.text();
+        if (url === openDetailUrl && !document.getElementById('modalContent').contains(document.activeElement)) {
+            $('#modalContent').html(html);
+        }
+    }, {interval: document.getElementById('operation-board') ? 2000 : 60000,
+        active: () => Boolean(openDetailUrl) && document.getElementById('modalTimerDetails').classList.contains('show') &&
+            !document.getElementById('modalContent').contains(document.activeElement)});
 
     /* build dataTables */
     let columns = [
@@ -380,6 +404,7 @@ $(document).ready(function () {
             url: listDataPastUrl,
             dataSrc: "",
             cache: false,
+            data: data => { data.include_destroyed = destroyedToggle?.checked ? '1' : '0'; },
         },
         columns: columns,
         order: [[0, "desc"]],
@@ -439,8 +464,12 @@ $(document).ready(function () {
     refreshTableOnTab(table_current, document.getElementById('operation-board') ? ['current', 'ops'] : ['current'],
         () => rebuildMultiSelectFilters(table_current, currentFilterDefinition, titleFilterBy, titleAll));
     if (document.getElementById('tbl_timers_past')) {
-        refreshTableOnTab(table_past, ['past'],
+        const refreshPast = refreshTableOnTab(table_past, ['past'],
             () => rebuildMultiSelectFilters(table_past, standardFilterDefinition, titleFilterBy, titleAll));
+        destroyedToggle?.addEventListener('change', () => {
+            window.StratComRefresh.preference(destroyedCookie, destroyedToggle.checked);
+            refreshPast();
+        });
     }
 
     function updateTimers() {

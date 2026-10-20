@@ -34,10 +34,10 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             });
             this.systemAutocomplete();
             for(const kind of ['alliance','ship'])this.autocomplete(kind);
-            this.interval=setInterval(()=>{if(!document.hidden){this.tick();if(this.enabled&&!this.root.dataset.operation&&Date.now()-(this.lastStateSync||0)>=2000)this.syncTimers();}},1000);
+            this.interval=setInterval(()=>{if(!document.hidden)this.tick();},1000);
             this.fleetInterval=setInterval(()=>this.pollFleets(true),this.fleetRefreshMs);
             window.addEventListener('pagehide',event=>{this.abort?.abort();this.stateAbort?.abort();this.fleetAbort?.abort();if(!event.persisted){clearInterval(this.interval);clearInterval(this.fleetInterval);}});
-            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data){this.pollFleets(true);if(!this.root.dataset.operation)this.syncTimers();if(this.now()-(this.loaded||0)>=15*60000)this.load();}});
+            document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.data){this.pollFleets(true);if(this.now()-(this.loaded||0)>=60000)this.load();}});
             window.addEventListener('st:timer-sync', event=>{if(this.root.dataset.operation)this.acceptObservations(event.detail.timers,event.detail.server_time);});
             this.updateControls();
         }
@@ -64,8 +64,8 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             this.tokens=tokens;this.fleetLoaded=Date.now();this.syncForceRanges();this.renderFleets();this.hooks.paint();
             $('fleet-sync').textContent=`Forces updated ${clock(this.now())} UTC · updates every ${this.fleetRefreshLabel} while fleet overlay is on.`;
         }
-        get fleetRefreshMs(){return this.root.dataset.operation?2000:120000;}
-        get fleetRefreshLabel(){return this.root.dataset.operation?'2 seconds':'2 minutes';}
+        get fleetRefreshMs(){return this.root.dataset.operation?2000:60000;}
+        get fleetRefreshLabel(){return this.root.dataset.operation?'2 seconds':'1 minute';}
         pollFleets(force=false){
             if(this.forces&&(force||Date.now()-this.fleetLoaded>=this.fleetRefreshMs))return this.loadFleets();
         }
@@ -133,7 +133,7 @@ this.timers=[];this.tokens=[];this.data=null;this.live=true;this.offset=0;this.s
             if(document.activeElement!==$('time'))$('time').value=clock(instant).slice(0,5);
             $('clock').textContent=(this.live?'LIVE · ':'Inspecting · ')+clock(instant)+' UTC';
             $('live').setAttribute('aria-pressed',String(this.live));$('live').classList.toggle('btn-primary',this.live);$('live').classList.toggle('btn-outline-primary',!this.live);
-            if(this.loaded)$('sync').textContent=`Loaded ${clock(this.loaded)} UTC · live timer states update every 2 seconds`;
+            if(this.loaded)$('sync').textContent=`Loaded ${clock(this.loaded)} UTC · timer states update every ${this.root.dataset.operation?'2 seconds':'minute'}`;
             const timers=this.filtered(), active=timers.filter(t=>timeline.onMap(t,instant));
             $('summary').textContent=this.ready?`${active.length} opening soon / open / paused / instant events · ${new Set(active.map(t=>t.system_id)).size} systems · ${timers.filter(t=>timeline.stateAt(t,instant).name==='upcoming').length} upcoming`:'Loading battle intelligence…';
             const signature=JSON.stringify([this.enabled,this.loadedDay,timers.map(t=>[t.id,timeline.stateAt(t,instant).name,timeline.onMap(t,instant),timeline.signal(t,instant)])]);
