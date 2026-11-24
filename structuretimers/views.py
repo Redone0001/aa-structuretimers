@@ -63,10 +63,7 @@ from structuretimers.models import (
     StructureDistance,
     Timer,
 )
-from structuretimers.operation_assignments import (
-    assignment_html,
-    operation_prefetch,
-)
+from structuretimers.operation_assignments import assignment_html, operation_prefetch
 from structuretimers.selectors import timer_type_rules
 from structuretimers.sync_policy import read_only, require_local_write
 
