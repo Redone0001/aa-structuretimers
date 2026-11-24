@@ -66,6 +66,12 @@ Here is an overview of **Structure Timers II**'s main features.
 
 ## Installation
 
+Structure Timers 3.5.1 supports `django-eveonline-sde>=0.2.0,<=2.0.0`, with CI
+testing 0.2.0 and 2.0.0. Existing installations can keep 0.2.0. For the required
+migrations and reload when selecting 2.0.0, see the
+[3.5.1 upgrade notes](docs/releases/3.5.1.md). This maintenance branch keeps the
+independent `structuretimers` app and database identity.
+
 ### Step 1 - Check Preconditions
 
 This branch supports **Alliance Auth 5 only** (`allianceauth>=5,<6`).

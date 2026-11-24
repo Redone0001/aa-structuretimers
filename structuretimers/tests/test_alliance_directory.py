@@ -50,7 +50,7 @@ class AllianceDirectoryTests(TestCase):
         self.assertIsNone(resolve_alliance(""))
 
     @patch("structuretimers.alliance_directory.requests.get")
-    @patch.object(EveEntity.objects, "bulk_resolve_ids")
+    @patch.object(type(EveEntity.objects), "bulk_resolve_ids")
     def test_sync_resolves_public_list_without_creating_auth_records(
         self, resolve, get
     ):
@@ -78,7 +78,7 @@ class AllianceDirectoryTests(TestCase):
         self.assertEqual(resolve_alliance("Known Alliance"), 99000001)
 
     @patch("structuretimers.alliance_directory.requests.get")
-    @patch.object(EveEntity.objects, "bulk_resolve_ids")
+    @patch.object(type(EveEntity.objects), "bulk_resolve_ids")
     def test_invalid_response_is_not_imported(self, resolve, get):
         for payload in [{"error": "unavailable"}, [True], ["99000001"], [-1]]:
             get.return_value.json.return_value = payload

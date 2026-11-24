@@ -4,7 +4,7 @@ The **Regional map** section sits beside Recon campaigns and is independent of c
 
 ## Installation
 
-This change adds `django-eveonline-sde>=0.2.0,<0.3` as a dependency. In the Alliance Auth `local.py`, enable `modeltranslation` first and `eve_sde` once:
+This change adds `django-eveonline-sde>=0.2.0,<=2.0.0` as a dependency. In the Alliance Auth `local.py`, enable `modeltranslation` first and `eve_sde` once:
 
 ```python
 INSTALLED_APPS = ["modeltranslation"] + INSTALLED_APPS
@@ -13,7 +13,7 @@ INSTALLED_APPS += ["eve_sde"]
 
 Do not duplicate either entry if another app already enables it. Run the normal dependency upgrade, `python manage.py migrate`, `python manage.py esde_load_sde`, and `python manage.py collectstatic --noinput`; restart the application. The base SDE map introduced no Structure Timers model migration; the experimental battle timeline below requires migration 0016. SDE tables and imported data are required. Missing configuration and empty imports have explicit UI states.
 
-Follow the [SDE package's update-task instructions](https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde#setup) to keep geography current. The adapter was checked against version 0.2.0 and Alliance Auth 5.4.0.
+Follow the [SDE package's update-task instructions](https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde#setup) to keep geography current. CI tests the adapter against SDE 0.2.0 and 2.0.0. When selecting 2.0.0, follow the [3.5.1 upgrade notes](releases/3.5.1.md) for its dependency updates, migrations and first REST reload.
 
 ## Region selection
 

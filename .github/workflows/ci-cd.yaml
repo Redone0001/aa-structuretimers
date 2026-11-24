@@ -53,6 +53,7 @@ jobs:
       matrix:
         django-version: ["52"]
         python-version: ["10", "11", "12"]
+        sde-version: ["02", "20"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -73,7 +74,7 @@ jobs:
       - name: Run Tests
         run: |
           pip install tox
-          tox -e py3${{ matrix.python-version }}-django${{ matrix.django-version }}
+          tox -e py3${{ matrix.python-version }}-django${{ matrix.django-version }}-sde${{ matrix.sde-version }}
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v6

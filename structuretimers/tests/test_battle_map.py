@@ -706,7 +706,9 @@ class BattleMapTests(RegionalMapTests):
         from structuretimers.models import Operation
 
         self.user.user_permissions.add(
-            Permission.objects.get(codename="op_coordinator")
+            Permission.objects.get(
+                content_type__app_label="structuretimers", codename="op_coordinator"
+            )
         )
         timer = self.active_timer(structure_name="Selected")
         self.active_timer(structure_name="Not selected")

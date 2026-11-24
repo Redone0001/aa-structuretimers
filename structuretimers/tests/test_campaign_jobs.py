@@ -139,7 +139,9 @@ class TestCampaignJobs(NoSocketsTestCase):
         from django.contrib.auth.models import Permission
 
         self.user.user_permissions.add(
-            Permission.objects.get(codename="recon_coordinator")
+            Permission.objects.get(
+                content_type__app_label="structuretimers", codename="recon_coordinator"
+            )
         )
         with (
             patch(
@@ -171,7 +173,9 @@ class TestCampaignJobs(NoSocketsTestCase):
             self.client.post(url, {"action": "retry_import"}).status_code, 403
         )
         self.user.user_permissions.add(
-            Permission.objects.get(codename="recon_coordinator")
+            Permission.objects.get(
+                content_type__app_label="structuretimers", codename="recon_coordinator"
+            )
         )
         with patch(
             "structuretimers.campaign_jobs.prepare_campaign.apply_async"
