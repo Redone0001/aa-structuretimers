@@ -19,7 +19,7 @@ tables, permissions, and migration records retain their identity:
 ```bash
 python -m pip uninstall -y aa-stratcom
 python -m pip install --force-reinstall --no-deps --no-cache-dir \
-  "aa-structuretimers @ git+https://github.com/Redone0001/aa-structuretimers.git@c3132611457604d985a49590a7951fdbc9f10c9d"
+  "aa-structuretimers @ git+https://github.com/Redone0001/aa-structuretimers.git@e6f460e9235cf42a366cb5d65f2f1c5098ce8896"
 python -m pip install --force-reinstall --no-deps --no-cache-dir \
   "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
 ```
