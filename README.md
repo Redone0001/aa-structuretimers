@@ -12,14 +12,14 @@ Alliance Auth's built-in `allianceauth.timerboard`. It no longer supplies a
 
 Back up the database, activate your Auth venv, and stop the web/Celery services
 while upgrading and copying. If you installed the earlier 4.0 compatibility
-rename, uninstall it first to remove its shim. Restore the old fork from its last
-commit before the rename; the existing `structuretimers_*` tables, permissions,
-and migration records will be reused without changing their identity:
+rename, uninstall it first to remove its shim. Restore the independent legacy fork with its 3.5.1 SDE maintenance release,
+based on the last commit before the rename. The existing `structuretimers_*`
+tables, permissions, and migration records retain their identity:
 
 ```bash
 python -m pip uninstall -y aa-stratcom
 python -m pip install --force-reinstall --no-deps --no-cache-dir \
-  "aa-structuretimers @ git+https://github.com/Redone0001/aa-structuretimers.git@dd3a34aa1d164c67c7bd226428c6698559685fc4"
+  "aa-structuretimers @ git+https://github.com/Redone0001/aa-structuretimers.git@c3132611457604d985a49590a7951fdbc9f10c9d"
 python -m pip install --force-reinstall --no-deps --no-cache-dir \
   "aa-stratcom @ git+https://github.com/Redone0001/aa-structuretimers.git@aahz/vision-rework"
 ```
@@ -186,6 +186,11 @@ imports.
 This branch supports **Alliance Auth 5 only** (`allianceauth>=5,<6`).
 Upgrade an existing Auth 4 installation to Auth 5 before installing this branch.
 CI tests Python 3.10, 3.11 and 3.12 against the Auth 5 / Django 5.2 test settings.
+
+AA StratCom 4.1.6 supports the SDE dependency range `>=0.2.0,<=2.0.0`, with
+CI explicitly testing both 0.2.0 and 2.0.0. Existing installations can keep 0.2.0.
+Upgrading to 2.0.0 requires its dependency updates, database migrations and an
+SDE reload; see the [4.1.6 upgrade notes](docs/releases/4.1.6.md).
 
 Please make sure you meet all preconditions before proceeding:
 
